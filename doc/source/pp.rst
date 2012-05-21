@@ -93,7 +93,7 @@ Adding a new satellite: configuration file
 A satellite configuration file looks like the following (here meteosat 7, mviri
 instrument):
 
-.. literalinclude:: ../../../mpop-smhi/etc/meteosat07.cfg
+.. literalinclude:: ../../../satprod/etc/meteosat07.cfg
    :language: ini
    :linenos:
 
