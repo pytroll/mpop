@@ -281,13 +281,17 @@ def load_viirs_sdr(satscene, options):
     values = {"orbit": satscene.orbit,
               "satname": satscene.satname,
               "instrument": satscene.instrument_name,
-              "satellite": satscene.satname
-              #"satellite": satscene.fullname
+              "satellite": satscene.satname,
+              "year": satscene.time_slot.strftime("%Y"),
+              "month": satscene.time_slot.strftime("%m"),
+              "day": satscene.time_slot.strftime("%d"),
+              "hour": satscene.time_slot.strftime("%H"),
+              "minute": satscene.time_slot.strftime("%M")
               }
 
-    filename_tmpl = satscene.time_slot.strftime(options["filename"]) %values
+    filename_tmpl = options["filename"] % values
 
-    directory = satscene.time_slot.strftime(options["dir"]) % values
+    directory = options["dir"] % values
 
     if not os.path.exists(directory):
         directory = globify(options["dir"]) % values
@@ -313,7 +317,7 @@ def load_viirs_sdr(satscene, options):
                                                                      filename_tmpl))
         return
 
-    geo_filenames_tmpl = satscene.time_slot.strftime(options["geo_filenames"]) %values
+    geo_filenames_tmpl = options["geo_filenames"] %values
     geofile_list = glob.glob(os.path.join(directory, geo_filenames_tmpl))
 
     m_lats = None
