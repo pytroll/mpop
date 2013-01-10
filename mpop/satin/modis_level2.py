@@ -42,16 +42,17 @@ import mpop.channel
 
 EOS_SATELLITE = {'aqua': 'eos2', 
                  'modisa': 'eos2', 
-                 'terra': 'eos1'}
+                 'terra': 'eos1',
+                 'modist': 'eos1'}
 
 SCAN_LINE_ATTRS = ['year', 'day', 'msec', 
                    'slat', 'slon', 'clat', 'clon',
                    'elat', 'elon', 'csol_z'
                    ]
 
-GEO_PHYS_PRODUCTS = ['aot_869', 'chlor_a', 
+GEO_PHYS_PRODUCTS = ['aot_869', 'chlor_a', 'chlor_oc5',
                      'poc', 'cdom_index', 'angstrom', 
-                     'pic', 'par', 
+                     'pic', 'par', 'sst',
                      'nflh', 'ipar', 'Kd_490']
 
 CHANNELS = ['Rrs_412', 

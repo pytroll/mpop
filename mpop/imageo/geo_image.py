@@ -83,11 +83,14 @@ class GeoImage(mpop.imageo.image.Image):
         file_tuple = os.path.splitext(filename)
         fformat = fformat or file_tuple[1][1:]
 
+        if fformat.lower() in ["pgm", "pbm", "ppm"]:
+            fformat = "ppm"
+
         if fformat.lower() in ('tif', 'tiff'):
             self.geotiff_save(filename, compression, tags,
                               gdal_options, blocksize, **kwargs)
         else:
-            super(GeoImage, self).save(filename, compression, format=fformat, **kwargs)
+            super(GeoImage, self).save(filename, compression, fformat=fformat, **kwargs)
 
     def _gdal_write_channels(self, dst_ds, channels, opacity, fill_value):
         """Write *channels* in a gdal raster structure *dts_ds*, using
@@ -340,6 +343,9 @@ class GeoImage(mpop.imageo.image.Image):
 
         arr = np.array(img)
 
-        for idx in range(len(self.channels)):
-            self.channels[idx] = np.ma.array(arr[:, :, idx] / 255.0)
+        if len(self.channels) == 1:
+            self.channels[0] = np.ma.array(arr[:, :] / 255.0)
+        else:
+            for idx in range(len(self.channels)):
+                self.channels[idx] = np.ma.array(arr[:, :, idx] / 255.0)
 
