@@ -31,6 +31,9 @@
 """
 import os.path
 from setuptools import setup
+import imp
+
+version = imp.load_source('mpop.version', 'mpop/version.py')
 
 BASE_PATH = os.path.sep.join(os.path.dirname(
     os.path.realpath(__file__)).split(os.path.sep))
@@ -38,7 +41,7 @@ BASE_PATH = os.path.sep.join(os.path.dirname(
 NAME = 'mpop'
 
 setup(name=NAME,
-      version="v0.13.0",
+      version=version.__version__,
       description='Meteorological post processing package',
       author='Martin Raspaud',
       author_email='martin.raspaud@smhi.se',
@@ -71,6 +74,5 @@ setup(name=NAME,
       requires=['numpy (>=1.4.1)'],
       extras_require={ 'xRIT': ['mipp >= 0.7.1'],
                        'proj': ['pyresample'],
-                       'hdf_eos': ['pyhdf'],
-                       'aapp': ['ahamap']}
+                       'hdf_eos': ['pyhdf']}
       )
