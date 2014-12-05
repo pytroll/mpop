@@ -34,6 +34,8 @@ from mpop import CONFIG_PATH
 import logging
 LOG = logging.getLogger(__name__)
 
+from mipp.native.MSG import NativeImage as NatImg
+
 try:
     # Work around for on demand import of pyresample. pyresample might depend
     # on scipy.spatial which memory leaks on multiple imports
@@ -79,20 +81,26 @@ class NativeReader(Reader):
             key, val = param.split("=")
             proj_dict[key] = val
 
-        from mipp import native
-        image = native.MSG.NativeImage(
-            'meteosat10', filename=filename)
+        # Instanciate from mipp:
+        image = NatImg(str(satscene.satname) +
+                       str(satscene.number), filename=filename)
 
-        for channel in satscene.channels_to_load:
-            print channel
-            chobj = getattr(image, channel.lower())
-            satscene[channel] = chobj.data
+        for chn in satscene.channels_to_load:
+            chobj = getattr(image, chn.lower())
+            satscene[chn] = chobj.data
 
             shape = chobj.data.shape
 
+            # Get the unit using the _get_unitnames function!
+            satscene[chn].info['units'] = 'K'  # FIXME!
+            satscene[chn].info['satname'] = satscene.satname
+            satscene[chn].info['satnumber'] = satscene.number
+            satscene[chn].info['instrument_name'] = satscene.instrument_name
+            satscene[chn].info['time'] = satscene.time_slot
+
             if is_pyresample_loaded:
                 # Build area_def on-the-fly
-                satscene[channel].area = geometry.AreaDefinition(
+                satscene[chn].area = geometry.AreaDefinition(
                     satscene.satname + satscene.instrument_name +
                     str(image.area_extent) +
                     str(shape),
