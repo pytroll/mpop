@@ -51,7 +51,8 @@ class NativeReader(Reader):
 
     pformat = "mipp_native"
 
-    def load(self, satscene, calibrate=1, filename=None, **kwargs):
+    def load(self, satscene, calibrate=1,
+             filename=None, **kwargs):
         """Load the data"""
 
         conf = ConfigParser.ConfigParser()
@@ -70,10 +71,6 @@ class NativeReader(Reader):
         for option, value in conf.items("satellite"):
             options[option] = value
 
-        # Set the time from the filename:
-        # FIXME!
-        satscene.time_slot = datetime(2013, 11, 9, 12, 0)
-
         # Build an area on the fly from the mipp metadata
         proj_params = options["proj4_params"].split(" ")
         proj_dict = {}
@@ -82,17 +79,22 @@ class NativeReader(Reader):
             proj_dict[key] = val
 
         # Instanciate from mipp:
-        image = NatImg(str(satscene.satname) +
-                       str(satscene.number), filename=filename)
+        if not satscene.time_slot:
+            image = NatImg(str(satscene.satname) +
+                           str(satscene.number), filename=filename)
+            satscene.time_slot = image.time_slot
+        else:
+            image = NatImg(str(satscene.satname) +
+                           str(satscene.number), time_slot=satscene.time_slot)
+
+        satscene.filename = image.filename
 
         for chn in satscene.channels_to_load:
             chobj = getattr(image, chn.lower())
             satscene[chn] = chobj.data
-
             shape = chobj.data.shape
 
-            # Get the unit using the _get_unitnames function!
-            satscene[chn].info['units'] = 'K'  # FIXME!
+            satscene[chn].info['units'] = chobj.unit
             satscene[chn].info['satname'] = satscene.satname
             satscene[chn].info['satnumber'] = satscene.number
             satscene[chn].info['instrument_name'] = satscene.instrument_name
