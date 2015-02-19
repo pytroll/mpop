@@ -21,7 +21,8 @@
 # You should have received a copy of the GNU General Public License along with
 # mpop.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Plugin for reading PPS's cloud products hdf files.
+"""Plugin for reading PPS's cloud products hdf files, in the fileformat used
+in PPS v2012, and before.
 """
 import ConfigParser
 from ConfigParser import NoOptionError

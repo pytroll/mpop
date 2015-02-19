@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2009-2013.
+# Copyright (c) 2009-2015.
 
 # SMHI,
 # Folkborgsvägen 1,
-# Norrköping, 
+# Norrköping,
 # Sweden
 
 # Author(s):
- 
+
 #   Martin Raspaud <martin.raspaud@smhi.se>
 #   Adam Dybbroe <adam.dybbroe@smhi.se>
 
@@ -38,6 +38,13 @@ version = imp.load_source('mpop.version', 'mpop/version.py')
 BASE_PATH = os.path.sep.join(os.path.dirname(
     os.path.realpath(__file__)).split(os.path.sep))
 
+requires = ['numpy >=1.4.1', 'pyresample']
+
+try:
+    from PIL import Image
+except ImportError:
+    requires.append("pillow")
+
 NAME = 'mpop'
 
 setup(name=NAME,
@@ -53,10 +60,13 @@ setup(name=NAME,
                    "Programming Language :: Python",
                    "Topic :: Scientific/Engineering"],
       url="https://github.com/mraspaud/mpop",
+      test_suite='mpop.tests.suite',
       packages=['mpop', 'mpop.satellites', 'mpop.instruments', 'mpop.satin',
-                'mpop.satout', 'mpop.saturn', 'mpop.imageo'],
-      data_files=[('etc',[os.path.join('etc', 'geo_image.cfg')],
-                   'etc',[os.path.join('etc', 'eps_avhrrl1b_6.5.xml')]),
+                'mpop.satout', 'mpop.saturn', 'mpop.imageo',
+                'mpop.imageo.formats'],
+      data_files=[(os.path.join('etc', 'pytroll'),
+                   [os.path.join('etc', 'geo_image.cfg'),
+                    os.path.join('etc', 'eps_avhrrl1b_6.5.xml')]),
                   (os.path.join('share', 'doc', NAME),
                    [os.path.join('doc', 'Makefile'),
                     os.path.join('doc', 'source', 'conf.py'),
@@ -71,8 +81,14 @@ setup(name=NAME,
                     os.path.join('doc', 'examples', 'polar_aapp1b.py'),
                     os.path.join('doc', 'examples', 'polar_segments.py')])],
       zip_safe=False,
-      requires=['numpy (>=1.4.1)'],
-      extras_require={ 'xRIT': ['mipp >= 0.7.1'],
-                       'proj': ['pyresample'],
-                       'hdf_eos': ['pyhdf']}
+      install_requires=requires,
+      test_requires=["mock"],
+      extras_require={'xRIT': ['mipp >= 0.6.0'],
+                      'hdf_eos': ['pyhdf'],
+                      'viirs': ['h5py'],
+                      'nc': ['netCDF4'],
+                      'proj': ['pyresample'],
+                      'pyspectral': ['pyspectral'],
+                      'pyorbital': ['pyorbital >= v0.2.3']}
+
       )
