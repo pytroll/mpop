@@ -162,44 +162,48 @@ def load_avhrr(satscene, options):
             LOGGER.info("Can't read %s, exiting.", filename)
             return
 
+    calib_coeffs = None
     if options["use_extern_calib"]:
         import h5py
         LOGGER.info("Reading external calibration coefficients.")
-        fid = h5py.File(os.path.join(CONFIG_PATH,
-                                     satscene.satname + '_calibration_data.h5'))
-        calib_coeffs = {}
-        for key in fid.keys():
-            date_diffs = []
-            for dat in fid[key]['datetime']:
-                date_diffs.append(np.abs(satscene.time_slot - \
-                                         datetime.datetime(dat[0],
-                                                           dat[1],
-                                                           dat[2])))
-            idx = date_diffs.index(min(date_diffs))
-            date_diff = satscene.time_slot - \
-                        datetime.datetime(fid[key]['datetime'][idx][0],
-                                          fid[key]['datetime'][idx][1],
-                                          fid[key]['datetime'][idx][2])
-            if date_diff.days > 0:
-                older_or_newer = "newer"
-            else:
-                older_or_newer = "older"
-            LOGGER.info("External calibration for %s is %d days %s than data.",
-                        key, date_diffs[idx].days, older_or_newer)
-            calib_coeffs[key] = (fid[key]['slope1'][idx],
-                                 fid[key]['intercept1'][idx],
-                                 fid[key]['slope2'][idx],
-                                 fid[key]['intercept2'][idx])
-        fid.close()
+        try:
+            fid = h5py.File(os.path.join(CONFIG_PATH, satscene.satname + \
+                                         '_calibration_data.h5'), 'r')
+            calib_coeffs = {}
+            for key in fid.keys():
+                date_diffs = []
+                for dat in fid[key]['datetime']:
+                    date_diffs.append(np.abs(satscene.time_slot - \
+                                             datetime.datetime(dat[0],
+                                                               dat[1],
+                                                               dat[2])))
+                idx = date_diffs.index(min(date_diffs))
+                date_diff = satscene.time_slot - \
+                            datetime.datetime(fid[key]['datetime'][idx][0],
+                                              fid[key]['datetime'][idx][1],
+                                              fid[key]['datetime'][idx][2])
+                if date_diff.days > 0:
+                    older_or_newer = "newer"
+                else:
+                    older_or_newer = "older"
+                LOGGER.info("External calibration for %s is %d "
+                            "days %s than data.",
+                            key, date_diffs[idx].days, older_or_newer)
+                calib_coeffs[key] = (fid[key]['slope1'][idx],
+                                     fid[key]['intercept1'][idx],
+                                     fid[key]['slope2'][idx],
+                                     fid[key]['intercept2'][idx])
+            fid.close()
 
-        if 'ch1' not in calib_coeffs:
-            calib_coeffs['ch1'] = None
-        if 'ch2' not in calib_coeffs:
-            calib_coeffs['ch2'] = None
-        if 'ch3a' not in calib_coeffs:
-            calib_coeffs['ch3a'] = None
-    else:
-        calib_coeffs = None
+            if 'ch1' not in calib_coeffs:
+                calib_coeffs['ch1'] = None
+            if 'ch2' not in calib_coeffs:
+                calib_coeffs['ch2'] = None
+            if 'ch3a' not in calib_coeffs:
+                calib_coeffs['ch3a'] = None
+
+        except IOError:
+            LOGGER.info("No external calibration data found.")
 
     scene.calibrate(chns, calibrate=options.get('calibrate', 1),
                     pre_launch_coeffs=options["pre_launch_coeffs"],
