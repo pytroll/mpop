@@ -455,6 +455,7 @@ class MsgCloudType(mpop.channel.GenericChannel):
         retv._md["satellite_id"] = np.string_(self.satid)
         retv._md["sec_1970"] = np.uint64(0)
         retv._md["version"] = np.string_(self.product_algorithm_version)
+        retv._md["orbit"] = np.uint64(0)
 
         retv.PALETTE = InfoObject()
         retv.PALETTE.data = old_ctype_palette_data()
@@ -852,6 +853,7 @@ class MsgCTTH(mpop.channel.GenericChannel):
         retv._md["satellite_id"] = np.string_(self.satid)
         retv._md["sec_1970"] = np.uint64(0)
         retv._md["version"] = np.string_(self.product_algorithm_version)
+        retv._md["orbit"] = np.uint64(0)
 
         retv.processingflag_lut = []
 
