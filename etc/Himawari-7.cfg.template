@@ -11,11 +11,13 @@
 #
 
 [satellite]
+satname = 'mtsat'
+number = '2'
 instruments = ('mviri',)
 projection = 'geos(145.0)'
 
 [mviri-level2]
-format = 'mipp_xrit'
+format = 'mipp_xrit.XritReader'
 
 [mviri-level1]
 format = 'mipp/xrit/SGS'

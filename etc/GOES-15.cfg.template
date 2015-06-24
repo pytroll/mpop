@@ -11,11 +11,13 @@
 #
 
 [satellite]
+satname = 'goes'
+number = '15'
 instruments = ('imager15',)
 projection = 'geos(-135.0)'
 
 [imager15-level2]
-format = 'mipp_xrit'
+format = 'mipp_xrit.XritReader'
 
 [imager15-level1]
 format = 'mipp/xrit/SGS'
