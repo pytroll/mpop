@@ -38,13 +38,6 @@ try:
 except ImportError:
     sza = None
 
-METEOSAT = {'meteosat10': 'met10',
-            'meteosat9': 'met9',
-            'meteosat8': 'met8',
-            'meteosat11': 'met11',
-            }
-
-
 class SeviriCompositer(VisirCompositer):
 
     """This class sets up the Seviri instrument channel list.
@@ -137,7 +130,7 @@ class SeviriCompositer(VisirCompositer):
 
         self.check_channels(3.75, 10.8, 13.4)
 
-        platform_name = METEOSAT.get(self.fullname, 'unknown')
+        platform_name = self.fullname
         if platform_name == 'unknown':
             LOG.error("Failed setting correct platform name for pyspectral! " +
                       "Satellite = " + str(self.fullname))
