@@ -87,6 +87,22 @@ quality_lut = ['1: Land',
                '8192: bit not defined',
                '16384: bit not defined',
                '32768: bit not defined']
+processing_flags_lut = ["1: Not processed",
+                        "2: Cloudy",
+                        "4: Opaque cloud",
+                        "8: RTTOV IR simulations available",
+                        "16: Missing NWP data",
+                        "32: thermal inversion avaliable",
+                        "64: Missing AVHRR data",
+                        "128: RTTOV IR simulation applied",
+                        "256: Windowing technique applied",
+                        "512: bit not defined",
+                        "1024: bit not defined",
+                        "2048: bit not defined",
+                        "4096: bit not defined",
+                        "8192: bit not defined",
+                        "16384: Quality estimation avaliable",
+                        "32768: Low confidence"]
 
 
 def pcs_def_from_region(region):
@@ -843,6 +859,13 @@ class MsgCTTH(mpop.channel.GenericChannel):
         region["pcs_def"] = pcs_def_from_region(self.area)
         region["area_extent"] = self.area.area_extent
 
+        retv.Region = region_type
+        retv._keys.append("Region")
+
+        namelist = np.dtype([('outval_name', 'S128')])
+        retv.OutputValueNameList = namelist
+        retv._keys.append("OutputValueNameList")
+
         retv.region = InfoObject()
         retv.region.data = region
         retv._keys.append("region")
@@ -854,12 +877,12 @@ class MsgCTTH(mpop.channel.GenericChannel):
         retv._md["sec_1970"] = np.uint64(0)
         retv._md["version"] = np.string_(self.product_algorithm_version)
         retv._md["orbit"] = np.uint64(0)
+        retv._md["version"] = np.string_(self.product_algorithm_version)
 
         retv.processingflag_lut = []
 
         retv.cloudiness = InfoObject()
-        retv.cloudiness.info["description"] = \
-            "MSG SEVIRI effective cloudiness (%)"
+        retv.cloudiness.info["description"] = np.string_("MSG SEVIRI effective cloudiness (%)")
         retv.cloudiness.info["gain"] = np.float32(0.0)
         retv.cloudiness.info["intercept"] = np.float32(0.0)
         retv.cloudiness.info["no_data_value"] = np.uint8(255)
@@ -932,6 +955,8 @@ class MsgCTTH(mpop.channel.GenericChannel):
 
         retv.processing_flag = InfoObject()
         # retv.processing_flag.info["output_value_nameslist"] = processing_lut
+        retv.processing_flag.info["output_value_namelist"] = np.array(processing_flags_lut,
+                                                                      dtype=namelist)
         retv.processing_flag.info["description"] = np.string_(
             'MSG SEVIRI bitwise quality/processing flags')
         retv.processing_flag.data = ctth_procflags2pps(self.processing_flags)
@@ -1042,7 +1067,8 @@ class MsgPC(mpop.channel.GenericChannel):
                                                       "%Y%m%d%H%M")
         self.sgs_product_quality = h5f.attrs["SGS_PRODUCT_QUALITY"]
         self.sgs_product_completeness = h5f.attrs["SGS_PRODUCT_COMPLETENESS"]
-        self.product_algorithm_version = h5f.attrs["PRODUCT_ALGORITHM_VERSION"]
+        self.product_algorithm_version = h5f.attrs["PACKAGE"] + h5f.attrs["PRODUCT_NAME"] + h5f.attrs["PRODUCT_ALGORITHM_VERSION"]
+
         # pylint: enable-msg=W0212
         # ------------------------
 
