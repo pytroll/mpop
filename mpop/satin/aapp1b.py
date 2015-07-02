@@ -182,7 +182,7 @@ def load_avhrr(satscene, options):
                             datetime.datetime(fid[key]['datetime'][idx][0],
                                               fid[key]['datetime'][idx][1],
                                               fid[key]['datetime'][idx][2])
-                if date_diff.days > 0:
+                if date_diff.days < 0:
                     older_or_newer = "newer"
                 else:
                     older_or_newer = "older"
