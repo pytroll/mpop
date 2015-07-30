@@ -193,6 +193,13 @@ def ctth_height_pps():
 
     return convert_palette(legend)
 
+
+def chlorophyll_a():
+    """Chlorophyll-A legend for MERIS"""
+    raise NotImplementedError("This palette is not implemented - " +
+                              "it was earlier though...")
+
+
 # --------------------------------------------
 #   Define colour palette LUT for SST palette image
 #   colour shading; blue(cold) -> green -> yellow -> red(warm)
