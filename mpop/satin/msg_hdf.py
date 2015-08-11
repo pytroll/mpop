@@ -267,7 +267,8 @@ class MsgCloudType(mpop.channel.GenericChannel):
                                                       "%Y%m%d%H%M")
         self.sgs_product_quality = h5f.attrs["SGS_PRODUCT_QUALITY"]
         self.sgs_product_completeness = h5f.attrs["SGS_PRODUCT_COMPLETENESS"]
-        self.product_algorithm_version = h5f.attrs["PACKAGE"] + h5f.attrs["PRODUCT_NAME"] + h5f.attrs["PRODUCT_ALGORITHM_VERSION"]
+        self.product_algorithm_version = h5f.attrs[
+            "PACKAGE"] + h5f.attrs["PRODUCT_NAME"] + h5f.attrs["PRODUCT_ALGORITHM_VERSION"]
         # pylint: enable-msg=W0212
         # ------------------------
 
@@ -471,7 +472,7 @@ class MsgCloudType(mpop.channel.GenericChannel):
         retv._md["satellite_id"] = np.string_(self.satid)
         retv._md["sec_1970"] = np.uint64(0)
         retv._md["version"] = np.string_(self.product_algorithm_version)
-        retv._md["orbit"] = np.uint64(0)
+        retv._md["orbit_number"] = np.uint64(0)
 
         retv.PALETTE = InfoObject()
         retv.PALETTE.data = old_ctype_palette_data()
@@ -506,7 +507,7 @@ class MsgCloudType(mpop.channel.GenericChannel):
 
         retv.phase_flag = InfoObject()
         retv.phase_flag.info["output_value_namelist"] = np.array(phase_lut,
-                                                                  dtype=namelist)
+                                                                 dtype=namelist)
         # retv.phase_flag.info["CLASS"] = np.string_("IMAGE")
         # retv.phase_flag.info["IMAGE_VERSION"] = np.string_("1.2")
         # retv._refs[("phase_flag", "PALETTE")] = np.string_("PHASE_PALETTE")
@@ -517,7 +518,7 @@ class MsgCloudType(mpop.channel.GenericChannel):
 
         retv.quality_flag = InfoObject()
         retv.quality_flag.info["output_value_namelist"] = np.array(quality_lut,
-                                                                    dtype=namelist)
+                                                                   dtype=namelist)
         retv.quality_flag.info[
             "description"] = np.string_('MSG SEVIRI bitwise quality/processing flags')
         retv.quality_flag.data = ctype_procflags2pps(self.processing_flags)
@@ -624,7 +625,8 @@ class MsgCTTH(mpop.channel.GenericChannel):
                                                       "%Y%m%d%H%M")
         self.sgs_product_quality = h5f.attrs["SGS_PRODUCT_QUALITY"]
         self.sgs_product_completeness = h5f.attrs["SGS_PRODUCT_COMPLETENESS"]
-        self.product_algorithm_version = h5f.attrs["PACKAGE"] + h5f.attrs["PRODUCT_NAME"] + h5f.attrs["PRODUCT_ALGORITHM_VERSION"]
+        self.product_algorithm_version = h5f.attrs[
+            "PACKAGE"] + h5f.attrs["PRODUCT_NAME"] + h5f.attrs["PRODUCT_ALGORITHM_VERSION"]
         # pylint: enable-msg=W0212
         # ------------------------
 
@@ -876,13 +878,14 @@ class MsgCTTH(mpop.channel.GenericChannel):
         retv._md["satellite_id"] = np.string_(self.satid)
         retv._md["sec_1970"] = np.uint64(0)
         retv._md["version"] = np.string_(self.product_algorithm_version)
-        retv._md["orbit"] = np.uint64(0)
+        retv._md["orbit_number"] = np.uint64(0)
         retv._md["version"] = np.string_(self.product_algorithm_version)
 
         retv.processingflag_lut = []
 
         retv.cloudiness = InfoObject()
-        retv.cloudiness.info["description"] = np.string_("MSG SEVIRI effective cloudiness (%)")
+        retv.cloudiness.info["description"] = np.string_(
+            "MSG SEVIRI effective cloudiness (%)")
         retv.cloudiness.info["gain"] = np.float32(0.0)
         retv.cloudiness.info["intercept"] = np.float32(0.0)
         retv.cloudiness.info["no_data_value"] = np.uint8(255)
@@ -1067,7 +1070,8 @@ class MsgPC(mpop.channel.GenericChannel):
                                                       "%Y%m%d%H%M")
         self.sgs_product_quality = h5f.attrs["SGS_PRODUCT_QUALITY"]
         self.sgs_product_completeness = h5f.attrs["SGS_PRODUCT_COMPLETENESS"]
-        self.product_algorithm_version = h5f.attrs["PACKAGE"] + h5f.attrs["PRODUCT_NAME"] + h5f.attrs["PRODUCT_ALGORITHM_VERSION"]
+        self.product_algorithm_version = h5f.attrs[
+            "PACKAGE"] + h5f.attrs["PRODUCT_NAME"] + h5f.attrs["PRODUCT_ALGORITHM_VERSION"]
 
         # pylint: enable-msg=W0212
         # ------------------------
