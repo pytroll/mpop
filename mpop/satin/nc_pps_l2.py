@@ -80,6 +80,24 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
 
         import h5py
 
+        # Try see if it is bzipped:
+        import bz2
+        if filename.endswith('bz2'):
+            bz2file = bz2.BZ2File(filename)
+            import tempfile
+            tmpfilename = tempfile.mktemp()
+            try:
+                ofpt = open(tmpfilename, 'wb')
+                ofpt.write(bz2file.read())
+                ofpt.close()
+                is_temp = True
+            except IOError:
+                import traceback
+                traceback.print_exc()
+                LOG.info("Failed to read bzipped file " + str(filename))
+
+            filename = tmpfilename
+
         h5f = h5py.File(filename, 'r')
         self.mda.update(h5f.attrs.items())
 
