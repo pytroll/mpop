@@ -105,6 +105,10 @@ processing_flags_lut = ["1: Not processed",
                         "32768: Low confidence"]
 
 
+class UnknownChannelError(Exception):
+    pass
+
+
 def pcs_def_from_region(region):
     items = region.proj_dict.items()
     return ' '.join([t[0] + '=' + t[1] for t in items])
@@ -273,6 +277,10 @@ class MsgCloudType(mpop.channel.GenericChannel):
         # ------------------------
 
         # The cloudtype data
+        if 'CT' not in h5f.keys():
+            raise IOError("No field CT in product " +
+                          str(self.product_name) +
+                          "\n\tPerhaps you have found the wrong file for this product?")
         h5d = h5f['CT']
         self.cloudtype.data = h5d[:, :]
         self.cloudtype.scaling_factor = h5d.attrs["SCALING_FACTOR"]
@@ -631,6 +639,10 @@ class MsgCTTH(mpop.channel.GenericChannel):
         # ------------------------
 
         # The CTTH cloudiness data
+        if 'CTTH_EFFECT' not in h5f.keys():
+            raise IOError("No field CTTH_EFFECT in product " +
+                          str(self.product_name) +
+                          "\n\tPerhaps you have found the wrong file for this product?")
         h5d = h5f['CTTH_EFFECT']
         self.cloudiness.data = h5d[:, :]
         self.cloudiness.scaling_factor = \
@@ -1503,7 +1515,10 @@ def get_best_product(filename, area_extent):
     """
 
     for ext in MSG_PGE_EXTENTIONS:
-        match_str = filename + "." + ext
+        if not filename.endswith(ext):
+            match_str = filename + "." + ext
+        else:
+            match_str = filename
         LOG.debug("glob-string for filename: " + str(match_str))
         flist = glob.glob(match_str)
         if len(flist) == 0:
@@ -1516,8 +1531,6 @@ def get_best_product(filename, area_extent):
                 return flist[0]
             for fname in flist:
                 aex = get_area_extent(fname)
-                # import pdb
-                # pdb.set_trace()
                 if np.all(np.max(np.abs(np.array(aex) -
                                         np.array(area_extent))) < 1000):
                     LOG.info("MSG file found: %s" % fname)
@@ -1532,7 +1545,11 @@ def get_best_products(filename, area_extent):
     filenames = []
 
     for ext in MSG_PGE_EXTENTIONS:
-        match_str = filename + "." + ext
+        if not filename.endswith(ext):
+            match_str = filename + "." + ext
+        else:
+            match_str = filename
+
         LOG.debug('Match string = ' + str(match_str))
         flist = glob.glob(match_str)
         if len(flist) == 0:
@@ -1597,64 +1614,84 @@ def load(scene, **kwargs):
     area_extent = kwargs.get("area_extent")
     conf = ConfigParser.ConfigParser()
     conf.read(os.path.join(CONFIG_PATH, scene.fullname + ".cfg"))
-    directory = conf.get(scene.instrument_name + "-level3",
-                         "dir",
-                         raw=True)
-    filename = conf.get(scene.instrument_name + "-level3", "filename",
-                        raw=True)
-    pathname = os.path.join(directory, filename)
 
-    if "CTTH" in scene.channels_to_load:
-        filename = (scene.time_slot.strftime(pathname)
-                    % {"number": "03",
-                       "product": "CTTH_"})
-        ct_chan = MsgCTTH()
-        ct_chan.read(get_best_product(filename, area_extent))
+    if kwargs.get("filename") is not None:
+        full_filename = kwargs["filename"]
+        LOG.debug("File name determined from input: " + str(full_filename))
+    else:
+        directory = conf.get(scene.instrument_name + "-level3",
+                             "dir",
+                             raw=True)
+        filename = conf.get(scene.instrument_name + "-level3", "filename",
+                            raw=True)
+        pathname = os.path.join(directory, filename)
+        full_filename = None
+
+    for chan in scene.channels_to_load:
+        LOG.debug("Channel to load = " + str(chan))
+        if chan == "CTTH":
+            product = 'CTTH_'
+            pname = 'CTTH'
+            number = '03'
+        elif chan == "CloudType":
+            product = 'CT___'
+            pname = 'CloudType'
+            number = '02'
+        elif chan == "CloudType_plax":
+            product = 'CT___'
+            pname = 'CloudType_plax'
+            number = '02'
+        else:
+            raise UnknownChannelError('Channel ' + str(chan) + ' not known!')
+
+        if not full_filename:
+            filename = (scene.time_slot.strftime(pathname)
+                        % {"number": number,
+                           "product": product})
+        else:
+            filename = full_filename
+
+        ct_chan = CASES[pname]()
+        if pname == 'CTTH':
+            product = get_best_product(filename, area_extent)
+        elif pname == 'CloudType':
+            product = get_best_products(filename, area_extent)[-1]
+        elif pname == 'CloudType_plax':
+            product = get_best_products(filename, area_extent)[0]
+            LOG.debug("Parallax corrected file: %s", product)
+
+        if not product or not os.path.exists(product):
+            raise IOError("Failed to locate file...")
+
+        ct_chan.read(product)
+        ct_chan.name = pname
         ct_chan.satid = (scene.fullname.capitalize())
         ct_chan.resolution = ct_chan.area.pixel_size_x
         scene.channels.append(ct_chan)
 
-    if "CloudType" in scene.channels_to_load:
-        filename = (scene.time_slot.strftime(pathname)
-                    % {"number": "02",
-                       "product": "CT___"})
-        products = get_best_products(filename, area_extent)
-
-        ct_chan = MsgCloudType()
-        ct_chan.read(products[-1])
-        LOG.debug("Uncorrected file: %s", products[-1])
-        ct_chan.name = "CloudType"
-        ct_chan.satid = (scene.fullname.capitalize())
-        ct_chan.resolution = ct_chan.area.pixel_size_x
-        scene.channels.append(ct_chan)
-    if "CloudType_plax" in scene.channels_to_load:
-        filename = (scene.time_slot.strftime(pathname)
-                    % {"number": "02",
-                       "product": "CT___"})
-        products = get_best_products(filename, area_extent)
-        ct_chan_plax = MsgCloudType()
-        LOG.debug("Parallax corrected file: %s", products[0])
-        ct_chan_plax.read(products[0])
-        ct_chan_plax.name = "CloudType_plax"
-        ct_chan_plax.satid = (scene.fullname.capitalize())
-        ct_chan_plax.resolution = ct_chan_plax.area.pixel_size_x
-        scene.channels.append(ct_chan_plax)
+        LOG.info("Channel " + str(chan) + " loaded")
 
     LOG.info("Loading channels done.")
 
 
+CASES = {
+    'CTTH': MsgCTTH,
+    'CloudType': MsgCloudType,
+    'CloudType_plax': MsgCloudType
+}
+
 if __name__ == '__main__':
 
-    filename = "/data/proj/safutv/geo_out/0deg/SAFNWC_MSG3_CT___201505260615_MSG-N_______.h5"
+    FILENAME = "/data/proj/safutv/geo_out/0deg/SAFNWC_MSG3_CT___201505260615_MSG-N_______.h5"
 
     ct = MsgCloudType()
-    ct.read(filename)
+    ct.read(FILENAME)
 
     ct.convert2pps().save("blact.h5")
 
-    filename = "/data/proj/safutv/geo_out/0deg/SAFNWC_MSG3_CTTH_201505260615_MSG-N_______.h5"
-    filename = "/data/24/saf/geo_out/0deg/SAFNWC_MSG3_CTTH_201505260615_EuropeCanary.h5"
+    FILENAME = "/data/proj/safutv/geo_out/0deg/SAFNWC_MSG3_CTTH_201505260615_MSG-N_______.h5"
+    FILENAME = "/data/24/saf/geo_out/0deg/SAFNWC_MSG3_CTTH_201505260615_EuropeCanary.h5"
     ct = MsgCTTH()
-    ct.read(filename)
+    ct.read(FILENAME)
 
     ct.convert2pps().save("blactth.h5")
