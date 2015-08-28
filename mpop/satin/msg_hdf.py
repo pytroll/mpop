@@ -10,6 +10,7 @@
 # Author(s):
 
 #   Martin Raspaud <martin.raspaud@smhi.se>
+#   Adam Dybbroe <adam.dybbroe@smhi.se>
 
 # This file is part of mpop.
 
@@ -229,9 +230,14 @@ class MsgCloudType(mpop.channel.GenericChannel):
         self.cloudphase_palette = None
 
     def __str__(self):
+        try:
+            shape = self.cloudtype.shape
+        except AttributeError:
+            shape = self.shape
+
         return ("'%s: shape %s, resolution %sm'" %
                 (self.name,
-                 self.cloudtype.shape,
+                 shape,
                  self.resolution))
 
     def is_loaded(self):
