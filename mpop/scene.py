@@ -653,7 +653,7 @@ class SatelliteInstrumentScene(SatelliteScene):
                 #                  + str(chn.shape) + "_"
                 #                  + str(chn.name))
                 #     chn.area.area_id = area_name
-                LOG.debug("chn.area = " + str(chn.area))
+                # LOG.debug("chn.area = " + str(chn.area))
                 LOG.debug("type(chn.area) = " + str(type(chn.area)))
                 if is_pyresample_loaded:
                     area_name = ("swath_" + self.fullname + "_" +
