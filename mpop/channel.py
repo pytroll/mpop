@@ -318,7 +318,8 @@ class Channel(GenericChannel):
             LOG.info("Projecting channel %s (%fμm)..."
                      % (self.name, self.wavelength_range[1]))
             import pyresample
-            if (isinstance(coverage_instance.in_area, pyresample.geometry.SwathDefinition) and
+            if (hasattr(coverage_instance, 'in_area') and
+                isinstance(coverage_instance.in_area, pyresample.geometry.SwathDefinition) and
                     hasattr(coverage_instance.in_area.lats, 'shape') and
                     coverage_instance.in_area.lats.shape != self._data.shape):
                 raise GeolocationIncompleteError("Lons and lats doesn't match data! " +
