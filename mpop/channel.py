@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2011, 2012, 2013, 2014.
+# Copyright (c) 2010, 2011, 2012, 2013, 2014, 2015.
 
 # SMHI,
 # Folkborgsvägen 1,
@@ -40,6 +40,14 @@ try:
     from pyorbital.astronomy import sun_zenith_angle as sza
 except ImportError:
     sza = None
+
+
+class GeolocationIncompleteError(Exception):
+
+    """Exception to try catch cases where the original data have not been read or
+    expanded properly so that each pixel has a geo-location"""
+
+    pass
 
 
 class NotLoadedError(Exception):
@@ -309,6 +317,14 @@ class Channel(GenericChannel):
         if self.is_loaded():
             LOG.info("Projecting channel %s (%fμm)..."
                      % (self.name, self.wavelength_range[1]))
+            import pyresample
+            if (isinstance(coverage_instance.in_area, pyresample.geometry.SwathDefinition) and
+                    hasattr(coverage_instance.in_area.lats, 'shape') and
+                    coverage_instance.in_area.lats.shape != self._data.shape):
+                raise GeolocationIncompleteError("Lons and lats doesn't match data! " +
+                                                 "Data can't be re-projected unless " +
+                                                 "each pixel of the swath has a " +
+                                                 "geo-location atached to it.")
             data = coverage_instance.project_array(self._data)
             res.data = data
             return res
