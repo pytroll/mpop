@@ -160,8 +160,8 @@ class Projector(object):
                                          self.area_file + " or "
                                          "be an area object.")
 
-        if self.in_area == self.out_area:
-            return
+        #if self.in_area == self.out_area:
+        #    return
 
         # choosing the right mode if necessary
         if mode is None:
