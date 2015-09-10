@@ -6,6 +6,7 @@
 # Author(s):
 
 #   Adam.Dybbroe <a000680@c14526.ad.smhi.se>
+#   Panu Lahtinen <panu.lahtinen@fmi.fi>
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -51,7 +52,6 @@ PPS_DATASETS = ['Cloud Type',
                 "SAFNWC PPS PC likelihood of light precipitation",
                 ]
 
-
 class InfoObject(object):
 
     """Simple data and info container.
@@ -90,11 +90,10 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
                 ofpt = open(tmpfilename, 'wb')
                 ofpt.write(bz2file.read())
                 ofpt.close()
-                is_temp = True
             except IOError:
                 import traceback
                 traceback.print_exc()
-                LOG.info("Failed to read bzipped file " + str(filename))
+                LOG.info("Failed to read bzipped file %s", str(filename))
 
             filename = tmpfilename
 
@@ -104,8 +103,9 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
         self.mda["satellite"] = h5f.attrs['platform']
         self.mda["orbit"] = h5f.attrs['orbit_number']
         try:
-            self.mda["time_slot"] = datetime.strptime(h5f.attrs['time_coverage_start'][:-2],
-                                                      "%Y%m%dT%H%M%S")
+            self.mda["time_slot"] = \
+                datetime.strptime(h5f.attrs['time_coverage_start'][:-2],
+                                  "%Y%m%dT%H%M%S")
         except AttributeError:
             LOG.debug("No time information in product file!")
 
@@ -121,13 +121,13 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
         non_processed = set(variables.keys()) - processed
 
         for var_name in non_processed:
-            if var_name in ['lon', 'lat']:
+            if var_name in ['lon', 'lat', 'lon_reduced', 'lat_reduced']:
                 continue
 
             var = variables[var_name]
             if ("standard_name" not in var.attrs.keys() and
-                    "long_name" not in var.attrs.keys()):
-                LOG.info("Delayed processing of " + var_name)
+                "long_name" not in var.attrs.keys()):
+                LOG.info("Delayed processing of %s", var_name)
                 continue
 
             # Don't know how to unambiguously decide if the array is really a
@@ -171,14 +171,15 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
 
             getattr(self, var_name).data = dataset
 
-            LOG.debug("long_name: " + str(var.attrs['long_name']))
-            LOG.debug("Var=" + str(var_name) + " shape=" + str(dataset.shape))
+            LOG.debug("long_name: %s", str(var.attrs['long_name']))
+            LOG.debug("Var = %s, shape = %s",
+                      str(var_name), str(dataset.shape))
 
             if self.shape is None:
                 self.shape = dataset.shape
             elif self.shape != dataset.shape:
-                LOG.debug("Shape=" + str(dataset.shape) +
-                          " Not the same shape as previous field...")
+                LOG.debug("Shape = %s. Not the same shape as previous field.",
+                          str(dataset.shape))
                 #raise ValueError("Different variable shapes !")
 
             #dims = var.dimensions
@@ -188,8 +189,8 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
 
         non_processed = set(variables.keys()) - processed
         if len(non_processed) > 0:
-            LOG.warning(
-                "Remaining non-processed variables: " + str(non_processed))
+            LOG.warning("Remaining non-processed variables: %s",
+                        str(non_processed))
 
         # Get lon,lat:
         # from pyresample import geometry
@@ -199,13 +200,13 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
 
     def project(self, coverage):
         """Project the data"""
-        LOG.debug("Projecting channel %s..." % (self.name))
+        LOG.debug("Projecting channel %s...", self.name)
         import copy
         res = copy.copy(self)
 
         # Project the data
         for var in self._projectables:
-            LOG.info("Projecting " + str(var))
+            LOG.info("Projecting %s", str(var))
             res.__dict__[var] = copy.copy(self.__dict__[var])
             res.__dict__[var].data = coverage.project_array(
                 self.__dict__[var].data)
@@ -223,17 +224,21 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
         # return len(self._projectables) > 0
 
     def save(self, filename, old=True, **kwargs):
+        """Save to old format"""
         del kwargs
         if old:
-            from nwcsaf_formats.ppsv2014_to_oldformat import write_product
-            write_product(self, filename)
-
+            try:
+                from nwcsaf_formats.ppsv2014_to_oldformat import write_product
+                write_product(self, filename)
+            except ImportError:
+                LOG.error("Could not save to old format")
+                raise
         else:
             raise NotImplementedError("Can't save to new pps format yet.")
 
 
 class PPSReader(Reader):
-
+    """Reader class for PPS files"""
     pformat = "nc_pps_l2"
 
     def load(self, satscene, *args, **kwargs):
@@ -288,18 +293,19 @@ class PPSReader(Reader):
                                         "cloud_product_geofilename",
                                         raw=True,
                                         vars=os.environ)
-                filename_tmpl = (satscene.time_slot.strftime(geoname_tmpl)
-                                 % {"orbit": str(orbit).zfill(5) or "*",
-                                    "area": area_name,
-                                    "satellite": satscene.satname + satscene.number})
+                filename_tmpl = satscene.time_slot.strftime(geoname_tmpl) % \
+                                {"orbit": str(orbit).zfill(5) or "*",
+                                 "area": area_name,
+                                 "satellite": satscene.satname + \
+                                 satscene.number}
 
                 file_list = glob.glob(os.path.join(geodir, filename_tmpl))
                 if len(file_list) > 1:
-                    LOG.warning("More than 1 file matching for geoloaction: "
-                                + str(file_list))
+                    LOG.warning("More than 1 file matching for geoloaction: %s",
+                                str(file_list))
                 elif len(file_list) == 0:
-                    LOG.warning(
-                        "No geolocation file matching!: " + filename_tmpl)
+                    LOG.warning("No geolocation file matching!: %s",
+                                filename_tmpl)
                 else:
                     geofilename = file_list[0]
             except NoOptionError:
@@ -323,7 +329,7 @@ class PPSReader(Reader):
         shape = None
         read_external_geo = {}
         for product in products:
-            LOG.debug("Loading " + product)
+            LOG.debug("Loading %s", product)
 
             if isinstance(prodfilename, (list, tuple, set)):
                 for fname in prodfilename:
@@ -331,8 +337,9 @@ class PPSReader(Reader):
                     self.load(satscene, *args, **kwargs)
                 return
             elif (prodfilename and
-                  os.path.basename(prodfilename).startswith('S_NWC')):
-                if os.path.basename(prodfilename).split("_")[2] == NEW_PRODNAMES[product]:
+                  (os.path.basename(prodfilename).startswith('S_NWC') or
+                   os.path.basename(prodfilename).startswith("W_XX-EUMETSAT"))):
+                if NEW_PRODNAMES[product] in os.path.basename(prodfilename):
                     filename = prodfilename
                 else:
                     continue
@@ -345,53 +352,78 @@ class PPSReader(Reader):
                                      "cloud_product_dir",
                                      vars=os.environ)
                 pathname_tmpl = os.path.join(directory, filename)
-                LOG.debug("Path = " + str(pathname_tmpl))
+                LOG.debug("Path = %s", str(pathname_tmpl))
 
                 if not satscene.orbit:
                     orbit = ""
                 else:
                     orbit = satscene.orbit
 
-                filename_tmpl = (satscene.time_slot.strftime(pathname_tmpl)
-                                 % {"orbit": str(orbit).zfill(5) or "*",
-                                    "area": area_name,
-                                    "satellite": satscene.satname + satscene.number,
-                                    "product": product})
+                filename_tmpl = \
+                    satscene.time_slot.strftime(pathname_tmpl) % \
+                    {"orbit": str(orbit).zfill(5) or "*",
+                     "area": area_name,
+                     "satellite": satscene.satname + satscene.number,
+                     "product": product}
 
                 file_list = glob.glob(filename_tmpl)
                 if len(file_list) == 0:
                     product_name = NEW_PRODNAMES.get(product, product)
-                    LOG.info("No " + str(product) +
-                             " product in old format matching")
-                    filename_tmpl = (satscene.time_slot.strftime(pathname_tmpl)
-                                     % {"orbit": str(orbit).zfill(5) or "*",
-                                        "area": area_name,
-                                        "satellite": satscene.satname + satscene.number,
-                                        "product": product_name})
+                    LOG.info("No %s product in old format matching",
+                             str(product))
+                    filename_tmpl = \
+                        satscene.time_slot.strftime(pathname_tmpl) % \
+                        {"orbit": str(orbit).zfill(5) or "*",
+                         "area": area_name,
+                         "satellite": satscene.satname + satscene.number,
+                         "product": product_name}
 
                     file_list = glob.glob(filename_tmpl)
 
                 if len(file_list) > 1:
-                    LOG.warning("More than 1 file matching for " + product + "! "
-                                + str(file_list))
+                    LOG.warning("More than 1 file matching for %s: %s",
+                                str(product), str(file_list))
                     continue
                 elif len(file_list) == 0:
-                    LOG.warning(
-                        "No " + product + " matching!: " + filename_tmpl)
+                    LOG.warning("No %s matching: %s",
+                                str(product), filename_tmpl)
                     continue
                 else:
                     filename = file_list[0]
 
             chn = classes[product]()
             chn.read(filename, lonlat_is_loaded == False)
-            satscene.channels.append(chn)
+
+            try:
+                chn.lat_reduced = None
+                chn.lon_reduced = None
+            except AttributeError:
+                pass
+
+            # concatenate if there's already a channel of the same type (name)
+            # NOTE! There must be a better way to do this
+            if chn.name in satscene:
+                LOG.info("Concatenating data")
+                for atr in dir(satscene[chn.name]):
+                    try:
+                        old_data = getattr(satscene[chn.name], atr)
+                        new_data = getattr(chn, atr)
+                        old_data.data = np.concatenate((old_data.data,
+                                                        new_data.data))
+                    except AttributeError:
+                        pass
+            else:
+                LOG.info("Adding new channel %s", chn.name)
+                satscene.channels.append(chn)
+
             # Check if geolocation is loaded:
             if not chn.area:
-                read_external_geo[product] = chn
+                read_external_geo[product] = satscene.channels[-1].name
                 shape = chn.shape
 
-        # Check if some 'channel'/product needs geolocation. If some product does
-        # not have geolocation, get it from the geofilename:
+        # Check if some 'channel'/product needs geolocation. If some
+        # product does not have geolocation, get it from the
+        # geofilename:
         if not read_external_geo:
             LOG.info("Loading PPS parameters done.")
             return
@@ -400,46 +432,53 @@ class PPSReader(Reader):
         interpolate = False
         if geofilename:
             geodict = get_lonlat(geofilename)
-            lons, lats = geodict['lon'], geodict['lat']
-            if lons.shape != shape or lats.shape != shape:
-                interpolate = True
-                row_indices = geodict['row_indices']
-                column_indices = geodict['col_indices']
-
-            lonlat_is_loaded = True
         else:
-            LOG.warning("No Geo file specified: " +
-                        "Geolocation will be loaded from product")
+            LOG.info("No Geo file specified: "
+                     "Geolocation will be loaded from product")
+            geodict = get_lonlat(filename)
 
-        if lonlat_is_loaded:
-            if interpolate:
-                from geotiepoints import SatelliteInterpolator
+        lons, lats = geodict['lon'], geodict['lat']
+        if lons.shape != shape or lats.shape != shape:
+            interpolate = True
+            row_indices = geodict['row_indices']
+            column_indices = geodict['col_indices']
 
-                cols_full = np.arange(shape[1])
-                rows_full = np.arange(shape[0])
+        if interpolate:
+            from geotiepoints import SatelliteInterpolator
 
-                satint = SatelliteInterpolator((lons, lats),
-                                               (row_indices,
-                                                column_indices),
-                                               (rows_full, cols_full))
-                #satint.fill_borders("y", "x")
-                lons, lats = satint.interpolate()
+            cols_full = np.arange(shape[1])
+            rows_full = np.arange(shape[0])
 
-            try:
-                from pyresample import geometry
-                lons = np.ma.masked_array(lons, nodata_mask)
-                lats = np.ma.masked_array(lats, nodata_mask)
-                area = geometry.SwathDefinition(lons=lons,
-                                                lats=lats)
-            except ImportError:
-                area = None
+            satint = SatelliteInterpolator((lons, lats),
+                                           (row_indices,
+                                            column_indices),
+                                           (rows_full, cols_full))
+            #satint.fill_borders("y", "x")
+            lons, lats = satint.interpolate()
 
-        for chn in read_external_geo.values():
+        try:
+            from pyresample import geometry
+            lons = np.ma.masked_array(lons, nodata_mask)
+            lats = np.ma.masked_array(lats, nodata_mask)
+            area = geometry.SwathDefinition(lons=lons,
+                                            lats=lats)
+        except ImportError:
+            area = None
+
+        for chn_name in read_external_geo.values():
             if area:
-                chn.area = area
+                try:
+                    lats = np.concatenate((satscene[chn_name].area.lats, lats))
+                    lons = np.concatenate((satscene[chn_name].area.lons, lons))
+                    satscene[chn_name].area = \
+                        geometry.SwathDefinition(lons=lons, lats=lats)
+                except AttributeError:
+                    satscene[chn_name].area = area
             else:
-                chn.lat = lats
-                chn.lon = lons
+                satscene[chn_name].lat = \
+                    np.concatenate((satscene[chn_name].lat, lats))
+                satscene[chn_name].lon = \
+                    np.concatenate((satscene[chn_name].lon, lons))
 
         LOG.info("Loading PPS parameters done.")
 
@@ -447,62 +486,69 @@ class PPSReader(Reader):
 
 
 class CloudType(NwcSafPpsChannel):
-
+    """CloudType PPS channel object"""
     def __init__(self, filename=None):
         NwcSafPpsChannel.__init__(self, filename)
         self.name = "CT"
 
 
 class CloudTopTemperatureHeight(NwcSafPpsChannel):
-
+    """Cloud top temperature and height PPS channel object"""
     def __init__(self, filename=None):
         NwcSafPpsChannel.__init__(self, filename)
         self.name = "CTTH"
 
 
 class CloudMask(NwcSafPpsChannel):
-
+    """Cloud mask PPS channel object"""
     def __init__(self, filename=None):
         NwcSafPpsChannel.__init__(self, filename)
         self.name = "CMA"
 
 
 class PrecipitationClouds(NwcSafPpsChannel):
-
+    """Precipitation clouds PPS channel object"""
     def __init__(self, filename=None):
         NwcSafPpsChannel.__init__(self, filename)
         self.name = "PC"
 
 
 class CloudPhysicalProperties(NwcSafPpsChannel):
-
+    """Cloud physical proeperties PPS channel"""
     def __init__(self, filename=None):
         NwcSafPpsChannel.__init__(self, filename)
         self.name = "CPP"
 
 
 def get_lonlat(filename):
-    """Read lon,lat from netCDF4 CF file"""
+    """Read lon,lat from the given netCDF4 CF file"""
     import h5py
 
     col_indices = None
     row_indices = None
 
-    LOG.debug("Geo File = " + filename)
+    LOG.debug("Geolocations read from %s", filename)
 
     h5f = h5py.File(filename, 'r')
 
-    lon = h5f['lon']
-    lons = (lon[:] * lon.attrs.get("scale_factor", 1)
-            + lon.attrs.get("add_offset", 0))
+    try:
+        lon = h5f['lon']
+        lons = (lon[:] * lon.attrs.get("scale_factor", 1)
+                + lon.attrs.get("add_offset", 0))
+        lat = h5f['lat']
+        lats = (lat[:] * lat.attrs.get("scale_factor", 1)
+                + lat.attrs.get("add_offset", 0))
+    except KeyError:
+        lon = h5f['lon_reduced']
+        lons = lon[:]
+        lat = h5f['lat_reduced']
+        lats = lat[:]
+
     lons = np.ma.masked_equal(lons, lon.attrs["_FillValue"])
-    lat = h5f['lat']
-    lats = (lat[:] * lat.attrs.get("scale_factor", 1)
-            + lat.attrs.get("add_offset", 0))
     lats = np.ma.masked_equal(lats, lat.attrs["_FillValue"])
 
     # FIXME: this is to mask out the npp bowtie deleted pixels...
-    if h5f.attrs['platform'] == "Suomi-NPP":
+    if "NPP" in h5f.attrs['platform']:
 
         new_mask = np.zeros((16, 3200), dtype=bool)
         new_mask[0, :1008] = True
@@ -521,6 +567,10 @@ def get_lonlat(filename):
         col_indices = h5f["column_indices"][:]
     if "row_indices" in h5f.keys():
         row_indices = h5f["row_indices"][:]
+    if "nx_reduced" in h5f:
+        col_indices = h5f["nx_reduced"][:]
+    if "ny_reduced" in h5f:
+        row_indices = h5f["ny_reduced"][:]
 
     return {'lon': lons,
             'lat': lats,
