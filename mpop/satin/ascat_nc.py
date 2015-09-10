@@ -1,3 +1,27 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+# Copyright (c) 2014 Abhay Devasthale and Martin Raspaud
+
+# Author(s):
+
+#   Martin Raspaud <martin.raspaud@smhi.se>
+#   Adam Dybbroe <adam.dybbroe@smhi.se>  
+#   Sajid Pareeth <sajid.pareeth@fmach.it>
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 """Loader for ascat, netcdf format.
    The driver works for netcdf format of ASCAT soil moisture swath data downloaded from 
    here: http://navigator.eumetsat.int/discovery/Start/DirectSearch/DetailResult.do?f%28r0%29=EO:EUM:DAT:METOP:SOMO12
@@ -22,7 +46,9 @@ def load(satscene):
               "satname": satscene.satname,
               "number": satscene.number,
               "instrument": satscene.instrument_name,
-              "satellite": satscene.fullname
+              "satellite": satscene.fullname,
+	      "time_slot": satscene.time_slot
+	      "time": satscene.time_slot.strftime('%Y%m%d%H%M%S')
               }
     filename = os.path.join(
         conf.get("ascat-level2", "dir"),
@@ -47,3 +73,5 @@ def load(satscene):
         satscene.area = None
         satscene.lat = lats
         satscene.lon = lons
+	
+	
