@@ -1,0 +1,62 @@
+##Rename this file to metop.cfg to read ASCAT data
+[satellite]
+satname = metop
+variant =
+number = ''
+instruments = ('ascat',)
+
+[ascat-level2]
+filename = W_XX-EUMETSAT-Darmstadt,SURFACE+SATELLITE,METOPA+ASCAT_C_EUMP_%Y%m%d%H%M%S_%(orbit)s_eps_o_125_ssm_l2.nc
+dir = ~/eumetsat/data
+format = ascat_nc
+
+[ascat-1]
+name = 'soil_moisture'
+
+[ascat-2]
+name = 'soil_moisture_error'
+
+[ascat-3]
+name = 'soil_moisture_sensitivity'
+
+[ascat-4]
+name = 'mean_soil_moisture'
+
+[ascat-5]
+name = 'sigma40'
+
+[ascat-6]
+name = 'slope40_error'
+
+[ascat-7]
+name = 'dry_backscatter'
+
+[ascat-8]
+name = 'rainfall_flag'
+
+[ascat-9]
+name = 'wet_backscatter'
+
+[ascat-10]
+name = 'corr_flags'
+
+[ascat-11]
+name = 'proc_flag1'
+
+[ascat-12]
+name = 'proc_flag2'
+
+[ascat-13]
+name = 'aggregated_quality_flag'
+
+[ascat-14]
+name = 'snow_cover_probability'
+
+[ascat-15]
+name = 'frozen_soil_probability'
+
+[ascat-16]
+name = 'wetland_flag'
+
+[ascat-17]
+name = 'topography_flag'
