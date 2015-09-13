@@ -28,12 +28,15 @@ import os.path
 from ConfigParser import ConfigParser
 from ConfigParser import NoOptionError
 
-from datetime import datetime
-import glob
+from datetime import datetime, timedelta
+from glob import glob
 import numpy as np
+
+TEPSILON = timedelta(seconds=1)
 
 import mpop.channel
 from mpop import CONFIG_PATH
+from mpop.utils import strftime
 from mpop.plugin_base import Reader
 
 import logging
@@ -51,6 +54,31 @@ PPS_DATASETS = ['Cloud Type',
                 "SAFNWC PPS PC likelihood of moderate precipitation",
                 "SAFNWC PPS PC likelihood of light precipitation",
                 ]
+
+
+def unzip_file(filename):
+    """Unzip the file if file is bzipped = ending with 'bz2'"""
+
+    import tempfile
+    import bz2
+    if filename.endswith('bz2'):
+        bz2file = bz2.BZ2File(filename)
+        tmpfilename = tempfile.mktemp()
+        try:
+            ofpt = open(tmpfilename, 'wb')
+            ofpt.write(bz2file.read())
+            ofpt.close()
+        except IOError:
+            import traceback
+            traceback.print_exc()
+            LOG.info("Failed to read bzipped file %s", str(filename))
+            os.remove(tmpfilename)
+            return None
+
+        return tmpfilename
+
+    return None
+
 
 class InfoObject(object):
 
@@ -80,22 +108,9 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
 
         import h5py
 
-        # Try see if it is bzipped:
-        import bz2
-        if filename.endswith('bz2'):
-            bz2file = bz2.BZ2File(filename)
-            import tempfile
-            tmpfilename = tempfile.mktemp()
-            try:
-                ofpt = open(tmpfilename, 'wb')
-                ofpt.write(bz2file.read())
-                ofpt.close()
-            except IOError:
-                import traceback
-                traceback.print_exc()
-                LOG.info("Failed to read bzipped file %s", str(filename))
-
-            filename = tmpfilename
+        unzipped = unzip_file(filename)
+        if unzipped:
+            filename = unzipped
 
         h5f = h5py.File(filename, 'r')
         self.mda.update(h5f.attrs.items())
@@ -126,7 +141,7 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
 
             var = variables[var_name]
             if ("standard_name" not in var.attrs.keys() and
-                "long_name" not in var.attrs.keys()):
+                    "long_name" not in var.attrs.keys()):
                 LOG.info("Delayed processing of %s", var_name)
                 continue
 
@@ -196,6 +211,10 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
         # from pyresample import geometry
         # area = geometry.SwathDefinition(lons=lon, lats=lat)
 
+        h5f.close()
+        if unzipped:
+            os.remove(unzipped)
+
         return
 
     def project(self, coverage):
@@ -237,11 +256,112 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
             raise NotImplementedError("Can't save to new pps format yet.")
 
 
+def get_filenames(scene, product, conf, starttime, endtime, area_name):
+    """Get list of filenames with in time interval"""
+
+    filename = conf.get(scene.instrument_name + "-level3",
+                        "cloud_product_filename",
+                        raw=True,
+                        vars=os.environ)
+    directory = conf.get(scene.instrument_name + "-level3",
+                         "cloud_product_dir",
+                         vars=os.environ)
+    pathname_tmpl = os.path.join(directory, filename)
+
+    if not scene.orbit:
+        orbit = ""
+    else:
+        orbit = scene.orbit
+
+    values = {"area": area_name,
+              "satellite": scene.satname + scene.number,
+              "product": product}
+
+    if endtime:
+        # Okay, we need to check for more than one granule!
+        # First get all files with all times matching in directory:
+        values["orbit"] = '?????'
+        filename_tmpl = os.path.join(
+            directory, globify(filename)) % values
+
+    else:
+        values["orbit"] = str(orbit).zfill(5) or "*"
+        filename_tmpl = scene.time_slot.strftime(
+            pathname_tmpl) % values
+
+    LOG.debug("File path = %s", str(filename_tmpl))
+    file_list = glob(filename_tmpl)
+    if len(file_list) == 0:
+        LOG.info("No %s product in old format matching",
+                 str(product))
+        product_name = NEW_PRODNAMES.get(product, product)
+        filenames = get_filenames(scene, product_name,
+                                  conf, starttime, endtime, area_name)
+        if len(filenames) == 0 or not filenames:
+            LOG.warning("No %s matching: %s",
+                        str(product_name), filename_tmpl)
+            return None
+        else:
+            return filenames
+
+    if len(file_list) > 1 and not endtime:
+        LOG.warning("More than 1 file matching for %s: %s",
+                    str(product), str(file_list))
+        return None
+    elif len(file_list) > 1:
+        return extract_filenames_in_time_window(
+            file_list, starttime, endtime)
+    else:
+        return [file_list[0]]
+
+    return None
+
+
+def extract_filenames_in_time_window(file_list, starttime, endtime):
+    """Extract the filenames with time inside the time interval specified"""
+    from trollsift import Parser
+
+    # Assume
+    valid_filenames = []
+    valid_times = []
+    for fname in file_list:
+        # New filenames:
+        # Ex.:
+        # W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,NOAA19+CT_C_EUMS_20150819124700_33643.nc.bz2
+        p = Parser(
+            "W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{platform_name:s}+{product:s}_C_EUMS_{starttime:%Y%m%d%H%M}00_{orbit:05d}.nc.bz2")
+        try:
+            data = p.parse(os.path.basename(fname))
+        except ValueError:
+            # Old filenames:
+            # Ex.:
+            # ctth_20130910_205300_metopb.h5.bz2
+            p = Parser(
+                "ctth_{starttime:%Y%m%d_%H%M}00_{platform_name:s}.h5.bz2")
+            data = p.parse(os.path.basename(fname))
+
+        if (data['starttime'] >= starttime and
+                data['starttime'] < endtime):
+            valid_filenames.append(fname)
+            valid_times.append(data['starttime'])
+
+    # Can we rely on the files being sorted according to time?
+    # Sort the filenames according to time:
+    vtimes = np.array(valid_times)
+    idx = np.argsort(vtimes)
+    vfiles = np.array(valid_filenames)
+    return np.take(vfiles, idx).tolist()
+
+
 class PPSReader(Reader):
+
     """Reader class for PPS files"""
     pformat = "nc_pps_l2"
 
-    def load(self, satscene, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
+        Reader.__init__(self, *args, **kwargs)
+
+    def load(self, satscene, time_interval=None, **kwargs):
         """Read data from file and load it into *satscene*.
         """
         lonlat_is_loaded = False
@@ -269,8 +389,13 @@ class PPSReader(Reader):
         except AttributeError:
             area_name = "satproj_?????_?????"
 
-        # Looking for geolocation file
+        if (time_interval and isinstance(time_interval, (list, set, tuple)) and
+                len(time_interval) == 2):
+            time_start, time_end = time_interval
+        else:
+            time_start, time_end = satscene.time_slot, None
 
+        # Looking for geolocation file
         conf = ConfigParser()
         conf.read(os.path.join(CONFIG_PATH, satscene.fullname + ".cfg"))
 
@@ -283,7 +408,7 @@ class PPSReader(Reader):
             geodir = None
 
         if not geofilename and geodir:
-            # Load geo file from config file:
+            # Load geo file(s) according to config file:
             try:
                 if not satscene.orbit:
                     orbit = ""
@@ -294,12 +419,12 @@ class PPSReader(Reader):
                                         raw=True,
                                         vars=os.environ)
                 filename_tmpl = satscene.time_slot.strftime(geoname_tmpl) % \
-                                {"orbit": str(orbit).zfill(5) or "*",
-                                 "area": area_name,
-                                 "satellite": satscene.satname + \
-                                 satscene.number}
+                    {"orbit": str(orbit).zfill(5) or "*",
+                     "area": area_name,
+                     "satellite": satscene.satname +
+                     satscene.number}
 
-                file_list = glob.glob(os.path.join(geodir, filename_tmpl))
+                file_list = glob(os.path.join(geodir, filename_tmpl))
                 if len(file_list) > 1:
                     LOG.warning("More than 1 file matching for geoloaction: %s",
                                 str(file_list))
@@ -334,7 +459,7 @@ class PPSReader(Reader):
             if isinstance(prodfilename, (list, tuple, set)):
                 for fname in prodfilename:
                     kwargs['filename'] = fname
-                    self.load(satscene, *args, **kwargs)
+                    self.load(satscene, **kwargs)
                 return
             elif (prodfilename and
                   (os.path.basename(prodfilename).startswith('S_NWC') or
@@ -344,52 +469,11 @@ class PPSReader(Reader):
                 else:
                     continue
             else:
-                filename = conf.get(satscene.instrument_name + "-level3",
-                                    "cloud_product_filename",
-                                    raw=True,
-                                    vars=os.environ)
-                directory = conf.get(satscene.instrument_name + "-level3",
-                                     "cloud_product_dir",
-                                     vars=os.environ)
-                pathname_tmpl = os.path.join(directory, filename)
-                LOG.debug("Path = %s", str(pathname_tmpl))
-
-                if not satscene.orbit:
-                    orbit = ""
-                else:
-                    orbit = satscene.orbit
-
-                filename_tmpl = \
-                    satscene.time_slot.strftime(pathname_tmpl) % \
-                    {"orbit": str(orbit).zfill(5) or "*",
-                     "area": area_name,
-                     "satellite": satscene.satname + satscene.number,
-                     "product": product}
-
-                file_list = glob.glob(filename_tmpl)
-                if len(file_list) == 0:
-                    product_name = NEW_PRODNAMES.get(product, product)
-                    LOG.info("No %s product in old format matching",
-                             str(product))
-                    filename_tmpl = \
-                        satscene.time_slot.strftime(pathname_tmpl) % \
-                        {"orbit": str(orbit).zfill(5) or "*",
-                         "area": area_name,
-                         "satellite": satscene.satname + satscene.number,
-                         "product": product_name}
-
-                    file_list = glob.glob(filename_tmpl)
-
-                if len(file_list) > 1:
-                    LOG.warning("More than 1 file matching for %s: %s",
-                                str(product), str(file_list))
-                    continue
-                elif len(file_list) == 0:
-                    LOG.warning("No %s matching: %s",
-                                str(product), filename_tmpl)
-                    continue
-                else:
-                    filename = file_list[0]
+                filenames = get_filenames(
+                    satscene, product, conf, time_start, time_end, area_name)
+                kwargs['filename'] = filenames
+                self.load(satscene, **kwargs)
+                return
 
             chn = classes[product]()
             chn.read(filename, lonlat_is_loaded == False)
@@ -400,16 +484,19 @@ class PPSReader(Reader):
             except AttributeError:
                 pass
 
-            # concatenate if there's already a channel of the same type (name)
-            # NOTE! There must be a better way to do this
+            # Concatenate if there's already a channel of the same type (name)
+            # NOTE! There must be a better way to do this.
+            # Perhaps take a look at how the concatenation of several granules
+            # is done in the viirs_sdr reader.
+            # FIXME!
             if chn.name in satscene:
-                LOG.info("Concatenating data")
+                LOG.info("Concatenating data for field %s", str(chn.name))
                 for atr in dir(satscene[chn.name]):
                     try:
                         old_data = getattr(satscene[chn.name], atr)
                         new_data = getattr(chn, atr)
-                        old_data.data = np.concatenate((old_data.data,
-                                                        new_data.data))
+                        old_data.data = np.ma.concatenate((old_data.data,
+                                                           new_data.data))
                     except AttributeError:
                         pass
             else:
@@ -486,35 +573,45 @@ class PPSReader(Reader):
 
 
 class CloudType(NwcSafPpsChannel):
+
     """CloudType PPS channel object"""
+
     def __init__(self, filename=None):
         NwcSafPpsChannel.__init__(self, filename)
         self.name = "CT"
 
 
 class CloudTopTemperatureHeight(NwcSafPpsChannel):
+
     """Cloud top temperature and height PPS channel object"""
+
     def __init__(self, filename=None):
         NwcSafPpsChannel.__init__(self, filename)
         self.name = "CTTH"
 
 
 class CloudMask(NwcSafPpsChannel):
+
     """Cloud mask PPS channel object"""
+
     def __init__(self, filename=None):
         NwcSafPpsChannel.__init__(self, filename)
         self.name = "CMA"
 
 
 class PrecipitationClouds(NwcSafPpsChannel):
+
     """Precipitation clouds PPS channel object"""
+
     def __init__(self, filename=None):
         NwcSafPpsChannel.__init__(self, filename)
         self.name = "PC"
 
 
 class CloudPhysicalProperties(NwcSafPpsChannel):
+
     """Cloud physical proeperties PPS channel"""
+
     def __init__(self, filename=None):
         NwcSafPpsChannel.__init__(self, filename)
         self.name = "CPP"
@@ -528,6 +625,10 @@ def get_lonlat(filename):
     row_indices = None
 
     LOG.debug("Geolocations read from %s", filename)
+
+    unzipped = unzip_file(filename)
+    if unzipped:
+        filename = unzipped
 
     h5f = h5py.File(filename, 'r')
 
@@ -572,6 +673,20 @@ def get_lonlat(filename):
     if "ny_reduced" in h5f:
         row_indices = h5f["ny_reduced"][:]
 
+    h5f.close()
+    if unzipped:
+        os.remove(unzipped)
+
     return {'lon': lons,
             'lat': lats,
             'col_indices': col_indices, 'row_indices': row_indices}
+
+
+def globify(filename):
+    filename = filename.replace("%Y", "????")
+    filename = filename.replace("%m", "??")
+    filename = filename.replace("%d", "??")
+    filename = filename.replace("%H", "??")
+    filename = filename.replace("%M", "??")
+    filename = filename.replace("%S", "??")
+    return filename
