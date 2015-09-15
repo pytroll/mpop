@@ -42,11 +42,16 @@ from mpop.plugin_base import Reader
 import logging
 LOG = logging.getLogger(__name__)
 
-NEW_PRODNAMES = {'cloudtype': 'CT',
-                 'cloudmask': 'CMA',
-                 'precipclouds': 'PC',
-                 'cpp': 'CPP',
-                 'ctth': 'CTTH'}
+# NEW_PRODNAMES = {'cloudtype': 'CT',
+#                  'cloudmask': 'CMA',
+#                  'precipclouds': 'PC',
+#                  'cpp': 'CPP',
+#                  'ctth': 'CTTH'}
+OLD_PRODNAMES = {'CT': 'cloudtype',
+                 'CMA': 'cloudmask',
+                 'PC': 'precipclouds',
+                 'CPP': 'cpp',
+                 'CTTH': 'ctth'}
 
 PPS_DATASETS = ['Cloud Type',
                 'Multilayer Cloud Detection',
@@ -292,19 +297,9 @@ def get_filenames(scene, product, conf, starttime, endtime, area_name):
     LOG.debug("File path = %s", str(filename_tmpl))
     file_list = glob(filename_tmpl)
     if len(file_list) == 0:
-        LOG.info("No %s product in old format matching",
-                 str(product))
-        product_name = NEW_PRODNAMES.get(product, product)
-        filenames = get_filenames(scene, product_name,
-                                  conf, starttime, endtime, area_name)
-        if len(filenames) == 0 or not filenames:
-            LOG.warning("No %s matching: %s",
-                        str(product_name), filename_tmpl)
-            return None
-        else:
-            return filenames
-
-    if len(file_list) > 1 and not endtime:
+        LOG.warning("No %s product matching", str(product))
+        return None
+    elif len(file_list) > 1 and not endtime:
         LOG.warning("More than 1 file matching for %s: %s",
                     str(product), str(file_list))
         return None
@@ -321,7 +316,6 @@ def extract_filenames_in_time_window(file_list, starttime, endtime):
     """Extract the filenames with time inside the time interval specified"""
     from trollsift import Parser
 
-    # Assume
     valid_filenames = []
     valid_times = []
     for fname in file_list:
@@ -344,6 +338,8 @@ def extract_filenames_in_time_window(file_list, starttime, endtime):
                 data['starttime'] < endtime):
             valid_filenames.append(fname)
             valid_times.append(data['starttime'])
+            LOG.debug("Start time: %s inside (%s, %s)",
+                      str(data['starttime']), str(starttime), str(endtime))
 
     # Can we rely on the files being sorted according to time?
     # Sort the filenames according to time:
@@ -371,18 +367,20 @@ class PPSReader(Reader):
 
         products = []
         if "CTTH" in satscene.channels_to_load:
-            products.append("ctth")
+            products.append("CTTH")
         if "CT" in satscene.channels_to_load:
-            products.append("cloudtype")
+            products.append("CT")
         if "CMA" in satscene.channels_to_load:
-            products.append("cloudmask")
+            products.append("CMA")
         if "PC" in satscene.channels_to_load:
-            products.append("precipclouds")
+            products.append("PC")
         if "CPP" in satscene.channels_to_load:
-            products.append("cpp")
+            products.append("CPP")
 
         if len(products) == 0:
             return
+
+        LOG.info("Products to load: %s", str(products))
 
         try:
             area_name = satscene.area_id or satscene.area.area_id
@@ -438,11 +436,11 @@ class PPSReader(Reader):
 
         # Reading the products
 
-        classes = {"ctth": CloudTopTemperatureHeight,
-                   "cloudtype": CloudType,
-                   "cloudmask": CloudMask,
-                   "precipclouds": PrecipitationClouds,
-                   "cpp": CloudPhysicalProperties
+        classes = {"CTTH": CloudTopTemperatureHeight,
+                   "CT": CloudType,
+                   "CMA": CloudMask,
+                   "PC": PrecipitationClouds,
+                   "CPP": CloudPhysicalProperties
                    }
 
         nodata_mask = False
@@ -460,20 +458,31 @@ class PPSReader(Reader):
                 for fname in prodfilename:
                     kwargs['filename'] = fname
                     self.load(satscene, **kwargs)
-                return
+                continue
             elif (prodfilename and
                   (os.path.basename(prodfilename).startswith('S_NWC') or
                    os.path.basename(prodfilename).startswith("W_XX-EUMETSAT"))):
-                if NEW_PRODNAMES[product] in os.path.basename(prodfilename):
+                if product in os.path.basename(prodfilename):
                     filename = prodfilename
                 else:
                     continue
             else:
                 filenames = get_filenames(
                     satscene, product, conf, time_start, time_end, area_name)
+                if not filenames or len(filenames) == 0:
+                    LOG.info("No products in new PPS format found " +
+                             "matching %s", product)
+                    old_product = OLD_PRODNAMES.get(product)
+                    LOG.info(
+                        "Search for productnames matching %s", old_product)
+                    filenames = get_filenames(
+                        satscene, old_product, conf, time_start, time_end, area_name)
+                    if not filenames or len(filenames) == 0:
+                        continue
+
                 kwargs['filename'] = filenames
                 self.load(satscene, **kwargs)
-                return
+                continue
 
             chn = classes[product]()
             chn.read(filename, lonlat_is_loaded == False)
