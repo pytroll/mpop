@@ -179,7 +179,7 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
 
             data = var[:]
             if len(data.shape) == 3 and data.shape[0] == 1:
-                LOG.debug("Rip of the first dimension of length 1")
+                LOG.debug("Rip off the first dimension of length 1")
                 data = data[0]
 
             if 'valid_range' in var.attrs.keys():

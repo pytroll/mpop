@@ -514,7 +514,6 @@ class ViirsBandData(object):
         self.geolocation = ViirsGeolocationData(self.data.shape,
                                                 geofilepaths).read()
 
-
 # ------------------------------------------------------------------------------
 from mpop.plugin_base import Reader
 
@@ -525,7 +524,8 @@ class ViirsSDRReader(Reader):
     def __init__(self, *args, **kwargs):
         Reader.__init__(self, *args, **kwargs)
 
-    def load(self, satscene, calibrate=1, time_interval=None, area=None, filename=None, **kwargs):
+    def load(self, satscene, calibrate=1, time_interval=None,
+             area=None, filename=None, **kwargs):
         """Read viirs SDR reflectances and Tbs from file and load it into
         *satscene*.
         """

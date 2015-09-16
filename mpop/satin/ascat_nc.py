@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2014 Abhay Devasthale and Martin Raspaud
+# Copyright (c) 2014, 2015 Abhay Devasthale and Martin Raspaud
 
 # Author(s):
 
 #   Martin Raspaud <martin.raspaud@smhi.se>
-#   Adam Dybbroe <adam.dybbroe@smhi.se>  
+#   Adam Dybbroe <adam.dybbroe@smhi.se>
 #   Sajid Pareeth <sajid.pareeth@fmach.it>
 
 # This program is free software: you can redistribute it and/or modify
@@ -47,8 +47,8 @@ def load(satscene):
               "number": satscene.number,
               "instrument": satscene.instrument_name,
               "satellite": satscene.fullname,
-	      "time_slot": satscene.time_slot
-	      "time": satscene.time_slot.strftime('%Y%m%d%H%M%S')
+              "time_slot": satscene.time_slot,
+              "time": satscene.time_slot.strftime('%Y%m%d%H%M%S')
               }
     filename = os.path.join(
         conf.get("ascat-level2", "dir"),
@@ -59,7 +59,8 @@ def load(satscene):
     ds = Dataset(filename, 'r')
     for chn_name in satscene.channels_to_load:
         # Read variable corresponding to channel name
-        data = np.ma.masked_array(ds.variables[chn_name][:],np.isnan(ds.variables[chn_name][:]))
+        data = np.ma.masked_array(
+            ds.variables[chn_name][:], np.isnan(ds.variables[chn_name][:]))
         satscene[chn_name] = data
     lons = ds.variables['longitude'][:]
     lats = ds.variables['latitude'][:]
@@ -73,5 +74,3 @@ def load(satscene):
         satscene.area = None
         satscene.lat = lats
         satscene.lon = lons
-	
-	
