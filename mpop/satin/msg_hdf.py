@@ -1392,6 +1392,7 @@ class NordRadCType(object):
     def __init__(self, ctype_instance):
         self.ctype = ctype_instance
         self.datestr = ctype_instance.image_acquisition_time
+        self.info = {}
 
     def save(self, filename, **kwargs):
         """Save the current instance to nordrad hdf format.
