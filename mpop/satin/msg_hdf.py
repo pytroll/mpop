@@ -1459,11 +1459,16 @@ def get_best_product(filename, area_extent):
     """Get the best of the available products for the *filename* template.
     """
 
+    basename = filename
     for ext in MSG_PGE_EXTENTIONS:
-        if not filename.endswith(ext):
-            match_str = filename + "." + ext
+        if filename.endswith(ext):
+            basename = filename[:-len(ext)]
+
+    for ext in MSG_PGE_EXTENTIONS:
+        if not basename.endswith(ext):
+            match_str = basename + "." + ext
         else:
-            match_str = filename
+            match_str = basename
         LOG.debug("glob-string for filename: " + str(match_str))
         flist = glob.glob(match_str)
         if len(flist) == 0:
@@ -1487,13 +1492,18 @@ def get_best_products(filename, area_extent):
     """Get the best of the available products for the *filename* template.
     """
 
+    basename = filename
+    for ext in MSG_PGE_EXTENTIONS:
+        if filename.endswith(ext):
+            basename = filename[:-len(ext)]
+
     filenames = []
 
     for ext in MSG_PGE_EXTENTIONS:
-        if not filename.endswith(ext):
-            match_str = filename + "." + ext
+        if not basename.endswith(ext):
+            match_str = basename + "." + ext
         else:
-            match_str = filename
+            match_str = basename
 
         LOG.debug('Match string = ' + str(match_str))
         flist = glob.glob(match_str)
