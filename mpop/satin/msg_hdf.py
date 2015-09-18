@@ -1462,8 +1462,8 @@ def get_best_product(filename, area_extent):
     basename = filename
     for ext in MSG_PGE_EXTENTIONS:
         if filename.endswith(ext):
-            basename = filename[:-len(ext)]
-
+            basename = filename[:-(len(ext) + 1)]
+            break
     for ext in MSG_PGE_EXTENTIONS:
         if not basename.endswith(ext):
             match_str = basename + "." + ext
@@ -1495,7 +1495,8 @@ def get_best_products(filename, area_extent):
     basename = filename
     for ext in MSG_PGE_EXTENTIONS:
         if filename.endswith(ext):
-            basename = filename[:-len(ext)]
+            basename = filename[:-(len(ext) + 1)]
+            break
 
     filenames = []
 
