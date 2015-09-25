@@ -796,25 +796,6 @@ class ViirsSDRReader(Reader):
                                          if chn.is_loaded()])
 
 
-def get_lonlat(filename):
-    """Read lon,lat from hdf5 file"""
-    logger.debug("Geo File = " + filename)
-
-    md = HDF5MetaData(filename).read()
-
-    lats, lons = None, None
-    h5f = h5py.File(filename, 'r')
-    for key in md.get_data_keys():
-        if key.endswith("Latitude"):
-            lats = h5f[key].value
-        if key.endswith("Longitude"):
-            lons = h5f[key].value
-    h5f.close()
-
-    return (np.ma.masked_less(lons, -999, False),
-            np.ma.masked_less(lats, -999, False))
-
-
 def get_lonlat_into(filename, out_lons, out_lats, out_mask):
     """Read lon,lat from hdf5 file"""
     logger.debug("Geo File = " + filename)
