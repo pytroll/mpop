@@ -741,6 +741,7 @@ class PPSReader(Reader):
             prodfilenames = get_filenames(
                 satscene, products, conf, time_start, time_end, area_name)
 
+        LOG.debug("Product files: %s", str(prodfilenames))
         prodfiles4product = {}
         prodfile_list = []
         geofile_list = []
@@ -813,11 +814,21 @@ class PPSReader(Reader):
 
                     else:
                         geofiles4product[prodname].append(geofile)
+                        LOG.debug("Geo files for product %s = %s",
+                                  prodname, str(geofiles4product[prodname]))
 
             # Check that each product file has a corresponding geolocation
             # file:
             if geolocation_product_name:
                 for prod in products:
+                    if prod not in geofiles4product:
+                        LOG.error("No product name %s in dict geofiles4product!",
+                                  prod)
+                        continue
+                    if prod not in prodfiles4product:
+                        LOG.error("No product name %s in dict prodfiles4product!",
+                                  prod)
+                        continue
                     if len(geofiles4product[prod]) != len(prodfiles4product[prod]):
                         LOG.error("Mismatch in number of product files and " +
                                   "matching geolocation files!")
