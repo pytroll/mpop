@@ -124,11 +124,12 @@ class PpsGeolocationData(object):
         self.mask = np.zeros(self.shape,
                              dtype=np.bool)
 
+        swath_index = 0
         for idx, filename in enumerate(self.filenames):
 
-            swath_index = idx * self.granule_lengths[idx]
             y0_ = swath_index
             y1_ = swath_index + self.granule_lengths[idx]
+            swath_index = swath_index + self.granule_lengths[idx]
 
             get_lonlat_into(filename,
                             self.longitudes[y0_:y1_, :],
@@ -265,6 +266,16 @@ class PPSMetaData(HDF5MetaData):
                     continue
                 # LOG.debug("var_name, full-key, key, value: %s %s %s %s",
                 #          var_name, key, dictkey, self.metadata[key])
+                retv[dictkey] = self.metadata[key]
+
+        return retv
+
+    def get_root_attributes(self):
+
+        retv = {}
+        for key in self.metadata:
+            if key.startswith('//attr'):
+                dictkey = key.split('/')[-1]
                 retv[dictkey] = self.metadata[key]
 
         return retv
@@ -411,9 +422,10 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
         self.end_time = pps_product.end_time
 
         # Take the metadata of the first granule and store as global
-        self.mda = pps_product.metadata[0].metadata
-
+        #self.mda = pps_product.metadata[0].metadata
         mda = pps_product.metadata[0]
+        self.mda = mda.metadata
+        self.mda.update(mda.get_root_attributes())
 
         for var_name in self._projectables:
             setattr(self, var_name, InfoObject())
@@ -560,6 +572,9 @@ class PPSProductData(object):
                 shape = shape[1], shape[2]
             if shape == (self.granule_lengths[0], swath_width):
                 self.projectables.append(key)
+            else:
+                self.mda.update({key: dks[key]})
+
             LOG.debug("Key, shape, granule_length, swath_width: %s %s %s %s",
                       str(key), str(shape),
                       str(self.granule_lengths[0]), str(swath_width))
