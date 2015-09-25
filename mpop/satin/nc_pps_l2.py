@@ -818,8 +818,11 @@ class PPSReader(Reader):
                             "Geo-location file not specified for product. Try find one...")
                         if cloud_product_geodir:
                             directory = cloud_product_geodir
+                            LOG.debug("DIR from config = %s", directory)
                         else:
                             directory = os.path.dirname(fname)
+                            LOG.debug(
+                                "DIR from product destination = %s", directory)
 
                     geofile = os.path.join(directory, gname)
                     LOG.debug("Geo filename: %s", str(geofile))
@@ -892,18 +895,24 @@ class PPSReader(Reader):
             LOG.debug("ch_name = %s", str(chn_name))
             chn = satscene[chn_name]
             geofilenames = geofiles4product[chn_name]
-            LOG.debug("Geo-files = " + str(geofilenames))
+            LOG.debug("Geo-files = %s", str(geofilenames))
             geoloc = PpsGeolocationData(chn.shape,
                                         chn.granule_lengths,
                                         geofilenames).read()
 
-            satscene[chn.name].area = geometry.SwathDefinition(
-                lons=np.ma.masked_where(nodata_mask,
-                                        geoloc.longitudes.data,
-                                        copy=False),
-                lats=np.ma.masked_where(nodata_mask,
-                                        geoloc.latitudes.data,
-                                        copy=False))
+            try:
+                satscene[chn.name].area = geometry.SwathDefinition(
+                    lons=np.ma.masked_where(nodata_mask,
+                                            geoloc.longitudes.data,
+                                            copy=False),
+                    lats=np.ma.masked_where(nodata_mask,
+                                            geoloc.latitudes.data,
+                                            copy=False))
+            except ValueError:
+                LOG.exception('Failed making a SwathDefinition: ' +
+                              'min,max lons,lats = (%f %f") (%f,%f)',
+                              lons.min(), lons.max(), lats.min(), lats.max())
+                raise
 
             area_name = ("swath_" + satscene.fullname + "_" +
                          str(satscene.time_slot) + "_"
