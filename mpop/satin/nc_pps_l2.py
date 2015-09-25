@@ -703,7 +703,9 @@ class PPSReader(Reader):
             area_name = "satproj_?????_?????"
 
         conf = ConfigParser()
-        conf.read(os.path.join(CONFIG_PATH, satscene.fullname + ".cfg"))
+        configfile = os.path.join(CONFIG_PATH, satscene.fullname + ".cfg")
+        LOG.debug("Read configfile %s", configfile)
+        conf.read(configfile)
 
         try:
             cloud_product_geodir = conf.get(satscene.instrument_name + "-level3",
@@ -712,6 +714,8 @@ class PPSReader(Reader):
                                             vars=os.environ)
         except NoOptionError:
             cloud_product_geodir = None
+
+        LOG.debug("cloud_product_geodir = %s", cloud_product_geodir)
 
         try:
             geolocation_product_name = conf.get(satscene.instrument_name + "-level3",
