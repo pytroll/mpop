@@ -912,18 +912,21 @@ class PPSReader(Reader):
                     lats=np.ma.masked_where(nodata_mask,
                                             geoloc.latitudes.data,
                                             copy=False))
+
+                area_name = ("swath_" + satscene.fullname + "_" +
+                             str(satscene.time_slot) + "_"
+                             + str(chn.shape) + "_" +
+                             chn.name)
+                satscene[chn.name].area.area_id = area_name
+                satscene[chn.name].area_id = area_name
             except ValueError:
                 LOG.exception('Failed making a SwathDefinition: ' +
                               'min,max lons,lats = (%f %f") (%f,%f)',
-                              lons.min(), lons.max(), lats.min(), lats.max())
-                raise
-
-            area_name = ("swath_" + satscene.fullname + "_" +
-                         str(satscene.time_slot) + "_"
-                         + str(chn.shape) + "_" +
-                         chn.name)
-            satscene[chn.name].area.area_id = area_name
-            satscene[chn.name].area_id = area_name
+                              geoloc.longitudes.data.min(),
+                              geoloc.longitudes.data.max(),
+                              geoloc.latitudes.data.min(),
+                              geoloc.latitudes.data.max())
+                LOG.warning("No geolocation loaded for %s", str(chn_name))
 
         # PpsGeolocationData.clear_cache()
 
