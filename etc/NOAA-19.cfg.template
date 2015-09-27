@@ -4,15 +4,15 @@ instruments = ('avhrr/3',)
 
 [avhrr/3-level2]
 filename = hrpt_%(satellite)s_%Y%m%d_%H%M_%(orbit)s.l1b
-dir = /local_disk/data/satellite/polar/%(satellite)s_%Y%m%d_%H%M_%(orbit)s
+dir = /path/to/aapp/output/%(satellite)s_%Y%m%d_%H%M_%(orbit)s
 format = aapp1b
 
 [avhrr/3-level3]
-filename = %(satellite)s_%Y%m%d_%H%M_%(orbit)s_%(area)s_%(product)s.h5
-geofilename = %(satellite)s_%Y%m%d_%H%M_%(orbit)s_%(area)s_avhrr.h5
-dir = /local_disk/data/satellite/polar/products
-geodir = /local_disk/data/satellite/polar/products
-format = nwcsaf_pps
+format = nc_pps_l2.PPSReader
+cloud_product_filename = S_NWC_%(product)s_noaa19_%(orbit)s_*.nc
+cloud_product_dir = /path/to/pps/output
+cloud_product_geofilename = S_NWC_CMA_noaa19_%(orbit)s_*.nc
+geolocation_product_name = CMA
 
 [avhrr/3-1]
 frequency = (0.58, 0.63, 0.68)
