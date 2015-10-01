@@ -116,7 +116,8 @@ def load(satscene, *args, **kwargs):
                  "M13": "M13",
                  "M14": "M14",
                  "M15": "M15",
-                 "M16": "M16"}
+                 "M16": "M16",
+                 "DNB": "DNB"}
 
     channels = [(chn, chan_dict[chn])
                 for chn in satscene.channels_to_load
@@ -201,13 +202,12 @@ def read(h5f, channels, calibrate=1):
     return res, units
 
 
-def expand_array(data, scans, geostuff, c_align, c_exp):
-    s_track, s_scan = ((np.mgrid[0:scans * 16, 0:3200] % 16) + 0.5) / 16
-    s_track = s_track.reshape(scans, 16, 200, 16)
-    s_scan = s_scan.reshape(scans, 16, 200, 16)
+def expand_array(data, scans, c_align, c_exp, scan_size=16, tpz_size=16, nties=200, track_offset=0.5, scan_offset=0.5):
+    s_track, s_scan = np.mgrid[0:scans * scan_size, 0:nties*tpz_size]
+    s_track = (s_track.reshape(scans, scan_size, nties, tpz_size) % scan_size + track_offset) / scan_size
+    s_scan = (s_scan.reshape(scans, scan_size, nties, tpz_size) % tpz_size + scan_offset) / tpz_size
 
-    a_scan = s_scan + s_scan * \
-        (1 - s_scan) * c_exp + s_track * (1 - s_track) * c_align
+    a_scan = s_scan + s_scan * (1 - s_scan) * c_exp + s_track * (1 - s_track) * c_align
     a_track = s_track
 
     data_a = data[:scans * 2:2, np.newaxis, :-1, np.newaxis]
@@ -217,7 +217,7 @@ def expand_array(data, scans, geostuff, c_align, c_exp):
 
     fdata = ((1 - a_track) * ((1 - a_scan) * data_a + a_scan * data_b) +
              a_track * ((1 - a_scan) * data_d + a_scan * data_c))
-    return fdata.reshape(scans * 16, 3200)
+    return fdata.reshape(scans * scan_size, nties * tpz_size)
 
 
 def lonlat2xyz(lon, lat):
@@ -235,47 +235,56 @@ def xyz2lonlat(x, y, z):
     return lon, lat
 
 
-def navigate(h5f):
-    scans = h5f["All_Data"]["NumberOfScans"][0]
-    geostuff = h5f["All_Data"]["VIIRS-MOD-GEO_All"]
-    c_align = geostuff["AlignmentCoefficient"].value[np.newaxis, np.newaxis,
-                                                     :, np.newaxis]
-    c_exp = geostuff["ExpansionCoefficient"].value[np.newaxis, np.newaxis,
-                                                   :, np.newaxis]
-    lon = geostuff["Longitude"].value
-    lat = geostuff["Latitude"].value
+def navigate(h5f, channel):
 
-    if (np.max(lon) - np.min(lon) > 90) or (np.max(abs(lat)) > 60):
-        x, y, z = lonlat2xyz(lon, lat)
-        x, y, z = (expand_array(x, scans, geostuff, c_align, c_exp),
-                   expand_array(y, scans, geostuff, c_align, c_exp),
-                   expand_array(z, scans, geostuff, c_align, c_exp))
-        return xyz2lonlat(x, y, z)
+    if channel.startswith("M"):
+        chtype = "MOD"
+    elif channel == "DNB":
+        chtype = "DNB"
     else:
-        return (expand_array(lon, scans, geostuff, c_align, c_exp),
-                expand_array(lat, scans, geostuff, c_align, c_exp))
+        raise ValueError("Unknow channel type for band %s", channel)
 
-    # s_track, s_scan = ((np.mgrid[0:scans*16, 0:3200] % 16) + 0.5) / 16
-    # s_track = s_track.reshape(scans, 16, 200, 16)
-    # s_scan = s_scan.reshape(scans, 16, 200, 16)
+    scans = h5f["All_Data"]["NumberOfScans"][0]
+    geostuff = h5f["All_Data"]["VIIRS-"+chtype+"-GEO_All"]
+    all_c_align = geostuff["AlignmentCoefficient"].value[np.newaxis, np.newaxis,
+                                                     :, np.newaxis]
+    all_c_exp = geostuff["ExpansionCoefficient"].value[np.newaxis, np.newaxis,
+                                                   :, np.newaxis]
+    all_lon = geostuff["Longitude"].value
+    all_lat = geostuff["Latitude"].value
 
-    # a_scan = s_scan + s_scan*(1-s_scan)*c_exp + s_track*(1 - s_track) * c_align
-    # a_track = s_track
+    res = []
 
-    # lon_a = lon[:scans*2:2, np.newaxis, :-1, np.newaxis]
-    # lon_b = lon[:scans*2:2, np.newaxis, 1:, np.newaxis]
-    # lon_c = lon[1:scans*2:2, np.newaxis, 1:, np.newaxis]
-    # lon_d = lon[1:scans*2:2, np.newaxis, :-1, np.newaxis]
-    # lat_a = lat[:scans*2:2, np.newaxis, :-1, np.newaxis]
-    # lat_b = lat[:scans*2:2, np.newaxis, 1:, np.newaxis]
-    # lat_c = lat[1:scans*2:2, np.newaxis, 1:, np.newaxis]
-    # lat_d = lat[1:scans*2:2, np.newaxis, :-1, np.newaxis]
+    # FIXME: this supposes there is only one tiepoint zone in the track direction
+    scan_size = h5f["All_Data/VIIRS-"+channel+"-SDR_All"].attrs["TiePointZoneSizeTrack"][0]
+    track_offset = h5f["All_Data/VIIRS-"+channel+"-SDR_All"].attrs["PixelOffsetTrack"]
+    scan_offset = h5f["All_Data/VIIRS-"+channel+"-SDR_All"].attrs["PixelOffsetScan"]
 
-    # flon = ((1 - a_track) * ((1 - a_scan) * lon_a + a_scan * lon_b) +
-    #         a_track * ((1 - a_scan) * lon_d + a_scan * lon_c))
-    # flat = ((1 - a_track) * ((1 - a_scan) * lat_a + a_scan * lat_b) +
-    #         a_track * ((1 - a_scan) * lat_d + a_scan * lat_c))
-    # return flon.reshape(scans*16, 3200), flat.reshape(scans*16, 3200)
+    try:
+        group_locations = h5f["All_Data/VIIRS-"+chtype+"-GEO_All/TiePointZoneGroupLocationScanCompact"].value
+    except KeyError:
+        group_locations = [0]
+    param_start = 0
+    for tpz_size, nb_tpz, start in zip(h5f["All_Data/VIIRS-"+channel+"-SDR_All"].attrs["TiePointZoneSizeScan"],
+                                       h5f["All_Data/VIIRS-"+chtype+"-GEO_All/NumberOfTiePointZonesScan"].value,
+                                       group_locations):
+        lon = all_lon[:, start:start + nb_tpz + 1]
+        lat = all_lat[:, start:start + nb_tpz + 1]
+        c_align = all_c_align[:, :, param_start:param_start + nb_tpz, :]
+        c_exp = all_c_exp[:, :, param_start:param_start + nb_tpz, :]
+        param_start += nb_tpz
+        nties = nb_tpz
+        if (np.max(lon) - np.min(lon) > 90) or (np.max(abs(lat)) > 60):
+            x, y, z = lonlat2xyz(lon, lat)
+            x, y, z = (expand_array(x, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset),
+                       expand_array(y, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset),
+                       expand_array(z, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset))
+            res.append(xyz2lonlat(x, y, z))
+        else:
+            res.append(expand_array(lon, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset),
+                       expand_array(lat, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset))
+    lons, lats = zip(*res)
+    return np.hstack(lons), np.hstack(lats)
 
 if __name__ == '__main__':
     #filename = "/local_disk/data/satellite/polar/compact_viirs/SVMC_npp_d20140114_t1245125_e1246367_b11480_c20140114125427496143_eum_ops.h5"
