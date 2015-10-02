@@ -49,7 +49,7 @@ def load(satscene, *args, **kwargs):
     files_to_delete = []
 
     filename = kwargs.get("filename")
-    logger.debug("reading " + str(filename))
+    logger.debug("reading %s", str(filename))
     if filename is not None:
         if isinstance(filename, (list, set, tuple)):
             files = filename
@@ -127,29 +127,73 @@ def load(satscene, *args, **kwargs):
     except ValueError:
         return
 
-    datas = []
-    lonlats = []
+    m_chans = []
+    dnb_chan = []
+    for chn in satscene.channels_to_load:
+        if chn.startswith('M'):
+            m_chans.append(chn)
+        if chn.startswith('DNB'):
+            dnb_chan.append(chn)
+
+    m_datas = []
+    m_lonlats = []
+    dnb_datas = []
+    dnb_lonlats = []
 
     for fname in files_to_load:
+        logger.debug("Reading %s", fname)
         h5f = h5py.File(fname, "r")
-        arr, units = read(h5f, chans)
-        datas.append(arr)
-        lonlats.append(navigate(h5f))
+        if m_chans and "SVDNBC" not in os.path.split(fname)[-1]:
+            try:
+                arr, m_units = read(h5f, m_chans)
+                m_datas.append(arr)
+                m_lonlats.append(navigate(h5f, m_chans[0]))
+            except KeyError:
+                pass
+        if dnb_chan:
+            try:
+                arr, dnb_units = read(h5f, dnb_chan)
+                dnb_datas.append(arr)
+                dnb_lonlats.append(navigate(h5f, 'DNB'))
+            except KeyError:
+                pass
         h5f.close()
 
-    lons = np.ma.vstack([lonlat[0] for lonlat in lonlats])
-    lats = np.ma.vstack([lonlat[1] for lonlat in lonlats])
+    if m_chans:
+        m_lons = np.ma.vstack([lonlat[0] for lonlat in m_lonlats])
+        m_lats = np.ma.vstack([lonlat[1] for lonlat in m_lonlats])
+    if dnb_chan:
+        dnb_lons = np.ma.vstack([lonlat[0] for lonlat in dnb_lonlats])
+        dnb_lats = np.ma.vstack([lonlat[1] for lonlat in dnb_lonlats])
 
-    for nb, chn in enumerate(channels_to_load):
-        data = np.ma.vstack([dat[nb] for dat in datas])
-        satscene[chn] = data
-        satscene[chn].info["units"] = units[nb]
-
-    area_def = SwathDefinition(np.ma.masked_where(data.mask, lons),
-                               np.ma.masked_where(data.mask, lats))
-
+    m_i = 0
+    dnb_i = 0
     for chn in channels_to_load:
-        satscene[chn].area = area_def
+        if chn.startswith('M'):
+            m_data = np.ma.vstack([dat[m_i] for dat in m_datas])
+            satscene[chn] = m_data
+            satscene[chn].info["units"] = m_units[m_i]
+            m_i += 1
+        if chn.startswith('DNB'):
+            dnb_data = np.ma.vstack([dat[dnb_i] for dat in dnb_datas])
+            satscene[chn] = dnb_data
+            satscene[chn].info["units"] = dnb_units[dnb_i]
+            dnb_i += 1
+
+    if m_chans:
+        m_area_def = SwathDefinition(np.ma.masked_where(m_data.mask, m_lons),
+                                     np.ma.masked_where(m_data.mask, m_lats))
+    if dnb_chan:
+        dnb_area_def = SwathDefinition(np.ma.masked_where(dnb_data.mask,
+                                                          dnb_lons),
+                                       np.ma.masked_where(dnb_data.mask,
+                                                          dnb_lats))
+
+    for chn in m_chans:
+        satscene[chn].area = m_area_def
+
+    for chn in dnb_chan:
+        satscene[chn].area = dnb_area_def
 
     for fname in files_to_delete:
         if os.path.exists(fname):
@@ -168,11 +212,16 @@ def read(h5f, channels, calibrate=1):
 
     for channel in channels:
         rads = h5f["All_Data"][chan_dict[channel]]["Radiance"]
-        arr = np.ma.masked_greater(rads[:scans * 16, :], 65526)
-        arr = np.ma.where(arr <= rads.attrs['Threshold'],
-                          arr * rads.attrs['RadianceScaleLow'] +
-                          rads.attrs['RadianceOffsetLow'],
-                          arr * rads.attrs['RadianceScaleHigh'] + rads.attrs['RadianceOffsetHigh'],)
+        arr = np.ma.masked_greater(rads[:scans * 16, :].astype(np.float32),
+                                   65526)
+        try:
+            arr = np.ma.where(arr <= rads.attrs['Threshold'],
+                              arr * rads.attrs['RadianceScaleLow'] +
+                              rads.attrs['RadianceOffsetLow'],
+                              arr * rads.attrs['RadianceScaleHigh'] + \
+                              rads.attrs['RadianceOffsetHigh'],)
+        except KeyError:
+            pass
         unit = "W m-2 sr-1 μm-1"
         if calibrate == 0:
             raise NotImplementedError("Can't get counts from this data")
@@ -185,20 +234,27 @@ def read(h5f, channels, calibrate=1):
                 arr *= 100 * np.pi * a_vis / b_vis * (dse ** 2)
                 unit = "%"
             except KeyError:
-                a_ir = rads.attrs['BandCorrectionCoefficientA']
-                b_ir = rads.attrs['BandCorrectionCoefficientB']
-                lambda_c = rads.attrs['CentralWaveLength']
-                arr *= 1e6
-                arr = (h * c) / (k * lambda_c * np.log(1 +
-                                                       (2 * h * c ** 2) /
-                                                       ((lambda_c ** 5) * arr)))
-                arr *= a_ir
-                arr += b_ir
-                unit = "K"
+                try:
+                    a_ir = rads.attrs['BandCorrectionCoefficientA']
+                    b_ir = rads.attrs['BandCorrectionCoefficientB']
+                    lambda_c = rads.attrs['CentralWaveLength']
+                    arr *= 1e6
+                    arr = (h * c) / (k * lambda_c * \
+                                     np.log(1 +
+                                            (2 * h * c ** 2) /
+                                            ((lambda_c ** 5) * arr)))
+                    arr *= a_ir
+                    arr += b_ir
+                    unit = "K"
+                except KeyError:
+                    logger.debug("Assuming DNB channel, "
+                                 "keeping radiance values.")
         elif calibrate != 2:
             raise ValueError("Calibrate parameter should be 1 or 2")
+        arr[arr < 0] = 0
         res.append(arr)
         units.append(unit)
+
     return res, units
 
 
@@ -281,8 +337,8 @@ def navigate(h5f, channel):
                        expand_array(z, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset))
             res.append(xyz2lonlat(x, y, z))
         else:
-            res.append(expand_array(lon, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset),
-                       expand_array(lat, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset))
+            res.append((expand_array(lon, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset),
+                       expand_array(lat, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset)))
     lons, lats = zip(*res)
     return np.hstack(lons), np.hstack(lats)
 
