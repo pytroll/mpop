@@ -11,6 +11,13 @@ filename1000 = MYD021km_A%Y%m%d_%H%M%S_*.hdf
 
 geofile1000 = MYD03_A%Y%m%d_%H%M%S_*.hdf
 
+[modis-level3]
+format = nc_pps_l2.PPSReader
+cloud_product_filename = S_NWC_%(product)s_eos2_%(orbit)s_*.nc
+cloud_product_dir = /path/to/pps/output
+cloud_product_geofilename = S_NWC_CMA_eos2_%(orbit)s_*.nc
+geolocation_product_name = CMA
+
 
 [modis-1]
 name = '1'
