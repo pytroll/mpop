@@ -182,13 +182,13 @@ class HDF5MetaData(object):
         return self
 
     def _collect_attrs(self, name, attrs):
-        for key, value in attrs.iteritems():
-            # Throws a TypeError if key=DIMESNION_LIST
-            # Observed at FMI (Panu) - maybe hdf5 specific?
-            # FIXME!
+        for key in attrs.keys():
+            # Throws a TypeError if key==DIMENSION_LIST and the value
+            # is accessed
+            # Observed at FMI (Panu) - maybe hdf5 version specific?
             if key in ['DIMENSION_LIST']:
                 continue
-            value = np.squeeze(value)
+            value = np.squeeze(attrs[key])
             if issubclass(value.dtype.type, str):
                 self.metadata["%s/attr/%s" % (name, key)] = str(value)
             else:
