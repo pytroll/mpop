@@ -183,6 +183,11 @@ class HDF5MetaData(object):
 
     def _collect_attrs(self, name, attrs):
         for key, value in attrs.iteritems():
+            # Throws a TypeError if key=DIMESNION_LIST
+            # Observed at FMI (Panu) - maybe hdf5 specific?
+            # FIXME!
+            if key in ['DIMENSION_LIST']:
+                continue
             value = np.squeeze(value)
             if issubclass(value.dtype.type, str):
                 self.metadata["%s/attr/%s" % (name, key)] = str(value)
@@ -743,9 +748,9 @@ class PPSReader(Reader):
         # W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,METOPB+CTTH_C_EUMS_20150916121900_15540.nc.bz2
 
         p_local = Parser(
-            'S_NWC_{product:s}_{satid:s}_{orbit:5d}_{starttime:%Y%m%dT%H%M%S}{dummy:1d}Z_{starttime:%Y%m%dT%H%M%S}{dummy2:1d}Z.nc')
+            'S_NWC_{product:s}_{satid:s}_{orbit:5d}_{starttime:%Y%m%dT%H%M%S}{dummy:1d}Z_{starttime:%Y%m%dT%H%M%S}{dummy2:1d}Z')
         p_ears = Parser(
-            'W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{satid:s}+{product:s}_C_EUMS_{starttime:%Y%m%d%H%M%S}_{orbit:5d}.nc')
+            'W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{satid:s}+{product:s}_C_EUMS_{starttime:%Y%m%d%H%M%S}_{orbit:5d}')
 
         # If a list of files are provided to the load call, we disregard the
         # direcorty and filename specifications/definitions in the config file.
@@ -775,7 +780,7 @@ class PPSReader(Reader):
                     continue
 
                 data = p__.parse(
-                    os.path.basename(fname).split('.nc')[0] + '.nc')
+                    os.path.basename(fname).split('.nc')[0])
                 prodname = data['product']
                 if geolocation_product_name and prodname == geolocation_product_name:
                     geofile_list.append(fname)
