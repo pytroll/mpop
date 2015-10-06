@@ -511,7 +511,7 @@ class PPSProductData(object):
         self._read_metadata()
 
         for key in self.raw_data:
-            LOG.debug("Shape of data: " + str(self.raw_data[key].shape))
+            LOG.debug("Shape of data: %s", str(self.raw_data[key].shape))
             break
 
         self._read_data()
@@ -520,7 +520,7 @@ class PPSProductData(object):
 
     def _read_metadata(self):
 
-        LOG.debug("Filenames: " + str(self.filenames))
+        LOG.debug("Filenames: %s", str(self.filenames))
 
         swath_length = 0
         swath_width = None
@@ -629,7 +629,7 @@ class PPSProductData(object):
 
                 data = var[:]
                 if len(data.shape) == 3 and data.shape[0] == 1:
-                    LOG.debug("Rip off the first dimension of length 1")
+                    #LOG.debug("Rip off the first dimension of length 1")
                     data = data[0]
 
                 if 'valid_range' in var.attrs.keys():
@@ -637,8 +637,12 @@ class PPSProductData(object):
                         data, *var.attrs['valid_range'])
                 elif '_FillValue' in var.attrs.keys():
                     data = np.ma.masked_where(data, var.attrs['_FillValue'])
-                dataset = (data * var.attrs.get("scale_factor", 1)
-                           + var.attrs.get("add_offset", 0))
+                if "scale_factor" in var.attrs.keys() and \
+                   "add_offset" in var.attrs.keys():
+                    dataset = (data * var.attrs.get("scale_factor", 1)
+                               + var.attrs.get("add_offset", 0))
+                else:
+                    dataset = data.copy()
 
                 fields[var_name] = dataset
 
@@ -724,16 +728,6 @@ class PPSReader(Reader):
                                                 vars=os.environ)
         except NoOptionError:
             geolocation_product_name = None
-
-        geoname_tmpl = conf.get(satscene.instrument_name + "-level3",
-                                "cloud_product_geofilename",
-                                raw=True,
-                                vars=os.environ)
-        filename_tmpl = satscene.time_slot.strftime(geoname_tmpl) % \
-            {"orbit": str(satscene.orbit).zfill(5) or "*",
-             "area": area_name,
-             "satellite": satscene.satname +
-             satscene.number}
 
         LOG.info("Products to load: %s", str(products))
         # Make the list of files for the products requested:
