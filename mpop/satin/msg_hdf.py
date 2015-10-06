@@ -1599,7 +1599,8 @@ def load(scene, **kwargs):
             pname = 'CloudType_plax'
             number = '02'
         else:
-            raise UnknownChannelError('Channel ' + str(chan) + ' not known!')
+            LOG.info('Channel ' + str(chan) + ' not known by this reader!')
+            continue
 
         if not full_filename:
             filename = (scene.time_slot.strftime(pathname)
