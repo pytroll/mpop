@@ -5,7 +5,7 @@
 
 # Author(s):
 
-#   Adam.Dybbroe <a000680@c14526.ad.smhi.se>
+#   Adam.Dybbroe <adam.dybbroe@smhi.se>
 #   Panu Lahtinen <panu.lahtinen@fmi.fi>
 
 # This program is free software: you can redistribute it and/or modify
@@ -23,6 +23,7 @@
 
 """PPS netcdf cloud product reader
 """
+import pdb
 
 import os.path
 from ConfigParser import ConfigParser
@@ -42,6 +43,7 @@ LOG = logging.getLogger(__name__)
 
 
 class InconsistentDataDimensions(Exception):
+
     """Exception for inconsistent dimensions in the data"""
     pass
 
@@ -71,6 +73,7 @@ def unzip_file(filename):
 
 
 class GeolocationFlyweight(object):
+
     """Flyweight-thingy for geolocation:
     http://yloiseau.net/articles/DesignPatterns/flyweight/
     """
@@ -96,7 +99,9 @@ class GeolocationFlyweight(object):
 
 #@GeolocationFlyweight
 class PpsGeolocationData(object):
+
     '''Class for holding PPS geolocation data'''
+
     def __init__(self, shape, granule_lengths, filenames):
         self.filenames = filenames
         self.shape = shape
@@ -402,7 +407,9 @@ class InfoObject(object):
 
 
 class NwcSafPpsChannel(mpop.channel.GenericChannel):
+
     """Class for NWC-SAF PPS channel data"""
+
     def __init__(self):
         mpop.channel.GenericChannel.__init__(self)
         self.mda = {}
@@ -649,7 +656,8 @@ class PPSProductData(object):
                     data = data[0]
 
                 if 'valid_range' in var.attrs.keys():
-                    data = np.ma.masked_outside(data, *var.attrs['valid_range'])
+                    data = np.ma.masked_outside(
+                        data, *var.attrs['valid_range'])
                 elif '_FillValue' in var.attrs.keys():
                     data = np.ma.masked_where(data, var.attrs['_FillValue'])
                 if "scale_factor" in var.attrs.keys() and \
@@ -704,6 +712,7 @@ EARS_PPS_FILE_MASK = 'W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{satid:s}+' + \
                      '{product:s}_C_EUMS_{starttime:%Y%m%d%H%M%S}_' + \
                      '{orbit:5d}.nc{compression:s}'
 
+
 class PPSReader(Reader):
 
     """Reader class for PPS files"""
@@ -722,7 +731,6 @@ class PPSReader(Reader):
         # Name of the product having geolocation for 'local' products
         self._geolocation_product_name = None
 
-
     def _read_config(self, sat_name, instrument_name):
         '''Read config for the satellite'''
 
@@ -737,9 +745,9 @@ class PPSReader(Reader):
         try:
             self._cloud_product_geodir = \
                 self._config.get(instrument_name + "-level3",
-                                "cloud_product_geodir",
-                                raw=True,
-                                vars=os.environ)
+                                 "cloud_product_geodir",
+                                 raw=True,
+                                 vars=os.environ)
         except NoOptionError:
             pass
 
@@ -756,6 +764,102 @@ class PPSReader(Reader):
                 LOG.warning("No geolocation product name given in config, "
                             "using default: %s", GEO_PRODUCT_NAME_DEFAULT)
                 self._geolocation_product_name = GEO_PRODUCT_NAME_DEFAULT
+
+    def _determine_prod_and_geo_files(self, prodfilenames):
+        """From the list of product files and the products to load determine the
+        product files and the geolocation files that will be considered when
+        reading the data
+
+        """
+
+        # geofiles4product is a dict listing all geo-locations files applicable
+        # for each product.
+        # prodfiles4product is a dict listing all product files for a given
+        # product name
+
+        prodfiles4product = {}
+        geofiles4product = {}
+        if prodfilenames:
+            if not isinstance(prodfilenames, (list, set, tuple)):
+                prodfilenames = [prodfilenames]
+            for fname in prodfilenames:
+                # Only standard NWCSAF/PPS and EARS-NWC naming accepted!
+                if (os.path.basename(fname).startswith("S_NWC") or
+                        os.path.basename(fname).startswith("W_XX-EUMETSAT")):
+                    if not self._parser:
+                        if os.path.basename(fname).startswith("S_NWC"):
+                            self._source = 'local'
+                            self._parser = Parser(LOCAL_PPS_FILE_MASK)
+                        else:
+                            self._source = 'ears'
+                            self._parser = Parser(EARS_PPS_FILE_MASK)
+                else:
+                    LOG.info("Unrecognized NWCSAF/PPS file: %s", fname)
+                    continue
+
+                parse_info = self._parser.parse(os.path.basename(fname))
+                prodname = parse_info['product']
+
+                if prodname not in prodfiles4product:
+                    prodfiles4product[prodname] = []
+
+                prodfiles4product[prodname].append(fname)
+
+            # Assemble geolocation information
+            if self._source == 'ears':
+                # For EARS data, the files have geolocation in themselves
+                for prodname, fnames in prodfiles4product.iteritems():
+                    geofiles4product[prodname] = fnames
+            else:
+                # For locally processed data, use the geolocation from
+                # the product defined in config
+
+                if self._geolocation_product_name in prodfiles4product:
+                    for prodname in prodfiles4product.keys():
+                        geofiles4product[prodname] = \
+                            prodfiles4product[self._geolocation_product_name]
+                else:
+                    # If the product files with geolocation are not used,
+                    # assume that they are still available on the disk.
+
+                    if self._cloud_product_geodir is None:
+                        LOG.error("Config option 'cloud_product_geodir' is not "
+                                  "available! Assuming same directory as "
+                                  "products.")
+                    for prodname in prodfiles4product.keys():
+                        geofiles4product[prodname] = []
+                        for fname in prodfiles4product[prodname]:
+                            directory = self._cloud_product_geodir or \
+                                os.path.abspath(fname)
+                            parse_info = \
+                                self._parser.parse(os.path.basename(fname))
+                            fname = fname.replace(parse_info['product'],
+                                                  self._geolocation_product_name)
+                            fname = os.path.join(directory, fname)
+                            geofiles4product[prodname].append(fname)
+
+            # Check that each product file has a corresponding geolocation
+            # file:
+            '''
+            if self._geolocation_product_name:
+                for prod in products:
+                    if prod not in geofiles4product:
+                        LOG.error("No product name %s in dict "
+                                  "geofiles4product!",
+                                  prod)
+                        continue
+                    if prod not in prodfiles4product:
+                        LOG.error("No product name %s in dict "
+                                  "prodfiles4product!",
+                                  prod)
+                        continue
+                    if len(geofiles4product[prod]) != \
+                       len(prodfiles4product[prod]):
+                        LOG.error("Mismatch in number of product files and "
+                                  "matching geolocation files!")
+            '''
+
+        return prodfiles4product, geofiles4product
 
     def load(self, satscene, **kwargs):
         """Read data from file and load it into *satscene*.
@@ -794,94 +898,10 @@ class PPSReader(Reader):
 
         LOG.debug("Product files: %s", str(prodfilenames))
 
-        prodfiles4product = {}
-        prodfile_list = []
-        if prodfilenames:
-            if not isinstance(prodfilenames, (list, set, tuple)):
-                prodfilenames = [prodfilenames]
-            for fname in prodfilenames:
-                # Only standard NWCSAF/PPS and EARS-NWC naming accepted!
-                if (os.path.basename(fname).startswith("S_NWC") or
-                    os.path.basename(fname).startswith("W_XX-EUMETSAT")):
-                    if not self._parser:
-                        if os.path.basename(fname).startswith("S_NWC"):
-                            self._source = 'ears'
-                            self._parser = Parser(LOCAL_PPS_FILE_MASK)
-                        else:
-                            self._source = 'local'
-                            self._parser = Parser(EARS_PPS_FILE_MASK)
-                    prodfile_list.append(fname)
-                else:
-                    LOG.info("Unrecognized NWCSAF/PPS file: %s", fname)
-                    continue
+        retv = self._determine_prod_and_geo_files(prodfilenames)
+        prodfiles4product, geofiles4product = retv
 
-                parse_info = self._parser.parse(os.path.basename(fname))
-                prodname = parse_info['product']
-
-                if prodname not in prodfiles4product:
-                    prodfiles4product[prodname] = []
-
-                prodfiles4product[prodname].append(fname)
-
-            # Assemble geolocation information
-            geofiles4product = {}
-            if self._source == 'ears':
-                # For EARS data, the files have geolocation in themselves
-                for prodname, fnames in prodfiles4product.iterkeys():
-                    geofiles4product[prodname] = fnames
-            else:
-                # For locally processed data, use the geolocation from
-                # the product defined in config
-
-                if self._geolocation_product_name in prodfiles4product:
-                    for prodname in prodfiles4product.keys():
-                        geofiles4product[prodname] = \
-                            prodfiles4product[self._geolocation_product_name]
-                else:
-                    # If the product files with geolocation are not used,
-                    # assume that they are still available on the disk.
-
-                    if self._cloud_product_geodir is None:
-                        LOG.error("Config option 'cloud_product_geodir' is not "
-                                  "available! Assuming same directory as "
-                                  "products.")
-
-                    for prodname in prodfiles4product.keys():
-                        geofiles4product[prodname] = []
-                        for fname in prodfiles4product[prodname]:
-                            directory = self._cloud_product_geodir or \
-                                        os.path.abspath(fname)
-                            parse_info = \
-                                self._parser.parse(os.path.basename(fname))
-                            fname = fname.replace(prodname,
-                                                  parse_info['product'])
-                            fname = os.path.join(directory, fname)
-                            geofiles4product[prodname].append(fname)
-
-            # Check that each product file has a corresponding geolocation
-            # file:
-            '''
-            if self._geolocation_product_name:
-                for prod in products:
-                    if prod not in geofiles4product:
-                        LOG.error("No product name %s in dict "
-                                  "geofiles4product!",
-                                  prod)
-                        continue
-                    if prod not in prodfiles4product:
-                        LOG.error("No product name %s in dict "
-                                  "prodfiles4product!",
-                                  prod)
-                        continue
-                    if len(geofiles4product[prod]) != \
-                       len(prodfiles4product[prod]):
-                        LOG.error("Mismatch in number of product files and "
-                                  "matching geolocation files!")
-            '''
-        # geofiles4product is a dict listing all geo-locations files applicable
-        # for each product.
-        # prodfiles4product is a dict listing all product files for a given
-        # product name
+        pdb.set_trace()
 
         # Reading the products
         classes = {"CTTH": CloudTopTemperatureHeight,
@@ -1060,6 +1080,7 @@ def get_lonlat_into(filename, out_lons, out_lats, out_mask):
     h5f.close()
     if unzipped:
         os.remove(unzipped)
+
 
 def globify_date(filename):
     """Replace date formats with single character wildcards"""
