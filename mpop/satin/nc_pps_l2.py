@@ -805,10 +805,10 @@ class PPSReader(Reader):
                     os.path.basename(fname).startswith("W_XX-EUMETSAT")):
                     if not self._parser:
                         if os.path.basename(fname).startswith("S_NWC"):
-                            self._source = 'ears'
+                            self._source = 'local'
                             self._parser = Parser(LOCAL_PPS_FILE_MASK)
                         else:
-                            self._source = 'local'
+                            self._source = 'ears'
                             self._parser = Parser(EARS_PPS_FILE_MASK)
                     prodfile_list.append(fname)
                 else:
@@ -827,8 +827,8 @@ class PPSReader(Reader):
             geofiles4product = {}
             if self._source == 'ears':
                 # For EARS data, the files have geolocation in themselves
-                for prodname, fnames in prodfiles4product.iterkeys():
-                    geofiles4product[prodname] = fnames
+                for prodname in prodfiles4product.keys():
+                    geofiles4product[prodname] = prodfiles4product[prodname]
             else:
                 # For locally processed data, use the geolocation from
                 # the product defined in config
@@ -851,10 +851,9 @@ class PPSReader(Reader):
                         for fname in prodfiles4product[prodname]:
                             directory = self._cloud_product_geodir or \
                                         os.path.abspath(fname)
-                            parse_info = \
-                                self._parser.parse(os.path.basename(fname))
-                            fname = fname.replace(prodname,
-                                                  parse_info['product'])
+                            fname = \
+                                fname.replace(prodname,
+                                              self._geolocation_product_name)
                             fname = os.path.join(directory, fname)
                             geofiles4product[prodname].append(fname)
 
