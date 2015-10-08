@@ -185,6 +185,8 @@ class HDF5MetaData(object):
             # Throws a TypeError if key==DIMENSION_LIST and the value
             # is accessed
             # Observed at FMI (Panu) - maybe hdf5 version specific?
+            # Should preferably be handled elsewhere and not in this generic class
+            # FIXME!
             if key in ['DIMENSION_LIST']:
                 continue
             value = np.squeeze(attrs[key])
