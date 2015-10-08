@@ -28,14 +28,11 @@ import os.path
 from ConfigParser import ConfigParser
 from ConfigParser import NoOptionError
 from glob import glob
-
-from datetime import datetime, timedelta
+from datetime import datetime
 import numpy as np
 import h5py
+
 from trollsift import Parser
-
-TEPSILON = timedelta(seconds=1)
-
 import mpop.channel
 from mpop import CONFIG_PATH
 from mpop.plugin_base import Reader
@@ -45,6 +42,7 @@ LOG = logging.getLogger(__name__)
 
 
 class InconsistentDataDimensions(Exception):
+    """Exception for inconsistent dimensions in the data"""
     pass
 
 
@@ -71,12 +69,11 @@ def unzip_file(filename):
 
     return None
 
-#
-#
-# http://yloiseau.net/articles/DesignPatterns/flyweight/
-
 
 class GeolocationFlyweight(object):
+    """Flyweight-thingy for geolocation:
+    http://yloiseau.net/articles/DesignPatterns/flyweight/
+    """
 
     def __init__(self, cls):
         self._cls = cls
@@ -92,13 +89,14 @@ class GeolocationFlyweight(object):
                                           self._cls(*args, **kargs))
 
     def clear_cache(self):
+        """Clear cache"""
         del self._instances
         self._instances = dict()
 
 
 #@GeolocationFlyweight
 class PpsGeolocationData(object):
-
+    '''Class for holding PPS geolocation data'''
     def __init__(self, shape, granule_lengths, filenames):
         self.filenames = filenames
         self.shape = shape
@@ -143,7 +141,7 @@ class PpsGeolocationData(object):
                                      mask=self.mask,
                                      copy=False)
 
-        LOG.debug("Geolocation read in for... " + str(self))
+        LOG.debug("Geolocation read in for %s", str(self))
         return self
 
 
@@ -166,7 +164,7 @@ class HDF5MetaData(object):
             raise IOError("File %s does not exist!" % filename)
 
     def read(self):
-
+        """Read the metadata"""
         filename = self.filename
         unzipped = unzip_file(filename)
         if unzipped:
@@ -182,6 +180,7 @@ class HDF5MetaData(object):
         return self
 
     def _collect_attrs(self, name, attrs):
+        """Collect atributes"""
         for key in attrs.keys():
             # Throws a TypeError if key==DIMENSION_LIST and the value
             # is accessed
@@ -195,6 +194,7 @@ class HDF5MetaData(object):
                 self.metadata["%s/attr/%s" % (name, key)] = value
 
     def collect_metadata(self, name, obj):
+        """Collect metadata"""
         if isinstance(obj, h5py.Dataset):
             self.metadata["%s/shape" % name] = obj.shape
         self._collect_attrs(name, obj.attrs)
@@ -211,10 +211,11 @@ class HDF5MetaData(object):
         return self.metadata[long_key]
 
     def keys(self):
+        """Return metadata dictionary keys"""
         return self.metadata.keys()
 
     def get_data_keys(self):
-
+        """Get data keys from the metadata"""
         data_keys = []
         for key in self.metadata.keys():
             if key.endswith("/shape"):
@@ -223,7 +224,7 @@ class HDF5MetaData(object):
         return data_keys
 
     def get_data_keys_and_shapes(self):
-
+        """Get data keys and array shapes from the metadata"""
         data_keys = {}
         for key in self.metadata.keys():
             if key.endswith("/shape"):
@@ -236,20 +237,22 @@ class HDF5MetaData(object):
 
 class PPSMetaData(HDF5MetaData):
 
-    def get_shape(self):
+    """Class for holding PPS metadata"""
 
-        nx = 0
-        ny = 0
+    def get_shape(self):
+        """Get array shapes from metadata"""
+        n_x = 0
+        n_y = 0
         for key in self.metadata:
             if key.endswith('nx/shape'):
-                nx = self.metadata[key][0]
+                n_x = self.metadata[key][0]
             if key.endswith('ny/shape'):
-                ny = self.metadata[key][0]
+                n_y = self.metadata[key][0]
 
-        return nx, ny
+        return n_x, n_y
 
     def get_header_info(self):
-
+        """Get platform name, orbit number and time slot as dictionary"""
         info = {}
         for key in self.metadata:
             if key.endswith('platform'):
@@ -262,21 +265,19 @@ class PPSMetaData(HDF5MetaData):
         return info
 
     def get_dataset_attributes(self, var_name):
-
+        """Get dataset attributes"""
         retv = {}
         for key in self.metadata:
             if key.split('/')[0] == var_name and key.find('attr') > 0:
                 dictkey = key.split('/')[-1]
                 if dictkey in ['DIMENSION_LIST']:
                     continue
-                # LOG.debug("var_name, full-key, key, value: %s %s %s %s",
-                #          var_name, key, dictkey, self.metadata[key])
                 retv[dictkey] = self.metadata[key]
 
         return retv
 
     def get_root_attributes(self):
-
+        """Get attributes of the root directory"""
         retv = {}
         for key in self.metadata:
             if key.startswith('//attr'):
@@ -286,7 +287,7 @@ class PPSMetaData(HDF5MetaData):
         return retv
 
 
-def get_filenames(scene, products, conf, starttime, endtime, area_name):
+def get_filenames(scene, products, conf, time_interval, area_name):
     """Get list of filenames within time interval"""
 
     filename = conf.get(scene.instrument_name + "-level3",
@@ -297,6 +298,8 @@ def get_filenames(scene, products, conf, starttime, endtime, area_name):
                          "cloud_product_dir",
                          vars=os.environ)
     pathname_tmpl = os.path.join(directory, filename)
+
+    starttime, endtime = time_interval
 
     if not scene.orbit:
         orbit = ""
@@ -313,8 +316,9 @@ def get_filenames(scene, products, conf, starttime, endtime, area_name):
             # Okay, we need to check for more than one granule/swath!
             # First get all files with all times matching in directory:
             values["orbit"] = '?????'
-            filename_tmpl = os.path.join(
-                directory, globify(filename)) % values
+            filename_tmpl = os.path.join(directory,
+                                         globify_date(filename % values))
+            # % values
 
         else:
             values["orbit"] = str(orbit).zfill(5) or "*"
@@ -334,8 +338,8 @@ def get_filenames(scene, products, conf, starttime, endtime, area_name):
                 file_list, starttime, endtime)
 
         if len(file_list) == 0:
-            LOG.warning(
-                "No files found matching time window for product %s", product)
+            LOG.warning("No files found matching time window for product %s",
+                        product)
 
         flist_allproducts = flist_allproducts + file_list
 
@@ -344,28 +348,30 @@ def get_filenames(scene, products, conf, starttime, endtime, area_name):
 
 def extract_filenames_in_time_window(file_list, starttime, endtime):
     """Extract the filenames with time inside the time interval specified.
-    NB! Only supports EARS-NWC granules. This does not support assembling 
+    NB! Only supports EARS-NWC granules. This does not support assembling
     several locally received full swaths"""
 
     # New filenames:
     # Ex.:
-    # W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,NOAA19+CT_C_EUMS_20150819124700_33643.nc.bz2
-    pnew = Parser(
-        "W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{platform_name:s}+{product:s}_C_EUMS_{starttime:%Y%m%d%H%M}00_{orbit:05d}")
+    # W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,NOAA19+CT_C_EUMS_20150819124700_\
+    #  33643.nc.bz2
+    pnew = Parser("W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{platform_name:s}+"
+                  "{product:s}_C_EUMS_{starttime:%Y%m%d%H%M}00_{orbit:05d}.nc"
+                  "{compression:s}")
     # Old filenames:
     # Ex.:
     # ctth_20130910_205300_metopb.h5.bz2
-    pold = Parser(
-        "{product:s}_{starttime:%Y%m%d_%H%M}00_{platform_name:s}")
+    pold = Parser("{product:s}_{starttime:%Y%m%d_%H%M}00_{platform_name:s}.h5"
+                  "{compression:s}")
 
     valid_filenames = []
     valid_times = []
-    LOG.debug("Time Window: (%s, %s)", str(starttime), str(endtime))
+    LOG.debug("Time window: (%s, %s)", str(starttime), str(endtime))
     for fname in file_list:
         try:
-            data = pnew.parse(os.path.basename(fname).split('.nc')[0])
+            data = pnew.parse(os.path.basename(fname))
         except ValueError:
-            data = pold.parse(os.path.basename(fname).split('.h5')[0])
+            data = pold.parse(os.path.basename(fname))
 
         if (data['starttime'] >= starttime and
                 data['starttime'] < endtime):
@@ -373,8 +379,6 @@ def extract_filenames_in_time_window(file_list, starttime, endtime):
             valid_times.append(data['starttime'])
             LOG.debug("Start time %s inside window", str(data['starttime']))
         else:
-            # LOG.debug("Start time: %s outside (%s, %s)",
-            #          str(data['starttime']), str(starttime), str(endtime))
             pass
 
     # Can we rely on the files being sorted according to time?
@@ -396,7 +400,7 @@ class InfoObject(object):
 
 
 class NwcSafPpsChannel(mpop.channel.GenericChannel):
-
+    """Class for NWC-SAF PPS channel data"""
     def __init__(self):
         mpop.channel.GenericChannel.__init__(self)
         self.mda = {}
@@ -412,7 +416,7 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
         self.orbit_end = None
 
     def read(self, pps_product):
-        """Read the PPS v2014 formatet data"""
+        """Read the PPS v2014 formated data"""
 
         LOG.debug("Read the PPS product data...")
 
@@ -436,8 +440,9 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
             setattr(self, var_name, InfoObject())
             # Fill the info dict...
             getattr(self, var_name).info = mda.get_dataset_attributes(var_name)
-            getattr(self, var_name).data = np.ma.masked_array(pps_product.raw_data[var_name],
-                                                              mask=pps_product.mask[var_name])
+            getattr(self, var_name).data = \
+                np.ma.masked_array(pps_product.raw_data[var_name],
+                                   mask=pps_product.mask[var_name])
 
         return
 
@@ -463,8 +468,7 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
     def is_loaded(self):
         """Tells if the channel contains loaded data.
         """
-        return True
-        # return len(self._projectables) > 0
+        return len(self._projectables) > 0
 
     def save(self, filename, old=True, **kwargs):
         """Save to old format"""
@@ -523,40 +527,44 @@ class PPSProductData(object):
 
         return self
 
-    def _read_metadata(self):
+    def _set_members(self, hdd):
+        '''Set platform_name, time_slot and orbit class members'''
+        if not self.platform_name and 'platform_name' in hdd:
+            self.platform_name = hdd['platform_name']
+        if not self.begin_time and 'time_slot' in hdd:
+            self.begin_time = hdd['time_slot']
+        if 'time_slot' in hdd:
+            self.end_time = hdd['time_slot']
+        if not self.orbit_begin and 'orbit' in hdd:
+            self.orbit_begin = int(hdd['orbit'])
+        if 'orbit' in hdd:
+            self.orbit_end = int(hdd['orbit'])
 
+    def _read_metadata(self):
+        """Read metadata from all the files"""
         LOG.debug("Filenames: %s", str(self.filenames))
 
         swath_length = 0
         swath_width = None
         for fname in self.filenames:
-            LOG.debug("Get and append metadata from file: " + str(fname))
-            md = PPSMetaData(fname).read()
+            LOG.debug("Get and append metadata from file: %s", str(fname))
+            mda = PPSMetaData(fname).read()
             # Set the product_name variable:
             try:
-                self.product_name = md['product_name']
+                self.product_name = mda['product_name']
             except KeyError:
                 LOG.warning("No product_name in file!")
 
-            width, granule_length = md.get_shape()
-            hdd = md.get_header_info()
-            if not self.platform_name and 'platform_name' in hdd:
-                self.platform_name = hdd['platform_name']
-            if not self.begin_time and 'time_slot' in hdd:
-                self.begin_time = hdd['time_slot']
-            if 'time_slot' in hdd:
-                self.end_time = hdd['time_slot']
-            if not self.orbit_begin and 'orbit' in hdd:
-                self.orbit_begin = int(hdd['orbit'])
-            if 'orbit' in hdd:
-                self.orbit_end = int(hdd['orbit'])
+            width, granule_length = mda.get_shape()
+            hdd = mda.get_header_info()
+            self._set_members(hdd)
 
-            self.metadata.append(md)
+            self.metadata.append(mda)
             self.granule_lengths.append(granule_length)
 
             if swath_width:
                 if swath_width != width:
-                    raise InconsistentDataDimensions('swath_width not the same ' +
+                    raise InconsistentDataDimensions('swath_width not the same '
                                                      'between granules: %d %d',
                                                      swath_width, width)
 
@@ -565,8 +573,8 @@ class PPSProductData(object):
 
         # Take the first granule, and find what data fields it contains
         # and assume all granules have those same data fields:
-        md = self.metadata[0]
-        dks = md.get_data_keys_and_shapes()
+        mda = self.metadata[0]
+        dks = mda.get_data_keys_and_shapes()
 
         for key in dks:
             if key in ['lon', 'lat', 'lat_reduced', 'lon_reduced']:
@@ -588,17 +596,18 @@ class PPSProductData(object):
         self.shape = swath_length, swath_width
 
         for field in self.projectables:
-            dtype = md[field + '/attr/valid_range'].dtype
+            dtype = mda[field + '/attr/valid_range'].dtype
             self.raw_data[str(field)] = np.zeros(self.shape, dtype=dtype)
             self.mask[field] = np.zeros(self.shape, dtype=np.bool)
 
     def _read_data(self):
-        """Loop over all granules and read one granule at a time and 
+        """Loop over all granules and read one granule at a time and
         fill the data arrays"""
 
         LOG.debug("Read all %s product files...", self.product_name)
         swath_index = 0
-        for idx, md in enumerate(self.metadata):
+        for idx, mda in enumerate(self.metadata):
+            del mda
             filename = self.filenames[idx]
 
             unzipped = unzip_file(filename)
@@ -624,7 +633,8 @@ class PPSProductData(object):
                 var = variables[var_name]
                 if ("standard_name" not in var.attrs.keys() and
                         "long_name" not in var.attrs.keys()):
-                    LOG.warning("Data field %s is lacking both standard_name and long_name",
+                    LOG.warning("Data field %s is lacking both "
+                                "standard_name and long_name",
                                 var_name)
                     continue
 
@@ -634,12 +644,10 @@ class PPSProductData(object):
 
                 data = var[:]
                 if len(data.shape) == 3 and data.shape[0] == 1:
-                    #LOG.debug("Rip off the first dimension of length 1")
                     data = data[0]
 
                 if 'valid_range' in var.attrs.keys():
-                    data = np.ma.masked_outside(
-                        data, *var.attrs['valid_range'])
+                    data = np.ma.masked_outside(data, *var.attrs['valid_range'])
                 elif '_FillValue' in var.attrs.keys():
                     data = np.ma.masked_where(data, var.attrs['_FillValue'])
                 if "scale_factor" in var.attrs.keys() and \
@@ -677,13 +685,22 @@ class PPSProductData(object):
                     self.raw_data[key][y0_:y1_, :] = fields[key].data
                     self.mask[key][y0_:y1_, :] = fields[key].mask
                 except ValueError:
-                    LOG.exception('Mismatch in dimensions: y0_, y1_, ' +
+                    LOG.exception('Mismatch in dimensions: y0_, y1_, '
                                   'fields[key].data.shape: %s %s %s',
-                                  str(y0_), str(y1_), str(fields[key].data.shape))
+                                  str(y0_), str(y1_),
+                                  str(fields[key].data.shape))
                     raise
 
         return
 
+GEO_PRODUCT_NAME_DEFAULT = 'CMA'
+PPS_PRODUCTS = set(['CMA', 'CT', 'CTTH', 'PC', 'CPP'])
+LOCAL_PPS_FILE_MASK = 'S_NWC_{product:s}_{satid:s}_{orbit:5d}_' + \
+                      '{starttime:%Y%m%dT%H%M%S}{dummy:1d}Z_' + \
+                      '{starttime:%Y%m%dT%H%M%S}{dummy2:1d}Z.nc{compression:s}'
+EARS_PPS_FILE_MASK = 'W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{satid:s}+' + \
+                     '{product:s}_C_EUMS_{starttime:%Y%m%d%H%M%S}_' + \
+                     '{orbit:5d}.nc{compression:s}'
 
 class PPSReader(Reader):
 
@@ -692,6 +709,51 @@ class PPSReader(Reader):
 
     def __init__(self, *args, **kwargs):
         Reader.__init__(self, *args, **kwargs)
+        # Source of the data, 'local' or 'ears'
+        self._source = None
+        # Parser for getting info from the file names
+        self._parser = None
+        # Satellite config
+        self._config = None
+        # Location of geolocation files, required for 'local' products
+        self._cloud_product_geodir = None
+        # Name of the product having geolocation for 'local' products
+        self._geolocation_product_name = None
+
+
+    def _read_config(self, sat_name, instrument_name):
+        '''Read config for the satellite'''
+
+        if self._config:
+            return
+
+        self._config = ConfigParser()
+        configfile = os.path.join(CONFIG_PATH, sat_name + ".cfg")
+        LOG.debug("Read configfile %s", configfile)
+        self._config.read(configfile)
+
+        try:
+            self._cloud_product_geodir = \
+                self._config.get(instrument_name + "-level3",
+                                "cloud_product_geodir",
+                                raw=True,
+                                vars=os.environ)
+        except NoOptionError:
+            pass
+
+        LOG.debug("cloud_product_geodir = %s", self._cloud_product_geodir)
+
+        try:
+            self._geolocation_product_name = \
+                self._config.get(instrument_name + "-level3",
+                                 "geolocation_product_name",
+                                 raw=True,
+                                 vars=os.environ)
+        except NoOptionError:
+            if self._source != 'ears':
+                LOG.warning("No geolocation product name given in config, "
+                            "using default: %s", GEO_PRODUCT_NAME_DEFAULT)
+                self._geolocation_product_name = GEO_PRODUCT_NAME_DEFAULT
 
     def load(self, satscene, **kwargs):
         """Read data from file and load it into *satscene*.
@@ -700,160 +762,120 @@ class PPSReader(Reader):
         prodfilenames = kwargs.get('filename')
         time_interval = kwargs.get('time_interval')
 
-        PPS_PRODUCTS = ['CMA', 'CT', 'CTTH', 'PC', 'CPP']
         products = satscene.channels_to_load & set(PPS_PRODUCTS)
         if len(products) == 0:
             LOG.debug("No PPS cloud products to load, abort")
             return
 
-        try:
-            area_name = satscene.area_id or satscene.area.area_id
-        except AttributeError:
-            area_name = "satproj_?????_?????"
-
-        conf = ConfigParser()
-        configfile = os.path.join(CONFIG_PATH, satscene.fullname + ".cfg")
-        LOG.debug("Read configfile %s", configfile)
-        conf.read(configfile)
-
-        try:
-            cloud_product_geodir = conf.get(satscene.instrument_name + "-level3",
-                                            "cloud_product_geodir",
-                                            raw=True,
-                                            vars=os.environ)
-        except NoOptionError:
-            cloud_product_geodir = None
-
-        LOG.debug("cloud_product_geodir = %s", cloud_product_geodir)
-
-        try:
-            geolocation_product_name = conf.get(satscene.instrument_name + "-level3",
-                                                "geolocation_product_name",
-                                                raw=True,
-                                                vars=os.environ)
-        except NoOptionError:
-            geolocation_product_name = None
+        self._read_config(satscene.fullname, satscene.instrument_name)
 
         LOG.info("Products to load: %s", str(products))
-        # Make the list of files for the products requested:
-
-        if isinstance(time_interval, (tuple, set, list)) and len(time_interval) == 2:
-            time_start, time_end = time_interval
-        else:
-            time_start, time_end = satscene.time_slot, None
-
-        # File types expected:
-        # S_NWC_CTTH_noaa19_33897_20150906T1240015Z_20150906T1240598Z.nc
-        # or
-        # W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,METOPB+CTTH_C_EUMS_20150916121900_15540.nc.bz2
-
-        p_local = Parser(
-            'S_NWC_{product:s}_{satid:s}_{orbit:5d}_{starttime:%Y%m%dT%H%M%S}{dummy:1d}Z_{starttime:%Y%m%dT%H%M%S}{dummy2:1d}Z')
-        p_ears = Parser(
-            'W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{satid:s}+{product:s}_C_EUMS_{starttime:%Y%m%d%H%M%S}_{orbit:5d}')
 
         # If a list of files are provided to the load call, we disregard the
         # direcorty and filename specifications/definitions in the config file.
 
         if not prodfilenames:
-            prodfilenames = get_filenames(
-                satscene, products, conf, time_start, time_end, area_name)
+            try:
+                area_name = satscene.area_id or satscene.area.area_id
+            except AttributeError:
+                area_name = "satproj_?????_?????"
+
+            # Make the list of files for the requested products:
+            if isinstance(time_interval, (tuple, set, list)) and \
+               len(time_interval) == 2:
+                time_start, time_end = time_interval
+            else:
+                time_start, time_end = satscene.time_slot, None
+
+            prodfilenames = get_filenames(satscene, products, self._config,
+                                          (time_start, time_end), area_name)
 
         LOG.debug("Product files: %s", str(prodfilenames))
+
         prodfiles4product = {}
         prodfile_list = []
-        geofile_list = []
         if prodfilenames:
             if not isinstance(prodfilenames, (list, set, tuple)):
                 prodfilenames = [prodfilenames]
             for fname in prodfilenames:
                 # Only standard NWCSAF/PPS and EARS-NWC naming accepted!
                 if (os.path.basename(fname).startswith("S_NWC") or
-                        os.path.basename(fname).startswith("W_XX-EUMETSAT")):
-                    if os.path.basename(fname).startswith("S_NWC"):
-                        p__ = p_local
-                    else:
-                        p__ = p_ears
+                    os.path.basename(fname).startswith("W_XX-EUMETSAT")):
+                    if not self._parser:
+                        if os.path.basename(fname).startswith("S_NWC"):
+                            self._source = 'ears'
+                            self._parser = Parser(LOCAL_PPS_FILE_MASK)
+                        else:
+                            self._source = 'local'
+                            self._parser = Parser(EARS_PPS_FILE_MASK)
                     prodfile_list.append(fname)
                 else:
                     LOG.info("Unrecognized NWCSAF/PPS file: %s", fname)
                     continue
 
-                data = p__.parse(
-                    os.path.basename(fname).split('.nc')[0])
-                prodname = data['product']
-                if geolocation_product_name and prodname == geolocation_product_name:
-                    geofile_list.append(fname)
+                parse_info = self._parser.parse(os.path.basename(fname))
+                prodname = parse_info['product']
 
                 if prodname not in prodfiles4product:
                     prodfiles4product[prodname] = []
 
                 prodfiles4product[prodname].append(fname)
 
+            # Assemble geolocation information
             geofiles4product = {}
-            if not geolocation_product_name:
-                # Assume geo-location is available in product files!
-                LOG.info(
-                    "Geo-location is supposed to be available in product files")
+            if self._source == 'ears':
+                # For EARS data, the files have geolocation in themselves
+                for prodname, fnames in prodfiles4product.iterkeys():
+                    geofiles4product[prodname] = fnames
             else:
-                # Go through all product files, and check if there is a
-                # geo-location file matching the product file:
-                geoname_list = [os.path.basename(f) for f in geofile_list]
-                geodir_list = [os.path.dirname(f) for f in geofile_list]
-                for fname in prodfile_list:
-                    data = p__.parse(
-                        os.path.basename(fname).split('.nc')[0] + '.nc')
+                # For locally processed data, use the geolocation from
+                # the product defined in config
 
-                    prodname = data['product']
-                    if prodname not in geofiles4product:
+                if self._geolocation_product_name in prodfiles4product:
+                    for prodname in prodfiles4product.keys():
+                        geofiles4product[prodname] = \
+                            prodfiles4product[self._geolocation_product_name]
+                else:
+                    # If the product files with geolocation are not used,
+                    # assume that they are still available on the disk.
+
+                    if self._cloud_product_geodir is None:
+                        LOG.error("Config option 'cloud_product_geodir' is not "
+                                  "available! Assuming same directory as "
+                                  "products.")
+
+                    for prodname in prodfiles4product.keys():
                         geofiles4product[prodname] = []
-
-                    gname = os.path.basename(fname).replace(data['product'],
-                                                            geolocation_product_name)
-                    if gname in geoname_list:
-                        # File was specifically provided
-                        LOG.debug(
-                            "Geolocation identified in file list: %s", gname)
-                        idx = geoname_list.index(gname)
-                        directory = geodir_list[idx]
-                    else:
-                        LOG.debug(
-                            "Geo-location file not specified for product. Try find one...")
-                        if cloud_product_geodir:
-                            directory = cloud_product_geodir
-                            LOG.debug("DIR from config = %s", directory)
-                        else:
-                            directory = os.path.dirname(fname)
-                            LOG.debug(
-                                "DIR from product destination = %s", directory)
-
-                    geofile = os.path.join(directory, gname)
-                    LOG.debug("Geo filename: %s", str(geofile))
-                    if not os.path.exists(geofile):
-                        LOG.warning(
-                            "Geo file for product does not exist: %s", geofile)
-
-                    else:
-                        geofiles4product[prodname].append(geofile)
-                        LOG.debug("Geo files for product %s = %s",
-                                  prodname, str(geofiles4product[prodname]))
+                        for fname in prodfiles4product[prodname]:
+                            directory = self._cloud_product_geodir or \
+                                        os.path.abspath(fname)
+                            parse_info = \
+                                self._parser.parse(os.path.basename(fname))
+                            fname = fname.replace(prodname,
+                                                  parse_info['product'])
+                            fname = os.path.join(directory, fname)
+                            geofiles4product[prodname].append(fname)
 
             # Check that each product file has a corresponding geolocation
             # file:
-            if geolocation_product_name:
+            '''
+            if self._geolocation_product_name:
                 for prod in products:
                     if prod not in geofiles4product:
-                        LOG.error("No product name %s in dict geofiles4product!",
+                        LOG.error("No product name %s in dict "
+                                  "geofiles4product!",
                                   prod)
                         continue
                     if prod not in prodfiles4product:
-                        LOG.error("No product name %s in dict prodfiles4product!",
+                        LOG.error("No product name %s in dict "
+                                  "prodfiles4product!",
                                   prod)
                         continue
-                    if len(geofiles4product[prod]) != len(prodfiles4product[prod]):
-                        LOG.error("Mismatch in number of product files and " +
+                    if len(geofiles4product[prod]) != \
+                       len(prodfiles4product[prod]):
+                        LOG.error("Mismatch in number of product files and "
                                   "matching geolocation files!")
-
+            '''
         # geofiles4product is a dict listing all geo-locations files applicable
         # for each product.
         # prodfiles4product is a dict listing all product files for a given
@@ -979,7 +1001,7 @@ class CloudPhysicalProperties(NwcSafPpsChannel):
 
 def get_lonlat_into(filename, out_lons, out_lats, out_mask):
     """Read lon,lat from hdf5 file"""
-    LOG.debug("Geo File = " + filename)
+    LOG.debug("Geo File = %s", filename)
 
     shape = out_lons.shape
 
@@ -987,7 +1009,7 @@ def get_lonlat_into(filename, out_lons, out_lats, out_mask):
     if unzipped:
         filename = unzipped
 
-    md = HDF5MetaData(filename).read()
+    mda = HDF5MetaData(filename).read()
 
     reduced_grid = False
     h5f = h5py.File(filename, 'r')
@@ -1001,7 +1023,7 @@ def get_lonlat_into(filename, out_lons, out_lats, out_mask):
     if "ny_reduced" in h5f:
         row_indices = h5f["ny_reduced"][:]
 
-    for key in md.get_data_keys():
+    for key in mda.get_data_keys():
         if ((key.endswith("lat") or key.endswith("lon")) or
                 (key.endswith("lat_reduced") or key.endswith("lon_reduced"))):
             lonlat = h5f[key]
@@ -1037,8 +1059,8 @@ def get_lonlat_into(filename, out_lons, out_lats, out_mask):
     if unzipped:
         os.remove(unzipped)
 
-
-def globify(filename):
+def globify_date(filename):
+    """Replace date formats with single character wildcards"""
     filename = filename.replace("%Y", "????")
     filename = filename.replace("%m", "??")
     filename = filename.replace("%d", "??")
