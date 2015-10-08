@@ -61,6 +61,15 @@ class TestPPSReader(unittest.TestCase):
         self.assertEqual(geo.keys(), ['CTTH'])
         self.assertEqual(geo['CTTH'], [GEO_TESTFILE_LOCAL_1])
 
+        pro, geo = self.reader._determine_prod_and_geo_files(
+            [CTTH_TESTFILE_LOCAL_1, CT_TESTFILE_LOCAL_1, CMA_TESTFILE_LOCAL_1])
+        self.assertEqual(len(pro.keys()), 3)
+        self.assertTrue('CMA' in pro.keys())
+        self.assertTrue('CT' in geo.keys())
+        self.assertTrue('CTTH' in geo.keys())
+        self.assertEqual(geo['CTTH'], geo['CT'])
+        self.assertEqual(geo['CTTH'], geo['CMA'])
+
     def test_determine_prod_and_geo_files_ears(self):
         """Test the private method _determine_prod_and_geo_files """
         self.reader._source = 'ears'
@@ -72,14 +81,18 @@ class TestPPSReader(unittest.TestCase):
         self.assertEqual(pro['CTTH'], [CTTH_TESTFILE_EARS_1])
 
         pro, geo = self.reader._determine_prod_and_geo_files(
-            [CTTH_TESTFILE_EARS_1, CT_TESTFILE_EARS_1])
+            [CTTH_TESTFILE_EARS_1, CT_TESTFILE_EARS_1, CMA_TESTFILE_EARS_1])
         nkeys = len(pro.keys())
-        self.assertEqual(nkeys, 2)
+        self.assertEqual(nkeys, 3)
         for key in pro.keys():
-            self.assertTrue(key in ["CTTH", "CT"])
+            self.assertTrue(key in ["CTTH", "CT", "CMA"])
 
         for key in pro.keys():
             self.assertEqual(geo[key], pro[key])
+
+        for key in pro.keys():
+            if key not in ['CMA']:
+                self.assertNotEqual(geo[key], geo['CMA'])
 
     def tearDown(self):
         pass

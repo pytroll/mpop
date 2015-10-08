@@ -23,8 +23,6 @@
 
 """PPS netcdf cloud product reader
 """
-import pdb
-
 import os.path
 from ConfigParser import ConfigParser
 from ConfigParser import NoOptionError
@@ -355,21 +353,22 @@ def get_filenames(scene, products, conf, time_interval, area_name):
 
 def extract_filenames_in_time_window(file_list, starttime, endtime):
     """Extract the filenames with time inside the time interval specified.
-    NB! Only supports EARS-NWC granules. This does not support assembling
+    NB! Only tested for EARS-NWC granules. This does not support assembling
     several locally received full swaths"""
 
-    # New filenames:
+    # New EARS-NWC filenames:
     # Ex.:
     # W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,NOAA19+CT_C_EUMS_20150819124700_\
     #  33643.nc.bz2
-    pnew = Parser("W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{platform_name:s}+"
-                  "{product:s}_C_EUMS_{starttime:%Y%m%d%H%M}00_{orbit:05d}.nc"
-                  "{compression:s}")
-    # Old filenames:
+    pnew = Parser(EARS_PPS_FILE_MASK)
+
+    # Old EARS-NWC filenames:
     # Ex.:
     # ctth_20130910_205300_metopb.h5.bz2
     pold = Parser("{product:s}_{starttime:%Y%m%d_%H%M}00_{platform_name:s}.h5"
                   "{compression:s}")
+
+    plocal = Parser(LOCAL_PPS_FILE_MASK)
 
     valid_filenames = []
     valid_times = []
@@ -378,7 +377,10 @@ def extract_filenames_in_time_window(file_list, starttime, endtime):
         try:
             data = pnew.parse(os.path.basename(fname))
         except ValueError:
-            data = pold.parse(os.path.basename(fname))
+            try:
+                data = pold.parse(os.path.basename(fname))
+            except ValueError:
+                data = plocal.parse(os.path.basename(fname))
 
         if (data['starttime'] >= starttime and
                 data['starttime'] < endtime):
@@ -705,12 +707,17 @@ class PPSProductData(object):
 
 GEO_PRODUCT_NAME_DEFAULT = 'CMA'
 PPS_PRODUCTS = set(['CMA', 'CT', 'CTTH', 'PC', 'CPP'])
-LOCAL_PPS_FILE_MASK = 'S_NWC_{product:s}_{satid:s}_{orbit:5d}_' + \
-                      '{starttime:%Y%m%dT%H%M%S}{dummy:1d}Z_' + \
-                      '{starttime:%Y%m%dT%H%M%S}{dummy2:1d}Z.nc{compression:s}'
-EARS_PPS_FILE_MASK = 'W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{satid:s}+' + \
-                     '{product:s}_C_EUMS_{starttime:%Y%m%d%H%M%S}_' + \
-                     '{orbit:5d}.nc{compression:s}'
+LOCAL_PPS_FILE_MASK = ('S_NWC_{product:s}_{platform_name:s}_{orbit:5d}_' +
+                       '{starttime:%Y%m%dT%H%M%S}{dummy:1d}Z_' +
+                       '{starttime:%Y%m%dT%H%M%S}{dummy2:1d}Z.nc{compression:s}')
+EARS_PPS_FILE_MASK = ("W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,{platform_name:s}+"
+                      "{product:s}_C_EUMS_{starttime:%Y%m%d%H%M}00_{orbit:05d}.nc"
+                      "{compression:s}")
+# Old EARS-NWC filenames:
+# Ex.:
+# ctth_20130910_205300_metopb.h5.bz2
+EARS_OLD_PPS_FILE_MASK = ("{product:s}_{starttime:%Y%m%d_%H%M}00_" +
+                          "{platform_name:s}.h5{compression:s}")
 
 
 class PPSReader(Reader):
@@ -784,6 +791,7 @@ class PPSReader(Reader):
                 prodfilenames = [prodfilenames]
             for fname in prodfilenames:
                 # Only standard NWCSAF/PPS and EARS-NWC naming accepted!
+                # No support for old file names (< PPSv2014)
                 if (os.path.basename(fname).startswith("S_NWC") or
                         os.path.basename(fname).startswith("W_XX-EUMETSAT")):
                     if not self._parser:
@@ -867,6 +875,12 @@ class PPSReader(Reader):
 
         prodfilenames = kwargs.get('filename')
         time_interval = kwargs.get('time_interval')
+        if prodfilenames and time_interval:
+            LOG.warning("You have specified both a list of files " +
+                        "and a time interval")
+            LOG.warning("Specifying a time interval will only take effect " +
+                        "if no files are specified")
+            time_interval = None
 
         products = satscene.channels_to_load & set(PPS_PRODUCTS)
         if len(products) == 0:
@@ -900,8 +914,6 @@ class PPSReader(Reader):
 
         retv = self._determine_prod_and_geo_files(prodfilenames)
         prodfiles4product, geofiles4product = retv
-
-        pdb.set_trace()
 
         # Reading the products
         classes = {"CTTH": CloudTopTemperatureHeight,
