@@ -961,12 +961,7 @@ class PPSReader(Reader):
 
             try:
                 satscene[chn.name].area = geometry.SwathDefinition(
-                    lons=np.ma.masked_where(nodata_mask,
-                                            geoloc.longitudes.data,
-                                            copy=False),
-                    lats=np.ma.masked_where(nodata_mask,
-                                            geoloc.latitudes.data,
-                                            copy=False))
+                    lons=geoloc.longitudes, lats=geoloc.latitudes)
 
                 area_name = ("swath_" + satscene.fullname + "_" +
                              str(satscene.time_slot) + "_"
@@ -1087,7 +1082,22 @@ def get_lonlat_into(filename, out_lons, out_lats, out_mask):
                                        (rows_full, cols_full))
         out_lons[:], out_lats[:] = satint.interpolate()
 
-    out_mask[:] = np.logical_and(out_lats <= fillvalue, out_lons <= fillvalue)
+    # FIXME: this is to mask out the npp bowtie deleted pixels...
+    if "NPP" in h5f.attrs['platform']:
+
+        new_mask = np.zeros((16, 3200), dtype=bool)
+        new_mask[0, :1008] = True
+        new_mask[1, :640] = True
+        new_mask[14, :640] = True
+        new_mask[15, :1008] = True
+        new_mask[14, 2560:] = True
+        new_mask[1, 2560:] = True
+        new_mask[0, 2192:] = True
+        new_mask[15, 2192:] = True
+        new_mask = np.tile(new_mask, (out_lons.shape[0] / 16, 1))
+
+    out_mask[:] = np.logical_or(
+        new_mask, np.logical_and(out_lats <= fillvalue, out_lons <= fillvalue))
 
     h5f.close()
     if unzipped:
