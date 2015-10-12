@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2014.
+# Copyright (c) 2010, 2014, 2015.
 
 # SMHI,
 # Folkborgsvägen 1,
@@ -29,7 +29,6 @@
 """This modules describes the modis instrument.
 It provides MODIS specific methods for RGB-compositing.
 """
-import numpy as np
 
 import mpop.imageo.geo_image as geo_image
 from mpop.instruments.visir import VisirCompositer

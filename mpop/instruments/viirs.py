@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2011, 2012, 2013, 2014.
+# Copyright (c) 2010, 2011, 2012, 2013, 2014, 2015.
 
 # Author(s):
 
@@ -46,7 +46,7 @@ class ViirsCompositer(VisirCompositer):
 
     instrument_name = "viirs"
 
-    def overview(self, stretch='crude', gamma=1.6):
+    def overview(self, stretch='linear', gamma=1.6):
         """Make an Overview RGB image composite from VIIRS
         channels.
         """
@@ -69,6 +69,14 @@ class ViirsCompositer(VisirCompositer):
         return img
 
     overview.prerequisites = set(['M05', 'M07', 'M15'])
+
+    def overview_sun(self, stretch='linear', gamma=1.6):
+        """Make an Overview RGB image composite from VIIRS
+        channels. Sun-zenith correction is implicit for VIIRS
+        """
+        return self.overview(stretch=stretch, gamma=gamma)
+
+    overview_sun.prerequisites = overview.prerequisites
 
     def hr_overview(self):
         """Make a high resolution Overview RGB image composite 
