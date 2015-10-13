@@ -30,6 +30,12 @@ from mpop.instruments.visir import VisirCompositer
 import logging
 LOG = logging.getLogger(__name__)
 
+try:
+    from pyorbital.astronomy import sun_zenith_angle as sza
+except ImportError:
+    LOG.warning("Sun zenith angle correction not possible! " +
+                "Check the availability of the pyorbital module in your environment")
+    sza = None
 
 # VIIRS
 # Since there is overlap between I-bands and M-bands we need to
@@ -39,6 +45,8 @@ LOG = logging.getLogger(__name__)
 # In addition we define new composite names for the I-bands,
 # like e.g. hr_overview, hr_night_fog, etc
 #
+
+
 class ViirsCompositer(VisirCompositer):
 
     """This class sets up the VIIRS instrument channel list.
@@ -276,27 +284,61 @@ class ViirsCompositer(VisirCompositer):
 
     hr_red_snow.prerequisites = set(['I01', 'I03', 'I05'])
 
-    def dnb_overview(self):
-        """Make an Overview RGB image composite from VIIRS
-        channels.
+    def dnb_overview(self, stretch='linear'):
+        """Make a nighttime overview RGB image composite from VIIRS
+        DNB and M bands.
         """
         self.check_channels('DNB', 'M15')
 
-        ch1 = self['DNB'].data
-        ch2 = self['DNB'].data
-        ch3 = -self['M15'].data
+        lonlats = self['M15'].area.get_lonlats()
 
-        img = geo_image.GeoImage((ch1, ch2, ch3),
+        if sza:
+            sunz = sza(self.time_slot, lonlats[0], lonlats[1])
+            sunz = np.ma.masked_outside(sunz, 103, 180)
+            sunzmask = sunz.mask
+
+            red = np.ma.masked_where(sunzmask, self['DNB'].data)
+            green = np.ma.masked_where(sunzmask, self['DNB'].data)
+            blue = np.ma.masked_where(sunzmask, -self['M15'].data)
+        else:
+            LOG.warning("No masking of solar contaminated pixels performed!")
+            red = self['DNB'].data
+            green = self['DNB'].data
+            blue = -self['M15'].data
+
+        img = geo_image.GeoImage((red, green, blue),
                                  self.area,
                                  self.time_slot,
                                  fill_value=None,
                                  mode="RGB")
 
-        img.enhance(stretch="linear")
+        img.enhance(stretch=stretch)
 
         return img
 
     dnb_overview.prerequisites = set(['DNB', 'M15'])
+
+    # def dnb_overview(self):
+    #     """Make an Overview RGB image composite from VIIRS
+    #     channels.
+    #     """
+    #     self.check_channels('DNB', 'M15')
+
+    #     ch1 = self['DNB'].data
+    #     ch2 = self['DNB'].data
+    #     ch3 = -self['M15'].data
+
+    #     img = geo_image.GeoImage((ch1, ch2, ch3),
+    #                              self.area,
+    #                              self.time_slot,
+    #                              fill_value=None,
+    #                              mode="RGB")
+
+    #     img.enhance(stretch="linear")
+
+    #     return img
+
+    # dnb_overview.prerequisites = set(['DNB', 'M15'])
 
     def night_color(self):
         """Make a Night Overview RGB image composite.
