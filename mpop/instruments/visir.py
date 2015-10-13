@@ -166,24 +166,24 @@ class VisirCompositer(Compositer):
 
     overview_sun.prerequisites = set([0.635, 0.85, 10.8])
 
-    # def night_overview(self, stretch='histogram', gamma=None):
-    #     """Make an overview RGB image composite using IR channels.
+    def night_overview(self, stretch='histogram', gamma=None):
+        """Make an overview RGB image composite using IR channels.
 
-    #     +--------------------+--------------------+
-    #     | Channels           | Gamma              |
-    #     +====================+====================+
-    #     | IR3.9 (inverted)   | gamma 1            |
-    #     +--------------------+--------------------+
-    #     | IR10.8 (inverted)  | gamma 1            |
-    #     +--------------------+--------------------+
-    #     | IR12.0 (inverted)  | gamma 1            |
-    #     +--------------------+--------------------+
+        +--------------------+--------------------+
+        | Channels           | Gamma              |
+        +====================+====================+
+        | IR3.9 (inverted)   | gamma 1            |
+        +--------------------+--------------------+
+        | IR10.8 (inverted)  | gamma 1            |
+        +--------------------+--------------------+
+        | IR12.0 (inverted)  | gamma 1            |
+        +--------------------+--------------------+
 
-    #     Histogram equalization is applied for each channel.
-    #     """
-    #     return self.cloudtop(stretch, gamma)
+        Histogram equalization is applied for each channel.
+        """
+        return self.cloudtop(stretch, gamma)
 
-    # night_overview.prerequisites = set([3.75, 10.8, 12.0])
+    night_overview.prerequisites = set([3.75, 10.8, 12.0])
 
     def natural(self, stretch=None, gamma=1.8):
         """Make a Natural Colors RGB image composite.
