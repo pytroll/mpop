@@ -1384,6 +1384,18 @@ def ctype_procflags2pps(data):
 #     return ctype_lut, phase_lut, quality_lut
 
 
+def add_nullterm_attr(obj, key, val):
+    import h5py
+    atype = h5py.h5t.C_S1
+    tid = h5py.h5t.TypeID.copy(h5py.h5t.C_S1)
+    tid.set_size(len(val) + 1)
+    tid.set_strpad(h5py.h5t.STR_NULLTERM)
+    sid = h5py.h5s.create(h5py.h5s.SCALAR)
+    aid = h5py.h5a.create(obj.id, key, tid, sid)
+    blob = np.string_(val)
+    aid.write(np.array(val))
+
+
 class NordRadCType(object):
 
     """Wrapper aroud the msg_ctype channel.
@@ -1406,18 +1418,23 @@ class NordRadCType(object):
 
         # What
         what = h5f.create_group("what")
-        what.attrs["object"] = np.string_("IMAGE")
+        #what.attrs["object"] = np.string_("IMAGE")
+        add_nullterm_attr(what, "object", "IMAGE")
         what.attrs["sets"] = np.int(1)
-        what.attrs["version"] = np.string_("H5rad 1.2")
+        #what.attrs["version"] = np.string_("H5rad 1.2")
+        add_nullterm_attr(what, "version", "H5rad 1.2")
 
         yyyymmdd = self.datestr[0:8]
         hourminsec = self.datestr[8:12] + '00'
-        what.attrs["date"] = np.string_(yyyymmdd)
-        what.attrs["time"] = np.string_(hourminsec)
+        #what.attrs["date"] = np.string_(yyyymmdd)
+        add_nullterm_attr(what, "date", yyyymmdd)
+        #what.attrs["time"] = np.string_(hourminsec)
+        add_nullterm_attr(what, "time", hourminsec)
 
         # Where
         where = h5f.create_group("where")
-        where.attrs["projdef"] = np.string_(msgctype.area.proj4_string)
+        #where.attrs["projdef"] = np.string_(msgctype.area.proj4_string)
+        add_nullterm_attr(where, "projdef", msgctype.area.proj4_string)
         where.attrs["xsize"] = np.int(msgctype.num_of_columns)
         where.attrs["ysize"] = np.int(msgctype.num_of_lines)
         where.attrs["xscale"] = np.float(msgctype.xscale)
@@ -1429,7 +1446,8 @@ class NordRadCType(object):
 
         # How
         how = h5f.create_group("how")
-        how.attrs["area"] = np.string_(msgctype.region_name)
+        #how.attrs["area"] = np.string_(msgctype.region_name)
+        add_nullterm_attr(how, "area", msgctype.region_name)
 
         # image1
         image1 = h5f.create_group("image1")
@@ -1437,13 +1455,19 @@ class NordRadCType(object):
                               compression="gzip", compression_opts=COMPRESS_LVL)
 
         what = image1.create_group("what")
-        what.attrs["product"] = np.string_('MSGCT')
+        #what.attrs["product"] = np.string_('MSGCT')
+        add_nullterm_attr(what, "product", 'MSGCT')
         what.attrs["prodpar"] = np.float(0.0)
-        what.attrs["quantity"] = np.string_("ct")
-        what.attrs["startdate"] = np.string_(yyyymmdd)
-        what.attrs["starttime"] = np.string_(hourminsec)
-        what.attrs["enddate"] = np.string_(yyyymmdd)
-        what.attrs["endtime"] = np.string_(hourminsec)
+        #what.attrs["quantity"] = np.string_("ct")
+        add_nullterm_attr(what, "quantity", "ct")
+        #what.attrs["startdate"] = np.string_(yyyymmdd)
+        add_nullterm_attr(what, "startdate", yyyymmdd)
+        #what.attrs["starttime"] = np.string_(hourminsec)
+        add_nullterm_attr(what, "starttime", hourminsec)
+        #what.attrs["enddate"] = np.string_(yyyymmdd)
+        add_nullterm_attr(what, "enddate", yyyymmdd)
+        #what.attrs["endtime"] = np.string_(hourminsec)
+        add_nullterm_attr(what, "endtime", hourminsec)
         what.attrs["gain"] = np.float(1.0)
         what.attrs["offset"] = np.float(0.0)
         what.attrs["nodata"] = np.float(0.0)
