@@ -28,11 +28,6 @@ from mpop.compositer import Compositer
 
 import numpy as np
 
-try:
-    from pyorbital.astronomy import sun_zenith_angle as sza
-except ImportError:
-    sza = None
-
 # pylint: disable=W0612
 # remove warnings for unused prerequisites
 
@@ -152,15 +147,8 @@ class VisirCompositer(Compositer):
 
         lonlats = self[10.8].area.get_lonlats()
 
-        sunz = sza(self.time_slot, lonlats[0], lonlats[1])
-        sunz = np.ma.masked_outside(sunz, 0.0, 88.0)
-        sunzmask = sunz.mask
-        sunz = sunz.filled(88.)
-
-        costheta = np.cos(np.deg2rad(sunz))
-
-        red = np.ma.masked_where(sunzmask, self[0.635].data / costheta)
-        green = np.ma.masked_where(sunzmask, self[0.85].data / costheta)
+        red = self[0.635].sunzen_corr(self.time_slot, lonlats, limit=88.)
+        green = self[0.85].sunzen_corr(self.time_slot, lonlats, limit=88.)
         blue = -self[10.8].data
 
         img = geo_image.GeoImage((red, green, blue),
