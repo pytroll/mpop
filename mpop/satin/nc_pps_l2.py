@@ -1082,6 +1082,7 @@ def get_lonlat_into(filename, out_lons, out_lats, out_mask):
                                        (rows_full, cols_full))
         out_lons[:], out_lats[:] = satint.interpolate()
 
+    new_mask = False
     # FIXME: this is to mask out the npp bowtie deleted pixels...
     if "NPP" in h5f.attrs['platform']:
 
