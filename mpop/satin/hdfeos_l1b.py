@@ -115,8 +115,7 @@ class ModisReader(Reader):
                 scenes.append(newscn)
 
             entire_scene = assemble_segments(sorted(scenes, key=lambda x: x.time_slot))
-            for band in entire_scene.loaded_channels():
-                satscene[band.name] = entire_scene[band.name]
+            satscene.channels = entire_scene.channels
             satscene.area = entire_scene.area
         else:
             self.load_dataset(satscene, *args, **kwargs)
@@ -243,7 +242,7 @@ class ModisReader(Reader):
         #    return
 
         for band_name in loaded_bands:
-            lon, lat = self.get_lonlat(satscene[band_name].resolution, cores)
+            lon, lat = self.get_lonlat(satscene[band_name].resolution, satscene.time_slot, cores)
             area = geometry.SwathDefinition(lons=lon, lats=lat)
             satscene[band_name].area = area
 
@@ -289,11 +288,11 @@ class ModisReader(Reader):
                                                 + str(band_uid))
             satscene[band_name].area_id = satscene[band_name].area.area_id
 
-    def get_lonlat(self, resolution, cores=1):
+    def get_lonlat(self, resolution, time_slot, cores=1):
         """Read lat and lon.
         """
-        if resolution in self.areas:
-            return self.areas[resolution]
+        if (resolution, time_slot) in self.areas:
+            return self.areas[resolution, time_slot]
         logger.debug("generating lon, lat at %d", resolution)
         if self.geofile is not None:
             coarse_resolution = 1000
@@ -330,7 +329,7 @@ class ModisReader(Reader):
         if resolution == 250:
             lon, lat = modis1kmto250m(lon, lat, cores)
 
-        self.areas[resolution] = lon, lat
+        self.areas[resolution, time_slot] = lon, lat
         return lon, lat
 
     # These have to be interpolated...
