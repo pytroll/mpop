@@ -118,6 +118,7 @@ class ModisReader(Reader):
             satscene.channels = entire_scene.channels
             satscene.area = entire_scene.area
             satscene.orbit = int(entire_scene.orbit)
+            satscene.info["orbit_number"] = int(entire_scene.orbit)
         else:
             self.load_dataset(satscene, *args, **kwargs)
 
@@ -556,7 +557,7 @@ def load_generic(satscene, filename, resolution, cores):
     if not satscene.orbit:
         mda = data.attributes()["CoreMetadata.0"]
         orbit_idx = mda.index("ORBITNUMBER")
-        satscene.orbit = mda[orbit_idx + 111:orbit_idx + 116]
+        satscene.orbit = int(mda[orbit_idx + 111:orbit_idx + 116])
 
     # Get the geolocation
     # if resolution != 1000:
@@ -1010,3 +1011,28 @@ CASES = {
 LAT_LON_CASES = {
     "modis": get_lat_lon_modis
 }
+
+
+if __name__ == "__main__":
+    filenames = [u'/data/prod/satellit/modis/lvl1/thin_MYD021KM.A2015287.0255.005.2015287051016.NRT.hdf',
+                 u'/data/prod/satellit/modis/lvl1/thin_MYD021KM.A2015287.0300.005.2015287050819.NRT.hdf',
+                 u'/data/prod/satellit/modis/lvl1/thin_MYD021KM.A2015287.0305.005.2015287050825.NRT.hdf']
+
+
+    from mpop.utils import debug_on
+    debug_on()
+    from mpop.satellites import PolarFactory
+    from datetime import datetime
+    time_slot = datetime(2015, 10, 14, 2, 55)
+    orbit = "18181"
+    global_data = PolarFactory.create_scene("EARSEOS-Aqua", "", "modis", time_slot, orbit)
+
+    global_data.load([3.75, 0.555, 0.551, 7.3, 1.63, 10.8, 0.488, 12.0, 0.85, 0.469, 0.748, 0.443, 0.645, 6.7, 0.635,
+                      8.7, 0.412], filename=filenames)
+
+
+    #global_data.channels_to_load = set(['31'])
+    #reader = ModisReader(global_data)
+    #reader.load(global_data, filename=filenames)
+    print global_data
+    #global_data[10.8].show()
