@@ -38,6 +38,7 @@ from fnmatch import fnmatch
 import os.path
 from ConfigParser import ConfigParser
 import multiprocessing
+from trollsift.parser import Parser
 
 import math
 import numpy as np
@@ -45,9 +46,11 @@ from pyhdf.SD import SD
 from pyhdf.error import HDF4Error
 import hashlib
 from pyresample import geometry
+import copy
 
 from mpop import CONFIG_PATH
 from mpop.plugin_base import Reader
+from mpop.scene import assemble_segments
 
 import logging
 logger = logging.getLogger(__name__)
@@ -79,7 +82,47 @@ class ModisReader(Reader):
         self.data = None
         self.areas = {}
 
-    def load(self, satscene, *args, **kwargs):
+    def load(self, satscene, filename=None, *args, **kwargs):
+        conf = ConfigParser()
+        conf.read(os.path.join(CONFIG_PATH, satscene.fullname + ".cfg"))
+        options = dict(conf.items(satscene.instrument_name + "-level2",
+                                  raw=True))
+        options["resolution"] = 1000
+        options["geofile"] = os.path.join(options["dir"], options["geofile"])
+        options.update(kwargs)
+
+        fparser = Parser(options["filename"])
+        gparser = Parser(options["geofile"])
+
+        if filename is not None:
+            datasets = {}
+            if not isinstance(filename, (list, set, tuple)):
+                filename = [filename]
+
+            for fname in filename:
+                if fnmatch(os.path.basename(fname), fparser.globify()):
+                    metadata = fparser.parse(os.path.basename(fname))
+                    datasets.setdefault(metadata["start_time"], []).append(fname)
+                elif fnmatch(os.path.basename(fname), gparser.globify()):
+                    metadata = fparser.parse(fname)
+                    datasets.setdefault(metadata["start_time"], []).append(fname)
+
+            scenes = []
+            for start_time, dataset in datasets.iteritems():
+                newscn = copy.deepcopy(satscene)
+                newscn.time_slot = start_time
+                self.load_dataset(newscn, filename=dataset, *args, **kwargs)
+                scenes.append(newscn)
+
+            entire_scene = assemble_segments(sorted(scenes, key=lambda x: x.time_slot))
+            for band in entire_scene.loaded_channels():
+                satscene[band.name] = entire_scene[band.name]
+            satscene.area = entire_scene.area
+        else:
+            self.load_dataset(satscene, *args, **kwargs)
+
+
+    def load_dataset(self, satscene, filename=None, *args, **kwargs):
         """Read data from file and load it into *satscene*.
         """
         del args
@@ -91,16 +134,20 @@ class ModisReader(Reader):
         options["geofile"] = os.path.join(options["dir"], options["geofile"])
         options.update(kwargs)
 
-        if isinstance(kwargs.get("filename"), (list, set, tuple)):
+        fparser = Parser(options["filename"])
+        gparser = Parser(options["geofile"])
+
+        if isinstance(filename, (list, set, tuple)):
             # we got the entire dataset.
-            for fname in kwargs["filename"]:
-                if fnmatch(os.path.basename(fname), "M?D02?km*"):
-                    resolution = self.res[os.path.basename(fname)[5]]
+            for fname in filename:
+                if fnmatch(os.path.basename(fname), fparser.globify()):
+                    metadata = fparser.parse(os.path.basename(fname))
+                    resolution = self.res[metadata["resolution"]]
                     self.datafiles[resolution] = fname
-                elif fnmatch(os.path.basename(fname), "M?D03*"):
+                elif fnmatch(os.path.basename(fname), gparser.globify()):
                     self.geofile = fname
-        elif ((kwargs.get("filename") is not None) and
-              fnmatch(os.path.basename(options["filename"]), "M?D02?km*")):
+        elif ((filename is not None) and
+              fnmatch(os.path.basename(options["filename"]), fparser.globify())):
             # read just one file
             logger.debug("Reading from file: " + str(options["filename"]))
             filename = options["filename"]
