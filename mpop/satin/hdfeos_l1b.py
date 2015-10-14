@@ -117,6 +117,7 @@ class ModisReader(Reader):
             entire_scene = assemble_segments(sorted(scenes, key=lambda x: x.time_slot))
             satscene.channels = entire_scene.channels
             satscene.area = entire_scene.area
+            satscene.orbit = int(entire_scene.orbit)
         else:
             self.load_dataset(satscene, *args, **kwargs)
 
@@ -234,7 +235,7 @@ class ModisReader(Reader):
         if not satscene.orbit:
             mda = self.data.attributes()["CoreMetadata.0"]
             orbit_idx = mda.index("ORBITNUMBER")
-            satscene.orbit = mda[orbit_idx + 111:orbit_idx + 116]
+            satscene.orbit = int(mda[orbit_idx + 111:orbit_idx + 116])
 
         # Get the geolocation
         # if resolution != 1000:
