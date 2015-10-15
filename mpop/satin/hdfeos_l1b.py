@@ -115,9 +115,10 @@ class ModisReader(Reader):
                 scenes.append(newscn)
 
             entire_scene = assemble_segments(sorted(scenes, key=lambda x: x.time_slot))
-            for band in entire_scene.loaded_channels():
-                satscene[band.name] = entire_scene[band.name]
+            satscene.channels = entire_scene.channels
             satscene.area = entire_scene.area
+            satscene.orbit = int(entire_scene.orbit)
+            satscene.info["orbit_number"] = int(entire_scene.orbit)
         else:
             self.load_dataset(satscene, *args, **kwargs)
 
@@ -235,7 +236,7 @@ class ModisReader(Reader):
         if not satscene.orbit:
             mda = self.data.attributes()["CoreMetadata.0"]
             orbit_idx = mda.index("ORBITNUMBER")
-            satscene.orbit = mda[orbit_idx + 111:orbit_idx + 116]
+            satscene.orbit = int(mda[orbit_idx + 111:orbit_idx + 116])
 
         # Get the geolocation
         # if resolution != 1000:
@@ -243,7 +244,7 @@ class ModisReader(Reader):
         #    return
 
         for band_name in loaded_bands:
-            lon, lat = self.get_lonlat(satscene[band_name].resolution, cores)
+            lon, lat = self.get_lonlat(satscene[band_name].resolution, satscene.time_slot, cores)
             area = geometry.SwathDefinition(lons=lon, lats=lat)
             satscene[band_name].area = area
 
@@ -289,11 +290,11 @@ class ModisReader(Reader):
                                                 + str(band_uid))
             satscene[band_name].area_id = satscene[band_name].area.area_id
 
-    def get_lonlat(self, resolution, cores=1):
+    def get_lonlat(self, resolution, time_slot, cores=1):
         """Read lat and lon.
         """
-        if resolution in self.areas:
-            return self.areas[resolution]
+        if (resolution, time_slot) in self.areas:
+            return self.areas[resolution, time_slot]
         logger.debug("generating lon, lat at %d", resolution)
         if self.geofile is not None:
             coarse_resolution = 1000
@@ -330,7 +331,7 @@ class ModisReader(Reader):
         if resolution == 250:
             lon, lat = modis1kmto250m(lon, lat, cores)
 
-        self.areas[resolution] = lon, lat
+        self.areas[resolution, time_slot] = lon, lat
         return lon, lat
 
     # These have to be interpolated...
@@ -556,7 +557,7 @@ def load_generic(satscene, filename, resolution, cores):
     if not satscene.orbit:
         mda = data.attributes()["CoreMetadata.0"]
         orbit_idx = mda.index("ORBITNUMBER")
-        satscene.orbit = mda[orbit_idx + 111:orbit_idx + 116]
+        satscene.orbit = int(mda[orbit_idx + 111:orbit_idx + 116])
 
     # Get the geolocation
     # if resolution != 1000:
@@ -1010,3 +1011,28 @@ CASES = {
 LAT_LON_CASES = {
     "modis": get_lat_lon_modis
 }
+
+
+if __name__ == "__main__":
+    filenames = [u'/data/prod/satellit/modis/lvl1/thin_MYD021KM.A2015287.0255.005.2015287051016.NRT.hdf',
+                 u'/data/prod/satellit/modis/lvl1/thin_MYD021KM.A2015287.0300.005.2015287050819.NRT.hdf',
+                 u'/data/prod/satellit/modis/lvl1/thin_MYD021KM.A2015287.0305.005.2015287050825.NRT.hdf']
+
+
+    from mpop.utils import debug_on
+    debug_on()
+    from mpop.satellites import PolarFactory
+    from datetime import datetime
+    time_slot = datetime(2015, 10, 14, 2, 55)
+    orbit = "18181"
+    global_data = PolarFactory.create_scene("EARSEOS-Aqua", "", "modis", time_slot, orbit)
+
+    global_data.load([3.75, 0.555, 0.551, 7.3, 1.63, 10.8, 0.488, 12.0, 0.85, 0.469, 0.748, 0.443, 0.645, 6.7, 0.635,
+                      8.7, 0.412], filename=filenames)
+
+
+    #global_data.channels_to_load = set(['31'])
+    #reader = ModisReader(global_data)
+    #reader.load(global_data, filename=filenames)
+    print global_data
+    #global_data[10.8].show()
