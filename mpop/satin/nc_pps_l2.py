@@ -831,9 +831,9 @@ class PPSReader(Reader):
                     # assume that they are still available on the disk.
 
                     if self._cloud_product_geodir is None:
-                        LOG.error("Config option 'cloud_product_geodir' is not "
-                                  "available! Assuming same directory as "
-                                  "products.")
+                        LOG.warning("Config option 'cloud_product_geodir' is not "
+                                    "available! Assuming same directory as "
+                                    "products.")
                     for prodname in prodfiles4product.keys():
                         geofiles4product[prodname] = []
                         for fname in prodfiles4product[prodname]:
