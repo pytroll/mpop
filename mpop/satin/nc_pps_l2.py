@@ -447,6 +447,15 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
         self.mda = mda.metadata
         self.mda.update(mda.get_root_attributes())
 
+        for var_name in pps_product.mda.keys():
+            setattr(self, var_name, InfoObject())
+            # Fill the info dict...
+            getattr(self, var_name).info = mda.get_dataset_attributes(var_name)
+            try:
+                getattr(self, var_name).data = self.mda[var_name]
+            except KeyError:
+                continue
+
         for var_name in self._projectables:
             setattr(self, var_name, InfoObject())
             # Fill the info dict...
@@ -586,9 +595,11 @@ class PPSProductData(object):
         # and assume all granules have those same data fields:
         mda = self.metadata[0]
         dks = mda.get_data_keys_and_shapes()
+        geolocation_fields = ['lon', 'lat', 'lat_reduced', 'lon_reduced']
+        coordinate_fields = ['nx', 'nx_reduced', 'ny', 'ny_reduced']
 
         for key in dks:
-            if key in ['lon', 'lat', 'lat_reduced', 'lon_reduced']:
+            if key in geolocation_fields + coordinate_fields:
                 LOG.debug("Key = %s", str(key))
                 continue
             shape = dks[key]
@@ -606,6 +617,15 @@ class PPSProductData(object):
         # initiate data arrays
         self.shape = swath_length, swath_width
 
+        # for field in dks:
+        #     if field in geolocation_fields + coordinate_fields:
+        #         continue
+        # try:
+        #     dtype = mda[field + '/attr/valid_range'].dtype
+        #     self.raw_data[str(field)] = np.zeros(self.shape, dtype=dtype)
+        #     self.mask[field] = np.zeros(self.shape, dtype=np.bool)
+        # except KeyError:
+        #     continue
         for field in self.projectables:
             dtype = mda[field + '/attr/valid_range'].dtype
             self.raw_data[str(field)] = np.zeros(self.shape, dtype=dtype)
