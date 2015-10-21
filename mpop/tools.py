@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-# Copyright (c) 2014
+# Copyright (c) 2014, 2015
 #
 # Author(s):
-# 
+#
 #   Panu Lahtinen <pnuu+git@iki.fi>
 #
 # This file is part of mpop.
@@ -24,6 +24,7 @@
 
 import numpy as np
 
+
 def sunzen_corr_cos(data, cos_zen, limit=80.):
     '''Perform Sun zenith angle correction to the given *data* using
     cosine of the zenith angle (*cos_zen*).  The correction is limited
@@ -32,17 +33,16 @@ def sunzen_corr_cos(data, cos_zen, limit=80.):
     and *cos_zen* are given as 2-dimensional Numpy arrays or Numpy
     MaskedArrays, and they should have equal shapes.
     '''
-    
+
     # Convert the zenith angle limit to cosine of zenith angle
-    limit = np.cos(np.radians(limit))
+    cos_limit = np.cos(np.radians(limit))
 
     # Cosine correction
-    lim_y, lim_x = np.where(cos_zen > limit)
+    lim_y, lim_x = np.where(cos_zen > cos_limit)
     data[lim_y, lim_x] /= cos_zen[lim_y, lim_x]
     # Use constant value (the limit) for larger zenith
     # angles
-    lim_y, lim_x = np.where(cos_zen <= limit)
+    lim_y, lim_x = np.where(cos_zen <= cos_limit)
     data[lim_y, lim_x] /= limit
 
     return data
-

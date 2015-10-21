@@ -360,7 +360,8 @@ class Channel(GenericChannel):
         else:
             return self.data.shape
 
-    def sunzen_corr(self, time_slot, lonlats=None, limit=80., mode='cos'):
+    def sunzen_corr(self, time_slot, lonlats=None, limit=80., mode='cos',
+                    sunmask=False):
         '''Perform Sun zenith angle correction for the channel at
         *time_slot* (datetime.datetime() object) and return the
         corrected channel.  The parameter *limit* can be used to set
@@ -410,6 +411,19 @@ class Channel(GenericChannel):
         # Add information about the corrected version to original
         # channel
         self.info["sun_zen_corrected"] = self.name + '_SZC'
+
+        if sunmask:
+            if isinstance(sunmask, (float, int)):
+                sunmask = sunmask
+            else:
+                sunmask = 90.
+            cos_limit = np.cos(np.radians(sunmask))
+            LOG.debug("Masking out data where sun-zenith " +
+                      "is greater than %f deg", sunmask)
+            LOG.debug("cos_limit = %f", cos_limit)
+            # Mask out data where the sun elevation is below a threshold:
+            sunm = np.less_equal(cos_zen, cos_limit)
+            new_ch.data.mask = np.logical_or(new_ch.data.mask, sunm)
 
         return new_ch
 
