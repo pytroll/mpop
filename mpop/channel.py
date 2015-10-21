@@ -422,9 +422,7 @@ class Channel(GenericChannel):
                       "is greater than %f deg", sunmask)
             LOG.debug("cos_limit = %f", cos_limit)
             # Mask out data where the sun elevation is below a threshold:
-            sunm = np.less_equal(cos_zen, cos_limit)
-            new_ch.data.mask = np.logical_or(new_ch.data.mask, sunm)
-
+            new_ch.data = np.ma.masked_where(cos_zen < cos_limit, new_ch.data, copy=False)
         return new_ch
 
     # Arithmetic operations on channels.
