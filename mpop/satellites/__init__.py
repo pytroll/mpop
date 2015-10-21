@@ -134,7 +134,7 @@ def build_sat_instr_compositer((satellite, number, variant), instrument):
                          [instrument.capitalize() + 'Compositer'])
         instrument_class = getattr(mod, instrument.capitalize() + 'Compositer')
         for i in get_custom_composites(instrument):
-            LOG.debug("Custom composite = " + str(i))
+            # LOG.debug("Custom composite = " + str(i))
             instrument_class.add_method(i)
 
     except (ImportError, AttributeError):
