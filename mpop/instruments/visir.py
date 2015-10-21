@@ -148,9 +148,9 @@ class VisirCompositer(Compositer):
         lonlats = self[10.8].area.get_lonlats()
 
         red = self[0.635].sunzen_corr(self.time_slot, lonlats, limit=88.,
-                                      sunmask=91).data
+                                      sunmask=95).data
         green = self[0.85].sunzen_corr(self.time_slot, lonlats, limit=88.,
-                                       sunmask=91).data
+                                       sunmask=95).data
         blue = -self[10.8].data
 
         img = geo_image.GeoImage((red, green, blue),

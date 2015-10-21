@@ -113,9 +113,9 @@ class SatelliteScene(Satellite):
 
         Satellite.__init__(self, satellite)
 
-        if(time_slot is not None and
-           not isinstance(time_slot, datetime.datetime)):
-            raise TypeError("Time_slot must be a datetime.datetime instance.")
+        #if(time_slot is not None and
+        #   not isinstance(time_slot, datetime.datetime)):
+        #    raise TypeError("Time_slot must be a datetime.datetime instance.")
 
         self.time_slot = time_slot
 

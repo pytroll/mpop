@@ -43,6 +43,6 @@ def sunzen_corr_cos(data, cos_zen, limit=80.):
     # Use constant value (the limit) for larger zenith
     # angles
     lim_y, lim_x = np.where(cos_zen <= cos_limit)
-    data[lim_y, lim_x] /= limit
+    data[lim_y, lim_x] /= cos_limit
 
     return data
