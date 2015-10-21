@@ -628,6 +628,12 @@ class PPSProductData(object):
         #     continue
         for field in self.projectables:
             dtype = mda[field + '/attr/valid_range'].dtype
+            try:
+                if not (np.equal(1.0 + mda[field + '/attr/add_offset'], 1.0) and
+                        np.equal(1.0 * mda[field + '/attr/scale_factor'], 1.0)):
+                    dtype = np.float32
+            except KeyError:
+                pass
             self.raw_data[str(field)] = np.zeros(self.shape, dtype=dtype)
             self.mask[field] = np.zeros(self.shape, dtype=np.bool)
 
