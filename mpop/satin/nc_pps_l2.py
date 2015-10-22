@@ -462,7 +462,8 @@ class NwcSafPpsChannel(mpop.channel.GenericChannel):
             getattr(self, var_name).info = mda.get_dataset_attributes(var_name)
             getattr(self, var_name).data = \
                 np.ma.masked_array(pps_product.raw_data[var_name],
-                                   mask=pps_product.mask[var_name])
+                                   mask=pps_product.mask[var_name],
+                                   fill_value=pps_product.fill_value[var_name])
 
         return
 
@@ -531,6 +532,7 @@ class PPSProductData(object):
 
         self.raw_data = {}
         self.mask = {}
+        self.fill_value = {}
 
         self.granule_lengths = []
 
@@ -694,6 +696,8 @@ class PPSProductData(object):
                                + var.attrs.get("add_offset", 0))
                 else:
                     dataset = data.copy()
+                    if '_FillValue' in var.attrs.keys():
+                        dataset.fill_value = var.attrs['_FillValue'][0]
 
                 fields[var_name] = dataset
 
@@ -722,6 +726,7 @@ class PPSProductData(object):
                 try:
                     self.raw_data[key][y0_:y1_, :] = fields[key].data
                     self.mask[key][y0_:y1_, :] = fields[key].mask
+                    self.fill_value[key] = fields[key].fill_value
                 except ValueError:
                     LOG.exception('Mismatch in dimensions: y0_, y1_, '
                                   'fields[key].data.shape: %s %s %s',
