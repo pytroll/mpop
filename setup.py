@@ -76,6 +76,7 @@ setup(name=NAME,
                       'nc': ['netCDF4'],
                       'proj': ['pyresample'],
                       'pyspectral': ['pyspectral'],
-                      'pyorbital': ['pyorbital >= v0.2.3']}
+                      'pyorbital': ['pyorbital >= v0.2.3'],
+                      'gac_lac': ['pygac']}
 
       )
