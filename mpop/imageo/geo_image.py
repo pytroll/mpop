@@ -91,8 +91,7 @@ class GeoImage(Image):
 
         .. _geotiff: http://trac.osgeo.org/geotiff/
         """
-        file_tuple = os.path.splitext(filename)
-        fformat = fformat or file_tuple[1][1:]
+        fformat = fformat or os.path.splitext(filename)[1][1:]
 
         if fformat.lower() in ('tif', 'tiff'):
             return self.geotiff_save(filename, compression, tags,
