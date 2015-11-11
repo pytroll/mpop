@@ -129,7 +129,7 @@ def load(satscene, *args, **kwargs):
 
     m_chans = []
     dnb_chan = []
-    for chn in satscene.channels_to_load:
+    for chn in chans:
         if chn.startswith('M'):
             m_chans.append(chn)
         if chn.startswith('DNB'):
@@ -189,8 +189,9 @@ def load(satscene, *args, **kwargs):
                                        np.ma.masked_where(dnb_data.mask,
                                                           dnb_lats))
 
-    for chn in m_chans:
-        satscene[chn].area = m_area_def
+    for chn in channels_to_load:
+        if "DNB" not in chn:
+            satscene[chn].area = m_area_def
 
     for chn in dnb_chan:
         satscene[chn].area = dnb_area_def
