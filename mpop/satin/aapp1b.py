@@ -167,21 +167,21 @@ def load_avhrr(satscene, options):
         import h5py
         LOGGER.info("Reading external calibration coefficients.")
         try:
-            fid = h5py.File(os.path.join(CONFIG_PATH, satscene.satname +
+            fid = h5py.File(os.path.join(CONFIG_PATH, satscene.satname + \
                                          '_calibration_data.h5'), 'r')
             calib_coeffs = {}
             for key in fid.keys():
                 date_diffs = []
                 for dat in fid[key]['datetime']:
-                    date_diffs.append(np.abs(satscene.time_slot -
+                    date_diffs.append(np.abs(satscene.time_slot - \
                                              datetime.datetime(dat[0],
                                                                dat[1],
                                                                dat[2])))
                 idx = date_diffs.index(min(date_diffs))
                 date_diff = satscene.time_slot - \
-                    datetime.datetime(fid[key]['datetime'][idx][0],
-                                      fid[key]['datetime'][idx][1],
-                                      fid[key]['datetime'][idx][2])
+                            datetime.datetime(fid[key]['datetime'][idx][0],
+                                              fid[key]['datetime'][idx][1],
+                                              fid[key]['datetime'][idx][2])
                 if date_diff.days < 0:
                     older_or_newer = "newer"
                 else:
@@ -425,7 +425,9 @@ class AAPP1b(object):
     """
 
     def __init__(self, fname):
-        self.filename = fname
+        if not isinstance(fname, (list, tuple, set)):
+            fname = [fname]
+        self.filenames = fname
         self.channels = dict([(i, None) for i in AVHRR_CHANNEL_NAMES])
         self.units = dict([(i, 'counts') for i in AVHRR_CHANNEL_NAMES])
 
@@ -439,24 +441,34 @@ class AAPP1b(object):
         """Read the data.
         """
         tic = datetime.datetime.now()
-        with open(self.filename, "rb") as fp_:
-            header = np.memmap(fp_, dtype=_HEADERTYPE, mode="r",
-                               shape=(_HEADERTYPE.itemsize, ))
-            data = np.memmap(fp_,
-                             dtype=_SCANTYPE,
-                             offset=22016, mode="r")
+        all_data = []
+        all_headers = []
+        for fname in self.filenames:
+            with open(fname, "rb") as fp_:
+                header = np.memmap(fp_, dtype=_HEADERTYPE, mode="r",
+                                   shape=(_HEADERTYPE.itemsize, ))
+                all_headers.append(header)
+                data = np.memmap(fp_,
+                                 dtype=_SCANTYPE,
+                                 offset=22016, mode="r")
+                all_data.append(data)
 
         LOGGER.debug("Reading time %s", str(datetime.datetime.now() - tic))
 
-        self._header = header
-        self._data = data
+        self._header = all_headers
+        self._data = all_data
 
     def navigate(self):
         """Return the longitudes and latitudes of the scene.
         """
         tic = datetime.datetime.now()
-        lons40km = self._data["pos"][:, :, 1] * 1e-4
-        lats40km = self._data["pos"][:, :, 0] * 1e-4
+        lons40km, lats40km = [], []
+        for data in self._data:
+            lons40km.append(data["pos"][:, :, 1] * 1e-4)
+            lats40km.append(data["pos"][:, :, 0] * 1e-4)
+
+        lons40km = np.vstack(lons40km)
+        lats40km = np.vstack(lats40km)
 
         try:
             from geotiepoints import SatelliteInterpolator
@@ -489,83 +501,115 @@ class AAPP1b(object):
         """
         tic = datetime.datetime.now()
 
-        if "1" in chns:
-            if calib_coeffs is not None:
-                coeffs = calib_coeffs['ch1']
-            else:
-                coeffs = None
-            self.channels['1'] = _vis_calibrate(self._data, 0,
-                                                calibrate, pre_launch_coeffs,
-                                                coeffs)
-            self.units['1'] = '%'
-            if calibrate == 0:
-                self.units['1'] = ''
+        channels = {'1': [], '2': [], '3A': [], '3B': [], '4': [], '5': []}
+        is3b_all = []
 
-        if "2" in chns:
-            if calib_coeffs is not None:
-                coeffs = calib_coeffs['ch2']
-            else:
-                coeffs = None
-            self.channels['2'] = _vis_calibrate(self._data, 1,
-                                                calibrate, pre_launch_coeffs,
-                                                coeffs)
-            self.units['2'] = '%'
-            if calibrate == 0:
-                self.units['2'] = ''
+        i = 0
+        for data in self._data:
 
+            if "1" in chns:
+                LOGGER.debug("Calibrating channel 1.")
+                if calib_coeffs is not None:
+                    coeffs = calib_coeffs['ch1']
+                else:
+                    coeffs = None
+                channels['1'].append( _vis_calibrate(data, 0,
+                                                     calibrate,
+                                                     pre_launch_coeffs,
+                                                     coeffs))
+                self.units['1'] = '%'
+                if calibrate == 0:
+                    self.units['1'] = ''
+
+            if "2" in chns:
+                LOGGER.debug("Calibrating channel 2.")
+                if calib_coeffs is not None:
+                    coeffs = calib_coeffs['ch2']
+                else:
+                    coeffs = None
+                channels['2'].append(_vis_calibrate(data, 1,
+                                                    calibrate,
+                                                    pre_launch_coeffs,
+                                                    coeffs))
+                self.units['2'] = '%'
+                if calibrate == 0:
+                    self.units['2'] = ''
+
+            if "3A" in chns or "3B" in chns:
+                # Is it 3A or 3B:
+                is3b = np.expand_dims(np.bitwise_and(
+                    np.right_shift(data['scnlinbit'], 0), 1) == 1, 1)
+                # self._is3b = is3b
+                is3b_all.append(is3b)
+
+            if "3A" in chns:
+                LOGGER.debug("Calibrating channel 3a.")
+                if calib_coeffs is not None:
+                    coeffs = calib_coeffs['ch3a']
+                else:
+                    coeffs = None
+                ch3a = _vis_calibrate(data, 2,
+                                      calibrate, pre_launch_coeffs,
+                                      coeffs)
+                channels['3A'].append(np.ma.masked_array(ch3a, is3b * ch3a))
+
+                self.units['3A'] = '%'
+                if calibrate == 0:
+                    self.units['3A'] = ''
+
+            if "3B" in chns:
+                LOGGER.debug("Calibrating channel 3b.")
+                ch3b = _ir_calibrate(self._header[i], data, 0, calibrate)
+                channels['3B'].append(
+                    np.ma.masked_array(ch3b,
+                                       np.logical_or((is3b is False) * \
+                                                     ch3b,
+                                                     ch3b < 0.1)))
+                if calibrate == 1:
+                    self.units['3B'] = 'K'
+                elif calibrate == 2:
+                    self.units['3B'] = 'W*m-2*sr-1*cm ?'
+                else:
+                    self.units['3B'] = ''
+
+            if "4" in chns:
+                LOGGER.debug("Calibrating channel 4.")
+                channels['4'].append(_ir_calibrate(self._header[i],
+                                                   data, 1, calibrate))
+                if calibrate == 1:
+                    self.units['4'] = 'K'
+                elif calibrate == 2:
+                    self.units['4'] = 'W*m-2*sr-1*cm ?'
+                else:
+                    self.units['4'] = ''
+
+            if "5" in chns:
+                LOGGER.debug("Calibrating channel 5.")
+                channels['5'].append(_ir_calibrate(self._header[i],
+                                                   data, 2, calibrate))
+                if calibrate == 1:
+                    self.units['5'] = 'K'
+                elif calibrate == 2:
+                    self.units['5'] = 'W*m-2*sr-1*cm ?'
+                else:
+                    self.units['5'] = ''
+
+            i += 1
+
+        # transfer channel data to class attributes
+        for ch_ in channels:
+            try:
+                self.channels[ch_] = np.vstack(channels[ch_])
+            except ValueError:
+                self.channels[ch_] = None
         if "3A" in chns or "3B" in chns:
-            # Is it 3A or 3B:
-            is3b = np.expand_dims(np.bitwise_and(
-                np.right_shift(self._data['scnlinbit'], 0), 1) == 1, 1)
-            self._is3b = is3b
-
+            self._is3b = np.vstack(is3b_all)
         if "3A" in chns:
-            if calib_coeffs is not None:
-                coeffs = calib_coeffs['ch3a']
-            else:
-                coeffs = None
-            ch3a = _vis_calibrate(self._data, 2,
-                                  calibrate, pre_launch_coeffs,
-                                  coeffs)
-            self.channels['3A'] = np.ma.masked_array(ch3a, is3b * ch3a)
-
-            self.units['3A'] = '%'
-            if calibrate == 0:
-                self.units['3A'] = ''
-
+            self.channels['3A'].mask = self._is3b * self.channels['3A']
         if "3B" in chns:
-            ch3b = _ir_calibrate(self._header, self._data, 0, calibrate)
-            self.channels['3B'] = \
-                np.ma.masked_array(ch3b,
-                                   np.logical_or((is3b is False) *
-                                                 ch3b,
-                                                 ch3b < 0.1))
-            if calibrate == 1:
-                self.units['3B'] = 'K'
-            elif calibrate == 2:
-                self.units['3B'] = 'W*m-2*sr-1*cm ?'
-            else:
-                self.units['3B'] = ''
-
-        if "4" in chns:
-            self.channels['4'] = _ir_calibrate(self._header,
-                                               self._data, 1, calibrate)
-            if calibrate == 1:
-                self.units['4'] = 'K'
-            elif calibrate == 2:
-                self.units['4'] = 'W*m-2*sr-1*cm ?'
-            else:
-                self.units['4'] = ''
-
-        if "5" in chns:
-            self.channels['5'] = _ir_calibrate(self._header,
-                                               self._data, 2, calibrate)
-            if calibrate == 1:
-                self.units['5'] = 'K'
-            elif calibrate == 2:
-                self.units['5'] = 'W*m-2*sr-1*cm ?'
-            else:
-                self.units['5'] = ''
+            self.channels['3B'].mask = np.logical_or((self._is3b is False) * \
+                                                     self.channels['3B'],
+                                                     self.channels['3B'] < 0.1)
 
         LOGGER.debug("Calibration time %s", str(datetime.datetime.now() - tic))
 
@@ -580,7 +624,7 @@ def _vis_calibrate(data, chn, calib_type, pre_launch_coeffs=False,
     # Calibration count to albedo, the calibration is performed separately for
     # two value ranges.
 
-    channel = np.ma.masked_equal(data["hrpt"][:, :, chn], 0).astype(np.float)
+    channel = data["hrpt"][:, :, chn].astype(np.float)
     if calib_type == 0:
         return channel
 
@@ -639,7 +683,8 @@ def _ir_calibrate(header, data, irchn, calib_type):
     *calib_type* = 2: Radiances
     """
 
-    count = np.ma.masked_equal(data['hrpt'][:, :, irchn + 2], 0).astype(np.float)
+    count = data['hrpt'][:, :, irchn + 2].astype(np.float)
+
     if calib_type == 0:
         return count
 
@@ -710,7 +755,7 @@ def _ir_calibrate(header, data, irchn, calib_type):
 def show(data, negate=False):
     """Show the stetched data.
     """
-    from PIL import Image as pil
+    import Image as pil
     data = np.array((data - data.min()) * 255.0 /
                     (data.max() - data.min()), np.uint8)
     if negate:
@@ -724,30 +769,36 @@ CASES = {
 }
 
 if __name__ == "__main__":
+
     import sys
     from mpop.utils import debug_on
 
     debug_on()
     SCENE = AAPP1b(sys.argv[1])
     SCENE.read()
-    for name, val in zip(SCENE._header.dtype.names, SCENE._header[0]):
+    for name, val in zip(SCENE._header[0].dtype.names, SCENE._header[0][0]):
         print name, val
-    starttime = datetime.datetime(SCENE._header[0]["startdatayr"], 1, 1, 0, 0)
-    starttime += datetime.timedelta(days=int(SCENE._header[0]["startdatady"]) - 1,
-                                    seconds=SCENE._header[0]["startdatatime"] / 1000.0)
+    starttime = datetime.datetime(SCENE._header[0][0]["startdatayr"],
+                                  1, 1, 0, 0)
+    starttime += \
+            datetime.timedelta(days=int(SCENE._header[0][0]["startdatady"]) - 1,
+                               seconds=SCENE._header[0][0]["startdatatime"] / \
+                               1000.0)
     print "starttime:", starttime
-    endtime = datetime.datetime(SCENE._header[0]["enddatayr"], 1, 1, 0, 0)
-    endtime += datetime.timedelta(days=int(SCENE._header[0]["enddatady"]) - 1,
-                                  seconds=SCENE._header[0]["enddatatime"] / 1000.0)
+    endtime = datetime.datetime(SCENE._header[-1][0]["enddatayr"], 1, 1, 0, 0)
+    endtime += \
+            datetime.timedelta(days=int(SCENE._header[-1][0]["enddatady"]) - 1,
+                               seconds=SCENE._header[-1][0]["enddatatime"] / \
+                               1000.0)
     print "endtime:", endtime
     # print SCENE._data['hrpt'].shape
     #show(SCENE._data['hrpt'][:, :, 4].astype(np.float))
     # raw_input()
     SCENE.calibrate()
     SCENE.navigate()
-    for i_ in AVHRR_CHANNEL_NAMES:
-        data_ = SCENE.channels[i_]
+    for i__ in AVHRR_CHANNEL_NAMES:
+        data_ = SCENE.channels[i__]
         print >> sys.stderr, "%-3s" % i_, \
             "%6.2f%%" % (100. * (float(np.ma.count(data_)) / data_.size)), \
             "%6.2f, %6.2f, %6.2f" % (data_.min(), data_.mean(), data_.max())
-    show(SCENE.channels['4'], negate=False)
+    show(SCENE.channels['2'], negate=False)
