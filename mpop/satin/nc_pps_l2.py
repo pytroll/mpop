@@ -612,9 +612,9 @@ class PPSProductData(object):
             else:
                 self.mda.update({key: dks[key]})
 
-            LOG.debug("Key, shape, granule_length, swath_width: %s %s %s %s",
-                      str(key), str(shape),
-                      str(self.granule_lengths[0]), str(swath_width))
+            # LOG.debug("Key, shape, granule_length, swath_width: %s %s %s %s",
+            #          str(key), str(shape),
+            #          str(self.granule_lengths[0]), str(swath_width))
 
         # initiate data arrays
         self.shape = swath_length, swath_width
