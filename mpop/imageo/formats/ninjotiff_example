@@ -3,10 +3,9 @@
 """
 ninjotiff_example
 
-Created on Wed Jul  3 13:02:48 2013
+Created on Wed Dec  2 10:00:18 2015
 
 @author: ras
-
 
 This example is using a ninjotiff.cfg file. If you prefer to pass all
 meta-data by arguments, they can be defined like:
@@ -126,17 +125,17 @@ for area_name, area_in, area_out in AREAS:
         # Save it to Ninjo tif format, pass physics unit and Ninjo product name
         # (by "coincidence" product name correspond to MPOP's channel name :).
         #
-        # If physics unit is not passed we expect to find it in ninjotiff's
-        # config file.
+        # If physics unit is not passed, we will expect to find it in ninjotiff's config file.
         #
         filename = ('MSG-' + TIMESLOT.strftime("%Y%m%d_%H%M") + '-' +
                     area_name.split('_')[-1] + '-' + chn_name + '.tif')
         LOG.info("Saving to Ninjo tif %s" % filename)
         img.save(filename,
                  fformat='mpop.imageo.formats.ninjotiff',
-                 value_range = value_range,
                  physic_unit=physic_unit,
-                 ninjo_product_name=chn_name)
+                 ninjo_product_name=chn_name,
+                 ch_min=value_range[0],
+                 ch_max=value_range[1])
 
         # Cleanup.
         scene.unload([chn])
