@@ -1,0 +1,60 @@
+[satellite]
+instruments = ('virr',)
+satname = fy3
+
+[virr-level2]
+format=fy3_virr
+# clear_FY3B_26293_02-DEC-2015_14-02-13_VIRRX_L1B.HDF
+dir=/data/to/my/fengyun3/virr/file/
+filename = clear_FY3B_%(orbit)s_%d-%b-%Y_%H-%M-%S_VIRRX_L1B.HDF
+
+[virr-1]
+name = '1'
+frequency = (0.58, 0.63, 0.68)
+resolution = 1000
+
+[virr-2]
+name = '2'
+frequency = (0.84, 0.865, 0.89)
+resolution = 1000
+
+[virr-3]
+name = '3'
+frequency = (3.55, 3.74, 3.93)
+resolution = 1000
+
+[virr-4]
+name = '4'
+frequency = (10.3, 10.8, 11.3)
+resolution = 1000
+
+[virr-5]
+name = '5'
+frequency = (11.5, 12.0, 12.5)
+resolution = 1000
+
+[virr-6]
+name = '6'
+frequency = (1.55, 1.6, 1.64)
+resolution = 1000
+
+[virr-7]
+name = '7'
+frequency = (0.43, 0.455, 0.48)
+resolution = 1000
+
+[virr-8]
+name = '8'
+frequency = (0.48, 0.505, 0.53)
+resolution = 1000
+
+[virr-9]
+name = '9'
+frequency = (0.53, 0.555, 0.58)
+resolution = 1000
+
+[virr-10]
+name = '10'
+frequency = (1.325, 1.36, 1.395)
+resolution = 1000
+
