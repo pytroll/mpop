@@ -37,7 +37,7 @@ LOGGER = logging.getLogger('virr')
 
 def load(satscene, *args, **kwargs):
     """Read data from file and load it into *satscene*.
-    A possible *calibrate* keyword argument is passed to the AAPP reader. 
+    A possible *calibrate* keyword argument is passed to the AAPP reader.
     Should be 0 for off (counts), 1 for default (brightness temperatures and
     reflectances), and 2 for radiances only.
 
@@ -94,8 +94,18 @@ def load_virr(satscene, options):
 
     calibrate = options['calibrate']
 
-    # Get the calibration information
     h5f = h5py.File(filename, 'r')
+
+    # Get geolocation information
+    lons = h5f['Longitude'][:]
+    lats = h5f['Latitude'][:]
+    sunz = h5f['SolarZenith'][:]
+    slope = h5f['SolarZenith'].attrs['Slope'][0]
+    intercept = h5f['SolarZenith'].attrs['Intercept'][0]
+    sunz = sunz * slope + intercept
+    sunz = np.where(np.greater(sunz, 85.0), 85.0, sunz)
+
+    # Get the calibration information
     # Emissive radiance coefficients:
     emis_offs = h5f['Emissive_Radiance_Offsets'][:]
     emis_scales = h5f['Emissive_Radiance_Scales'][:]
@@ -103,13 +113,16 @@ def load_virr(satscene, options):
 
     # VIS/NIR calibration stuff:
     refsb_cal_coeff = h5f.attrs['RefSB_Cal_Coefficients']
+    visnir_scales = refsb_cal_coeff[0::2]
+    visnir_offs = refsb_cal_coeff[1::2]
+
     refsb_effective_wl = h5f.attrs['RefSB_Effective_Wavelength']
 
+    # Read the band data:
     for dset in datasets:
         band_data = h5f[dset]
         valid_range = band_data.attrs['valid_range']
         LOGGER.debug("valid-range = " + str(valid_range))
-        # FIXME! There seem to be useful data outside the valid range!
         fillvalue = band_data.attrs['_FillValue']
         band_names = band_data.attrs['band_name'].split(',')
         slope = band_data.attrs['Slope']
@@ -129,18 +142,18 @@ def load_virr(satscene, options):
             bandmask = np.logical_or(np.less(data, valid_range[0]),
                                      np.greater(data, valid_range[1]))
 
-            # if calibrate:
-            #     data = slopes[mersi_band_index] * (
-            # data - np.array([sv_dn_average[mersi_band_index]]).transpose())
+            if calibrate:
+                if dset in ['EV_Emissive']:
+                    data = (np.array([emis_offs[:, i]]).transpose() +
+                            data * np.array([emis_scales[:, i]]).transpose())
+                if dset in ['EV_RefSB']:
+                    data = (visnir_offs[i] +
+                            data * visnir_scales[i]) / np.cos(np.deg2rad(sunz))
 
             satscene[band] = np.ma.masked_array(data,
                                                 mask=bandmask,
                                                 copy=False)
 
-    # Get geolocation information
-    lons = h5f['Longitude'][:]
-    lats = h5f['Latitude'][:]
-    pdb.set_trace()
     from pyresample import geometry
     satscene.area = geometry.SwathDefinition(lons=lons, lats=lats)
 
