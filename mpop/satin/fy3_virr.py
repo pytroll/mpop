@@ -30,7 +30,7 @@ from datetime import datetime
 from ConfigParser import ConfigParser
 from mpop import CONFIG_PATH
 import h5py
-import pdb
+from pyspectral.blackbody import blackbody_wn_rad2temp as rad2temp
 
 LOGGER = logging.getLogger('virr')
 
@@ -109,6 +109,10 @@ def load_virr(satscene, options):
     # Emissive radiance coefficients:
     emis_offs = h5f['Emissive_Radiance_Offsets'][:]
     emis_scales = h5f['Emissive_Radiance_Scales'][:]
+
+    # Central wave number (unit =  cm-1) for the three IR bands
+    # It is ordered according to decreasing wave number (increasing wavelength):
+    # 3.7 micron, 10.8 micron, 12 micron
     emiss_centroid_wn = h5f.attrs['Emmisive_Centroid_Wave_Number']
 
     # VIS/NIR calibration stuff:
@@ -146,6 +150,12 @@ def load_virr(satscene, options):
                 if dset in ['EV_Emissive']:
                     data = (np.array([emis_offs[:, i]]).transpose() +
                             data * np.array([emis_scales[:, i]]).transpose())
+                    # Radiance to Tb conversion.
+                    # Pyspectral wants SI units,
+                    # but radiance data are in mW/m^2/str/cm^-1 and wavenumbers are in cm^-1
+                    # Therefore multply wavenumber by 100 and radiances by
+                    # 10^-5
+                    data = rad2temp(emiss_centroid_wn[i] * 100., data * 1e-5)
                 if dset in ['EV_RefSB']:
                     data = (visnir_offs[i] +
                             data * visnir_scales[i]) / np.cos(np.deg2rad(sunz))
