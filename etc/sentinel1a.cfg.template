@@ -1,0 +1,11 @@
+[satellite]
+satname = 'sentinel'
+number = '1a'
+instruments = ('s1a', )
+
+[s1a-level2]
+format = 'mipp_sentinel.GeoTiffReader'
+# S1A_IW_GRDM_1SSH_20120109T054406_20120109T054424_001889_000001_ACD9.SAFE/
+# s1a-iw-grd-hh-20120109t054406-20120109t054424-001889-000001-001.tiff
+dir = /data/ras/sentinel-1/???_*_%Y%m%dT%H%M%S_*_%(orbit)s_*SAFE
+filename = manifest.safe
