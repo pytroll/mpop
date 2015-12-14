@@ -1,6 +1,31 @@
 Changelog
 =========
 
+v1.2.1 (2015-12-14)
+-------------------
+
+- Update changelog. [Martin Raspaud]
+
+- Bump version: 1.2.0 → 1.2.1. [Martin Raspaud]
+
+- Merge branch 'pre-master' [Martin Raspaud]
+
+- Merge branch 'pre-master' [Martin Raspaud]
+
+  Conflicts:
+  	doc/source/pp.rst
+
+- Update changelog. [Martin Raspaud]
+
+- Bump version: 1.1.0 → 1.2.0. [Martin Raspaud]
+
+- Merge branch 'pre-master' [Martin Raspaud]
+
+  Conflicts:
+  	mpop/version.py
+  	setup.py
+
+
 v1.2.0 (2015-12-14)
 -------------------
 
@@ -49,6 +74,77 @@ Other
 - Update changelog. [Martin Raspaud]
 
 - Bump version: 1.1.0 → 1.2.0. [Martin Raspaud]
+
+- Add template parameters for NOAA-19 ears-nwc. [Adam.Dybbroe]
+
+  Parameters needed if you want to load only with time_interval and
+  not using the filename argument
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Merged (by hand) sentinel1-feature branch. [Lars Orum Rasmussen]
+
+- Added support for gdal's SetNoDataValue if fill_value is not None.
+  [Lars Orum Rasmussen]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Lars Orum Rasmussen]
+
+- Added a RGB example. [Lars Orum Rasmussen]
+
+- Don't use colormaps for 16b grayscale (Ninjo will fail enhancements)
+  [Lars Orum Rasmussen]
+
+  For 16b IR, if specified, set min-is-white
+
+  For 16b grayscale, it seems that transparent pixel (in Ninjo) are forced to be zero
+
+  Transparent pixel for 16b IR are handled bad
+
+
+- Add template config for ears-nwc Metop-B reading. [Adam.Dybbroe]
+
+- Fix bug when using time_interval argument loading ears-nwc data.
+  [Adam.Dybbroe]
+
+- Add brightness temperature calibration to the IR bands. [Adam.Dybbroe]
+
+- Update EARS config files for new (2014) PPS product format.
+  [Adam.Dybbroe]
+
+- Remove old FY3 mersi reader. [Adam.Dybbroe]
+
+- Apply VIS/NIR calibration including sun-zenith correction.
+  [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Now ninjotiff can list tags. [Lars Orum Rasmussen]
+
+  Ninjo tags are now a dictionary
+
+
+- Add FY-3B template config file. [Adam.Dybbroe]
+
+- Add first draft FY3B VIRR reader. [Adam.Dybbroe]
+
+  No calibration yet, but counts can be projected and displayed
+
+- Added contributions from Christian (DWD) to ninjotiff: now using
+  tifffile.py and support for RGBA. [Lars Orum Rasmussen]
+
+  Changed scaling into a value range (so it works for me)
+
+
+- Merge branch 'pre-master' of https://github.com/pytroll/mpop into pre-
+  master. [Panu Lahtinen]
+
+- Delete world_map.ascii. [Martin Raspaud]
+
+- Read DNB using PyTables, separate read() to read_m() and read_dnb()
+  [Panu Lahtinen]
 
 - Update coords2area_def with preview mode. [Martin Raspaud]
 
