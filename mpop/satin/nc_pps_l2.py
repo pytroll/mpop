@@ -303,7 +303,6 @@ def get_filenames(scene, products, conf, time_interval, area_name):
                          "cloud_product_dir",
                          vars=os.environ)
     pathname_tmpl = os.path.join(directory, filename)
-
     starttime, endtime = time_interval
 
     if not scene.orbit:
@@ -322,8 +321,7 @@ def get_filenames(scene, products, conf, time_interval, area_name):
             # First get all files with all times matching in directory:
             values["orbit"] = '?????'
             filename_tmpl = os.path.join(directory,
-                                         globify_date(filename % values))
-            # % values
+                                         globify_date(filename) % values)
 
         else:
             values["orbit"] = str(orbit).zfill(5) or "*"
@@ -938,6 +936,8 @@ class PPSReader(Reader):
             else:
                 time_start, time_end = satscene.time_slot, None
 
+            LOG.debug(
+                "Start and end times: %s %s", str(time_start), str(time_end))
             prodfilenames = get_filenames(satscene, products, self._config,
                                           (time_start, time_end), area_name)
 
