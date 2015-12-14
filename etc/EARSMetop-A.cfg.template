@@ -3,9 +3,9 @@ variant = EARS
 instruments = ('avhrr/3',)
 
 [avhrr/3-level3]
-filename = %(product)s_%Y%m%d_%H%M00_%(satellite)s.h5*
-dir = /path/to/my/ears/nwc
-format = nwcsaf_pps
+format = nc_pps_l2.PPSReader
+cloud_product_filename = W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,METOPA+%(product)s_C_EUMS_%Y%m%d%H%M00_%(orbit)s.nc*
+cloud_product_geofilename = W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,METOPA+CMA_C_EUMS_%Y%m%d%H%M00_%(orbit)s.nc*
 
 [avhrr/3-level1]
 format=eps1a

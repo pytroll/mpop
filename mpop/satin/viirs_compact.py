@@ -33,6 +33,11 @@ import os
 import logging
 import bz2
 
+try:
+    import tables
+except ImportError:
+    tables = None
+
 from mpop import CONFIG_PATH
 
 logger = logging.getLogger(__name__)
@@ -132,8 +137,10 @@ def load(satscene, *args, **kwargs):
     for chn in chans:
         if chn.startswith('M'):
             m_chans.append(chn)
-        if chn.startswith('DNB'):
+        elif chn.startswith('DNB'):
             dnb_chan.append(chn)
+        else:
+            raise ValueError("Reading of channel %s not implemented", chn)
 
     m_datas = []
     m_lonlats = []
@@ -142,19 +149,27 @@ def load(satscene, *args, **kwargs):
 
     for fname in files_to_load:
         logger.debug("Reading %s", fname)
-        h5f = h5py.File(fname, "r")
+        if 'SVDNBC' in fname:
+            if tables:
+                h5f = tables.open_file(fname, "r")
+            else:
+                logger.warning("DNB data could not be read from %f, "
+                               "PyTables not available.", fname)
+                continue
+        else:
+            h5f = h5py.File(fname, "r")
         if m_chans and "SVDNBC" not in os.path.split(fname)[-1]:
             try:
-                arr, m_units = read(h5f, m_chans)
+                arr, m_units = read_m(h5f, m_chans)
                 m_datas.append(arr)
-                m_lonlats.append(navigate(h5f, m_chans[0]))
+                m_lonlats.append(navigate_m(h5f, m_chans[0]))
             except KeyError:
                 pass
-        if dnb_chan:
+        if dnb_chan and "SVDNBC" in os.path.split(fname)[-1]:
             try:
-                arr, dnb_units = read(h5f, dnb_chan)
+                arr, dnb_units = read_dnb(h5f)
                 dnb_datas.append(arr)
-                dnb_lonlats.append(navigate(h5f, 'DNB'))
+                dnb_lonlats.append(navigate_dnb(h5f))
             except KeyError:
                 pass
         h5f.close()
@@ -201,7 +216,7 @@ def load(satscene, *args, **kwargs):
             os.remove(fname)
 
 
-def read(h5f, channels, calibrate=1):
+def read_m(h5f, channels, calibrate=1):
 
     chan_dict = dict([(key.split("-")[1], key)
                       for key in h5f["All_Data"].keys()
@@ -222,6 +237,7 @@ def read(h5f, channels, calibrate=1):
                               arr * rads.attrs['RadianceScaleHigh'] + \
                               rads.attrs['RadianceOffsetHigh'],)
         except KeyError:
+            print "KeyError"
             pass
         unit = "W m-2 sr-1 μm-1"
         if calibrate == 0:
@@ -229,12 +245,14 @@ def read(h5f, channels, calibrate=1):
         if calibrate == 1:
             # do calibrate
             try:
+                # First guess: VIS or NIR data
                 a_vis = rads.attrs['EquivalentWidth']
                 b_vis = rads.attrs['IntegratedSolarIrradiance']
                 dse = rads.attrs['EarthSunDistanceNormalised']
                 arr *= 100 * np.pi * a_vis / b_vis * (dse ** 2)
                 unit = "%"
             except KeyError:
+                # Maybe it's IR data?
                 try:
                     a_ir = rads.attrs['BandCorrectionCoefficientA']
                     b_ir = rads.attrs['BandCorrectionCoefficientB']
@@ -248,13 +266,29 @@ def read(h5f, channels, calibrate=1):
                     arr += b_ir
                     unit = "K"
                 except KeyError:
-                    logger.debug("Assuming DNB channel, "
-                                 "keeping radiance values.")
+                    logger.warning("Calibration failed.")
+
         elif calibrate != 2:
             raise ValueError("Calibrate parameter should be 1 or 2")
         arr[arr < 0] = 0
         res.append(arr)
         units.append(unit)
+
+    return res, units
+
+
+def read_dnb(h5f):
+
+    scans = h5f.get_node("/All_Data/NumberOfScans").read()[0]
+    res = []
+    units = []
+
+    rads_dset = h5f.get_node("/All_Data/VIIRS-DNB-SDR_All")
+    arr = np.ma.masked_greater(rads_dset.Radiance.read()[:scans * 16, :], 1.0)
+    unit = "W m-2 sr-1 μm-1"
+    arr[arr < 0] = 0
+    res.append(arr)
+    units.append(unit)
 
     return res, units
 
@@ -292,17 +326,13 @@ def xyz2lonlat(x, y, z):
     return lon, lat
 
 
-def navigate(h5f, channel):
+def navigate_m(h5f, channel):
 
-    if channel.startswith("M"):
-        chtype = "MOD"
-    elif channel == "DNB":
-        chtype = "DNB"
-    else:
+    if not channel.startswith("M"):
         raise ValueError("Unknow channel type for band %s", channel)
 
     scans = h5f["All_Data"]["NumberOfScans"][0]
-    geostuff = h5f["All_Data"]["VIIRS-"+chtype+"-GEO_All"]
+    geostuff = h5f["All_Data"]["VIIRS-MOD-GEO_All"]
     all_c_align = geostuff["AlignmentCoefficient"].value[np.newaxis, np.newaxis,
                                                      :, np.newaxis]
     all_c_exp = geostuff["ExpansionCoefficient"].value[np.newaxis, np.newaxis,
@@ -312,19 +342,26 @@ def navigate(h5f, channel):
 
     res = []
 
-    # FIXME: this supposes there is only one tiepoint zone in the track direction
-    scan_size = h5f["All_Data/VIIRS-"+channel+"-SDR_All"].attrs["TiePointZoneSizeTrack"][0]
-    track_offset = h5f["All_Data/VIIRS-"+channel+"-SDR_All"].attrs["PixelOffsetTrack"]
-    scan_offset = h5f["All_Data/VIIRS-"+channel+"-SDR_All"].attrs["PixelOffsetScan"]
+    # FIXME:  this supposes  there is  only one  tiepoint zone  in the
+    # track direction
+    scan_size = h5f["All_Data/VIIRS-%s-SDR_All" % \
+                    channel].attrs["TiePointZoneSizeTrack"][0]
+    track_offset = h5f["All_Data/VIIRS-%s-SDR_All" % \
+                       channel].attrs["PixelOffsetTrack"]
+    scan_offset = h5f["All_Data/VIIRS-%s-SDR_All" % \
+                      channel].attrs["PixelOffsetScan"]
 
     try:
-        group_locations = h5f["All_Data/VIIRS-"+chtype+"-GEO_All/TiePointZoneGroupLocationScanCompact"].value
+        group_locations = h5f["All_Data/VIIRS-MOD-GEO_All/"
+                              "TiePointZoneGroupLocationScanCompact"].value
     except KeyError:
         group_locations = [0]
     param_start = 0
-    for tpz_size, nb_tpz, start in zip(h5f["All_Data/VIIRS-"+channel+"-SDR_All"].attrs["TiePointZoneSizeScan"],
-                                       h5f["All_Data/VIIRS-"+chtype+"-GEO_All/NumberOfTiePointZonesScan"].value,
-                                       group_locations):
+    for tpz_size, nb_tpz, start in \
+        zip(h5f["All_Data/VIIRS-%s-SDR_All" % \
+                channel].attrs["TiePointZoneSizeScan"],
+            h5f["All_Data/VIIRS-MOD-GEO_All/NumberOfTiePointZonesScan"].value,
+            group_locations):
         lon = all_lon[:, start:start + nb_tpz + 1]
         lat = all_lat[:, start:start + nb_tpz + 1]
         c_align = all_c_align[:, :, param_start:param_start + nb_tpz, :]
@@ -333,15 +370,81 @@ def navigate(h5f, channel):
         nties = nb_tpz
         if (np.max(lon) - np.min(lon) > 90) or (np.max(abs(lat)) > 60):
             x, y, z = lonlat2xyz(lon, lat)
-            x, y, z = (expand_array(x, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset),
-                       expand_array(y, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset),
-                       expand_array(z, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset))
+            x, y, z = (expand_array(x, scans, c_align, c_exp, scan_size,
+                                    tpz_size, nties, track_offset, scan_offset),
+                       expand_array(y, scans, c_align, c_exp, scan_size,
+                                    tpz_size, nties, track_offset, scan_offset),
+                       expand_array(z, scans, c_align, c_exp, scan_size,
+                                    tpz_size, nties, track_offset, scan_offset))
             res.append(xyz2lonlat(x, y, z))
         else:
-            res.append((expand_array(lon, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset),
-                       expand_array(lat, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset)))
+            res.append((expand_array(lon, scans, c_align, c_exp, scan_size,
+                                     tpz_size, nties, track_offset,
+                                     scan_offset),
+                       expand_array(lat, scans, c_align, c_exp, scan_size,
+                                    tpz_size, nties, track_offset,
+                                    scan_offset)))
     lons, lats = zip(*res)
     return np.hstack(lons), np.hstack(lats)
+
+
+def navigate_dnb(h5f):
+
+    scans = h5f.get_node("/All_Data/NumberOfScans").read()[0]
+    geo_dset = h5f.get_node("/All_Data/VIIRS-DNB-GEO_All")
+    all_c_align = geo_dset.AlignmentCoefficient.read()[np.newaxis, np.newaxis,
+                                                       :, np.newaxis]
+    all_c_exp = geo_dset.ExpansionCoefficient.read()[np.newaxis, np.newaxis,
+                                                     :, np.newaxis]
+    all_lon = geo_dset.Longitude.read()
+    all_lat = geo_dset.Latitude.read()
+
+    res = []
+
+    # FIXME: this supposes there is only one tiepoint zone in the
+    # track direction
+    scan_size = h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                                  "TiePointZoneSizeTrack")[0]
+    track_offset = h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                                     "PixelOffsetTrack")[0]
+    scan_offset = h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                                    "PixelOffsetScan")[0]
+
+    try:
+        group_locations = geo_dset.TiePointZoneGroupLocationScanCompact.read()
+    except KeyError:
+        group_locations = [0]
+    param_start = 0
+    for tpz_size, nb_tpz, start in \
+        zip(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                              "TiePointZoneSizeScan"),
+            geo_dset.NumberOfTiePointZonesScan.read(),
+            group_locations):
+        lon = all_lon[:, start:start + nb_tpz + 1]
+        lat = all_lat[:, start:start + nb_tpz + 1]
+        c_align = all_c_align[:, :, param_start:param_start + nb_tpz, :]
+        c_exp = all_c_exp[:, :, param_start:param_start + nb_tpz, :]
+        param_start += nb_tpz
+        nties = nb_tpz
+        if (np.max(lon) - np.min(lon) > 90) or (np.max(abs(lat)) > 60):
+            x, y, z = lonlat2xyz(lon, lat)
+            x, y, z = (expand_array(x, scans, c_align, c_exp, scan_size,
+                                    tpz_size, nties, track_offset, scan_offset),
+                       expand_array(y, scans, c_align, c_exp, scan_size,
+                                    tpz_size, nties, track_offset, scan_offset),
+                       expand_array(z, scans, c_align, c_exp, scan_size,
+                                    tpz_size, nties, track_offset, scan_offset))
+            res.append(xyz2lonlat(x, y, z))
+        else:
+            res.append((expand_array(lon, scans, c_align, c_exp, scan_size,
+                                     tpz_size, nties, track_offset,
+                                     scan_offset),
+                       expand_array(lat, scans, c_align, c_exp, scan_size,
+                                    tpz_size, nties, track_offset,
+                                    scan_offset)))
+    lons, lats = zip(*res)
+    return np.hstack(lons), np.hstack(lats)
+
 
 if __name__ == '__main__':
     #filename = "/local_disk/data/satellite/polar/compact_viirs/SVMC_npp_d20140114_t1245125_e1246367_b11480_c20140114125427496143_eum_ops.h5"
@@ -358,4 +461,4 @@ if __name__ == '__main__':
     # img.enhance(gamma=2.0)
     # img.show()
 
-    lons, lats = navigate(h5f)
+    lons, lats = navigate_m(h5f)

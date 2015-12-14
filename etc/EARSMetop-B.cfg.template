@@ -1,0 +1,63 @@
+[satellite]
+satname = Metop-B
+number =
+variant = EARS
+instruments = ('avhrr/3',)
+
+[avhrr/3-level3]
+format = nc_pps_l2.PPSReader
+cloud_product_dir = /path/to/ears/nwc
+cloud_product_filename = W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,METOPB+%(product)s_C_EUMS_%Y%m%d%H%M00_*.nc*
+cloud_product_geofilename = W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,METOPB+CMA_C_EUMS_%Y%m%d%H%M00_*.nc*
+geolocation_product_name = CMA
+
+[avhrr/3-level1]
+format=eps1a
+shortname=M01
+dir=/path/to/my/ears/avhrr
+filename=AVHR_HRP_00_M01_%Y%m%d%H%M*
+
+[avhrr/3-granules]
+type=bzipped eps1a
+granularity=60
+full_scan_period=0.1667
+scan_width=2048
+dir=/path/to/my/ears/avhrr
+filename=AVHR_HRP_00_M02_%Y%m%d%H%M*
+
+
+[avhrr/3-1]
+name = '1'
+frequency = (0.58, 0.63, 0.68)
+resolution = 1090
+size = (2048,)
+
+[avhrr/3-2]
+name = '2'
+frequency = (0.725, 0.8625, 1.0)
+resolution = 1090
+size = (2048,)
+
+[avhrr/3-3]
+name = '3A'
+frequency = (1.58, 1.61, 1.64)
+resolution = 1090
+size = (2048,)
+
+[avhrr/3-4]
+name = '3B'
+frequency = (3.55, 3.74, 3.93)
+resolution = 1090
+size = (2048,)
+
+[avhrr/3-5]
+name = '4'
+frequency = (10.3, 10.8, 11.3)
+resolution = 1090
+size = (2500, 2500)
+
+[avhrr/3-6]
+name = '5'
+frequency = (11.5, 12.0, 12.5)
+resolution = 1090
+size = (2500, 2500)

@@ -30,263 +30,98 @@ distributed under the GNU GENERAL PUBLIC LICENSE agreement version 3.
 Binary executable files included as part of this software package are
 copyrighted and licensed by their respective organizations, and
 distributed consistent with their licensing terms.
+
+Edited by Christian Kliche (Ernst Basler + Partner) to replace pylibtiff with
+a modified version of tifffile.py (created by Christoph Gohlke)
 """
 
 import os
 import logging
 import calendar
 from datetime import datetime
+from copy import deepcopy
 import numpy as np
 
-#import libtiff
-#from libtiff import TIFF, TIFFFieldInfo, TIFFDataType, FIELD_CUSTOM
-
-import mpop.imageo.formats.libtiff as libtiff
-from mpop.imageo.formats.libtiff import TIFF, TIFFFieldInfo, TIFFDataType, \
-    FIELD_CUSTOM
+from mpop.imageo.formats import tifffile
 
 log = logging.getLogger(__name__)
 
-# ------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 #
 # Ninjo tiff tags from DWD
 #
-# ------------------------------------------------------------------------------
-# Geotiff tags
-GTF_ModelPixelScale        = 33550
-GTF_ModelTiepoint          = 33922 
+#-------------------------------------------------------------------------------
+# Geotiff tags.
+GTF_ModelPixelScale = 33550
+GTF_ModelTiepoint = 33922
 
-NTD_Magic                  = 40000
-NTD_SatelliteNameID        = 40001
-NTD_DateID                 = 40002
-NTD_CreationDateID         = 40003
-NTD_ChannelID              = 40004
-NTD_HeaderVersion          = 40005
-NTD_FileName               = 40006
-NTD_DataType               = 40007
-NTD_SatelliteNumber        = 40008
-NTD_ColorDepth             = 40009
-NTD_DataSource             = 40010
-NTD_XMinimum               = 40011
-NTD_XMaximum               = 40012
-NTD_YMinimum               = 40013
-NTD_YMaximum               = 40014
-NTD_Projection             = 40015
-NTD_MeridianWest           = 40016
-NTD_MeridianEast           = 40017
-NTD_EarthRadiusLarge       = 40018
-NTD_EarthRadiusSmall       = 40019
-NTD_GeodeticDate           = 40020
-NTD_ReferenceLatitude1     = 40021
-NTD_ReferenceLatitude2     = 40022
-NTD_CentralMeridian        = 40023
-NTD_PhysicValue            = 40024
-NTD_PhysicUnit             = 40025
-NTD_MinGrayValue           = 40026
-NTD_MaxGrayValue           = 40027
-NTD_Gradient               = 40028
-NTD_AxisIntercept          = 40029
-NTD_ColorTable             = 40030
-NTD_Description            = 40031
-NTD_OverflightDirection    = 40032
-NTD_GeoLatitude            = 40033
-NTD_GeoLongitude           = 40034
-NTD_Altitude               = 40035
-NTD_AOSAsimuth             = 40036
-NTD_LOSAsimuth             = 40037
-NTD_MaxElevation           = 40038
-NTD_OverflightTime         = 40039
-NTD_IsBlackLineCorrection  = 40040
-NTD_IsAtmosphereCorrected  = 40041
-NTD_IsCalibrated           = 40042
-NTD_IsNormalized           = 40043
-NTD_OriginalHeader         = 40044
-NTD_IsValueTableAvailable  = 40045
-NTD_ValueTableStringField  = 40046
-NTD_ValueTableFloatField   = 40047
-NTD_TransparentPixel       = 50000
+# Ninjo tiff tags
+NINJO_TAGS = {
+    "NTD_Magic": 40000,
+    "NTD_SatelliteNameID": 40001,
+    "NTD_DateID": 40002,
+    "NTD_CreationDateID": 40003,
+    "NTD_ChannelID": 40004,
+    "NTD_HeaderVersion": 40005,
+    "NTD_FileName": 40006,
+    "NTD_DataType": 40007,
+    "NTD_SatelliteNumber": 40008,
+    "NTD_ColorDepth": 40009,
+    "NTD_DataSource": 40010,
+    "NTD_XMinimum": 40011,
+    "NTD_XMaximum": 40012,
+    "NTD_YMinimum": 40013,
+    "NTD_YMaximum": 40014,
+    "NTD_Projection": 40015,
+    "NTD_MeridianWest": 40016,
+    "NTD_MeridianEast": 40017,
+    "NTD_EarthRadiusLarge": 40018,
+    "NTD_EarthRadiusSmall": 40019,
+    "NTD_GeodeticDate": 40020,
+    "NTD_ReferenceLatitude1": 40021,
+    "NTD_ReferenceLatitude2": 40022,
+    "NTD_CentralMeridian": 40023,
+    "NTD_PhysicValue": 40024,
+    "NTD_PhysicUnit": 40025,
+    "NTD_MinGrayValue": 40026,
+    "NTD_MaxGrayValue": 40027,
+    "NTD_Gradient": 40028,
+    "NTD_AxisIntercept": 40029,
+    "NTD_ColorTable": 40030,
+    "NTD_Description": 40031,
+    "NTD_OverflightDirection": 40032,
+    "NTD_GeoLatitude": 40033,
+    "NTD_GeoLongitude": 40034,
+    "NTD_Altitude": 40035,
+    "NTD_AOSAsimuth": 40036,
+    "NTD_LOSAsimuth": 40037,
+    "NTD_MaxElevation": 40038,
+    "NTD_OverflightTime": 40039,
+    "NTD_IsBlackLineCorrection": 40040,
+    "NTD_IsAtmosphereCorrected": 40041,
+    "NTD_IsCalibrated": 40042,
+    "NTD_IsNormalized": 40043,
+    "NTD_OriginalHeader": 40044,
+    "NTD_IsValueTableAvailable": 40045,
+    "NTD_ValueTableStringField": 40046,
+    "NTD_ValueTableFloatField": 40047,
+    "NTD_TransparentPixel": 50000
+}
+
+NINJO_TAGS_INV = dict((v, k) for k, v in NINJO_TAGS.items())
 
 #
 # model_pixel_scale_tag_count ? ...
-# Sometimes DWD product defines an array of length 2
-# (instead of 3 (as in geotiff)).
+# Sometimes DWD product defines an array of length 2 (instead of 3 (as in geotiff)).
 #
-MODEL_PIXEL_SCALE_COUNT = int(
-    os.environ.get("GEOTIFF_MODEL_PIXEL_SCALE_COUNT", 3))
+MODEL_PIXEL_SCALE_COUNT = int(os.environ.get("GEOTIFF_MODEL_PIXEL_SCALE_COUNT", 3))
 
-ninjo_tags_dict = {
-    # Geotiff tags
-    GTF_ModelPixelScale:
-        TIFFFieldInfo(GTF_ModelPixelScale, MODEL_PIXEL_SCALE_COUNT,
-                      MODEL_PIXEL_SCALE_COUNT, TIFFDataType.TIFF_DOUBLE,
-                      FIELD_CUSTOM, True, False, "ModelPixelScale"),
-    GTF_ModelTiepoint:
-        TIFFFieldInfo(GTF_ModelTiepoint, 6, 6, TIFFDataType.TIFF_DOUBLE,
-                      FIELD_CUSTOM, True, False, "ModelTiePoint"),
 
-    # DWD tags
-    NTD_Magic:
-        TIFFFieldInfo(NTD_Magic, -1, -1, TIFFDataType.TIFF_ASCII,
-                      FIELD_CUSTOM, True, False, "Magic"),
-    NTD_SatelliteNameID:
-        TIFFFieldInfo(NTD_SatelliteNameID, 1, 1, TIFFDataType.TIFF_LONG,
-                      FIELD_CUSTOM, True, False, "SatelliteNameID"),
-    NTD_DateID:
-        TIFFFieldInfo(NTD_DateID, 1, 1, TIFFDataType.TIFF_LONG,
-                      FIELD_CUSTOM, True, False, "DateID"),
-    NTD_CreationDateID:
-        TIFFFieldInfo(NTD_CreationDateID, 1, 1, TIFFDataType.TIFF_LONG,
-                      FIELD_CUSTOM, True, False, "CreationDateID"),
-    NTD_ChannelID:
-        TIFFFieldInfo(NTD_ChannelID, 1, 1, TIFFDataType.TIFF_LONG,
-                      FIELD_CUSTOM, True, False, "ChannelID"),
-    NTD_HeaderVersion:
-        TIFFFieldInfo(NTD_HeaderVersion, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "HeaderVersion"),
-    NTD_FileName:
-        TIFFFieldInfo(NTD_FileName, -1, -1, TIFFDataType.TIFF_ASCII,
-                      FIELD_CUSTOM, True, False, "FileName"),
-    NTD_DataType:
-        # 4 chars + NUL character
-        TIFFFieldInfo(NTD_DataType, 5, 5, TIFFDataType.TIFF_ASCII,
-                      FIELD_CUSTOM, True, False, "DataType"),
-    NTD_SatelliteNumber:
-        TIFFFieldInfo(NTD_SatelliteNumber, -1, -1, TIFFDataType.TIFF_ASCII,
-                      FIELD_CUSTOM, True, False, "SatelliteNumber"),
-    NTD_ColorDepth:
-        TIFFFieldInfo(NTD_ColorDepth, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "ColorDepth"),
-    NTD_DataSource:
-        TIFFFieldInfo(NTD_DataSource, -1, -1, TIFFDataType.TIFF_ASCII,
-                      FIELD_CUSTOM, True, False, "DataSource"),
-    NTD_XMinimum:
-        TIFFFieldInfo(NTD_XMinimum, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "XMinimum"),
-    NTD_XMaximum:
-        TIFFFieldInfo(NTD_XMaximum, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "XMaximum"),
-    NTD_YMinimum:
-        TIFFFieldInfo(NTD_YMinimum, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "YMinimum"),
-    NTD_YMaximum:
-        TIFFFieldInfo(NTD_YMaximum, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "YMaximum"),
-    NTD_Projection:
-        # 4 chars + NUL character
-        TIFFFieldInfo(NTD_Projection, 5, 5, TIFFDataType.TIFF_ASCII,
-                      FIELD_CUSTOM, True, False, "Projection"),
-    NTD_MeridianWest:
-        TIFFFieldInfo(NTD_MeridianWest, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "MeridianWest"),
-    NTD_MeridianEast:
-        TIFFFieldInfo(NTD_MeridianEast, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "MeridianEast"),
-    NTD_EarthRadiusLarge:
-        TIFFFieldInfo(NTD_EarthRadiusLarge, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "EarthRadiusLarge"),
-    NTD_EarthRadiusSmall:
-        TIFFFieldInfo(NTD_EarthRadiusSmall, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "EarthRadiusSmall"),
-    NTD_GeodeticDate:
-        TIFFFieldInfo(NTD_GeodeticDate, -1, -1, TIFFDataType.TIFF_ASCII,
-                      FIELD_CUSTOM, True, False, "GeodeticDate"),  # Max 20
-    NTD_ReferenceLatitude1:
-        TIFFFieldInfo(NTD_ReferenceLatitude1, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "ReferenceLatitude1"),
-    NTD_ReferenceLatitude2:
-        TIFFFieldInfo(NTD_ReferenceLatitude2, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "ReferenceLatitude2"),
-    NTD_CentralMeridian:
-        TIFFFieldInfo(NTD_CentralMeridian, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "CentralMeridian"),
-    NTD_PhysicValue:
-        TIFFFieldInfo(NTD_PhysicValue, -1, -1, TIFFDataType.TIFF_ASCII,
-                      FIELD_CUSTOM, True, False, "PhysicValue"),  # Max 10
-    NTD_PhysicUnit:
-        TIFFFieldInfo(NTD_PhysicUnit, -1, -1, TIFFDataType.TIFF_ASCII,
-                      FIELD_CUSTOM, True, False, "PhysicUnit"),  # Max 10
-    NTD_MinGrayValue:
-        TIFFFieldInfo(NTD_MinGrayValue, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "MinGrayValue"),
-    NTD_MaxGrayValue:
-        TIFFFieldInfo(NTD_MaxGrayValue, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "MaxGrayValue"),
-    NTD_Gradient:
-        TIFFFieldInfo(NTD_Gradient, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "Gradient"),
-    NTD_AxisIntercept:
-        TIFFFieldInfo(NTD_AxisIntercept, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "AxisIntercept"),
-    NTD_ColorTable:
-        TIFFFieldInfo(NTD_ColorTable, -1, -1, TIFFDataType.TIFF_ASCII,
-                      FIELD_CUSTOM, True, False, "ColorTable"),
-    NTD_Description:
-        TIFFFieldInfo(NTD_Description, -1, -1, TIFFDataType.TIFF_ASCII,
-                      FIELD_CUSTOM, True, False, "Description"),
-    NTD_OverflightDirection:
-        TIFFFieldInfo(NTD_OverflightDirection, -1, -1, TIFFDataType.TIFF_ASCII,
-                      FIELD_CUSTOM, True, False, "OverflightDirection"),
-    NTD_GeoLatitude:
-        TIFFFieldInfo(NTD_GeoLatitude, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "GeoLatitude"),
-    NTD_GeoLongitude:
-        TIFFFieldInfo(NTD_GeoLongitude, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "GeoLongitude"),
-    NTD_Altitude:
-        TIFFFieldInfo(NTD_Altitude, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "Altitude"),
-    NTD_AOSAsimuth:
-        TIFFFieldInfo(NTD_AOSAsimuth, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "AOSAsimuth"),
-    NTD_LOSAsimuth:
-        TIFFFieldInfo(NTD_LOSAsimuth, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "LOSAsimuth"),
-    NTD_MaxElevation:
-        TIFFFieldInfo(NTD_MaxElevation, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "MaxElevation"),
-    NTD_OverflightTime:
-        TIFFFieldInfo(NTD_OverflightTime, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "OverflightTime"),
-    NTD_IsBlackLineCorrection:
-        TIFFFieldInfo(NTD_IsBlackLineCorrection, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "IsBlackLineCorrection"),
-    NTD_IsAtmosphereCorrected:
-        TIFFFieldInfo(NTD_IsAtmosphereCorrected, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "IsAtmosphereCorrected"),
-    NTD_IsCalibrated:
-        TIFFFieldInfo(NTD_IsCalibrated, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "IsCalibrated"),
-    NTD_IsNormalized:
-        TIFFFieldInfo(NTD_IsNormalized, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "IsNormalized"),
-    NTD_OriginalHeader:
-        TIFFFieldInfo(NTD_OriginalHeader, -1, -1, TIFFDataType.TIFF_ASCII,
-                      FIELD_CUSTOM, True, False, "OriginalHeader"),
-    NTD_IsValueTableAvailable:
-        TIFFFieldInfo(NTD_IsValueTableAvailable, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "IsValueTableAvailable"),
-    NTD_ValueTableStringField:
-        TIFFFieldInfo(NTD_ValueTableStringField, -1, -1,
-                      TIFFDataType.TIFF_ASCII, FIELD_CUSTOM, True, False,
-                      "ValueTableStringField"),
-    NTD_ValueTableFloatField:
-        TIFFFieldInfo(NTD_ValueTableFloatField, 1, 1, TIFFDataType.TIFF_FLOAT,
-                      FIELD_CUSTOM, True, False, "ValueTableFloatField"),
-
-    NTD_TransparentPixel:
-        TIFFFieldInfo(NTD_TransparentPixel, 1, 1, TIFFDataType.TIFF_SLONG,
-                      FIELD_CUSTOM, True, False, "TransparentPixel")}
-
-# Add Ninjo tags to the libtiff library
-_ninjo_tags_extender = libtiff.add_tags(ninjo_tags_dict.values())
-ninjo_tags = sorted(ninjo_tags_dict.keys())
-
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 #
 # Read Ninjo products config file.
 #
-
-
+#-------------------------------------------------------------------------------
 def get_product_config(product_name, force_read=False):
     """Read Ninjo configuration entry for a given product name.
 
@@ -343,6 +178,7 @@ class ProductConfigs(object):
                 return str(val)
 
         filename = self._find_a_config_file()
+        #print "Reading Ninjo config file: '%s'" % filename
         log.info("Reading Ninjo config file: '%s'" % filename)
 
         cfg = ConfigParser()
@@ -365,136 +201,24 @@ class ProductConfigs(object):
                 return fname_
         raise ValueError("Could not find a Ninjo tiff config file")
 
-#------------------------------------------------------------------------------
-#
-# Read tiff files.
-#
 
-
-class _TIFF(object):
-    """ Just an context wrapper around an libtiff.TIFF instance.
-    """
-    def __init__(self, filename, mode='r'):
-        """Open a tiff file.
-
-        see: libtiff.TIFF.open()
-        """
-        self.tiff = TIFF.open(filename, mode)
-        self.tiff.ninjo_tags_dict = ninjo_tags_dict
-        self.tiff.ninjo_tags = ninjo_tags
-
-    def __enter__(self):
-        return self.tiff
-
-    def __exit__(self, type_, value, traceback):
-        self.tiff.close()
-
-
-def _read_directories(self):
-    """Iterate over directories in a tiff file.
-
-    :Parameters:
-        self : libtiff.TIFF
-            A TIFF instance.
-
-    :Returns:
-        tiff_directory : Tiff object
-            A Tiff directory instance.
-    """
-    yield self
-    while not self.LastDirectory():
-        self.ReadDirectory()
-        yield self
-    self.SetDirectory(0)
-
-
-def info(filename):
-    """Read metadata from Tiff file.
-
-    :Parameters:
-        filename : str
-            Name of Tiff file.
-
-    :Returns:
-        iterator : a Python generator iterator
-            A "list" of tiff metadata.
-
-    **Usage**::
-
-        for inf in info(filename):
-            print inf, '\n'
-    """
-    with _TIFF(filename) as self:
-        for d in _read_directories(self):
-            l = []
-            for item in d.info().split('\n'):
-                k, v = item.split(':', 1)
-                if (k.endswith('OffSets') or
-                    k.endswith('ByteCounts') or
-                    k == 'FileName' or
-                    k == 'DataType'):
-                    continue
-                l.append(item)
-            for tag in d.ninjo_tags:
-                value = d.GetField(tag)
-                name = d.ninjo_tags_dict[tag].field_name
-                if value is None:
-                    continue
-                l.append('%s: %s' % (name, str(value)))
-            yield '\n'.join(l)
-
-
-def image_data(filename):
-    """Read image data from Tiff file.
-
-    :Parameters:
-        filename : str
-            Name of Tiff file.
-
-    **Usage**::
-
-        for img in image_data(filename):
-            print img
-    """
-    with _TIFF(filename) as self:
-        for d in _read_directories(self):
-            yield d.read_tiles()
-
-
-def colortable(filename):
-    """Read colortables from Tiff file.
-
-    :Parameters:
-        filename : str
-            Name of Tiff file.
-
-    **Usage**::
-
-        for clt in colortable(filename):
-            print clt
-    """
-    with _TIFF(filename) as self:
-        return self.GetField('ColorMap')
-
-
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 #
 # Write Ninjo Products
 #
-
-
+#-------------------------------------------------------------------------------
 def _get_physic_value(physic_unit):
     # return Ninjo's physics unit and value.
     if physic_unit.upper() in ('K', 'KELVIN'):
-        return 'KELVIN', 'T'
+        return 'Kelvin', 'T'
     elif physic_unit.upper() in ('C', 'CELSIUS'):
-        return 'CELSIUS', 'T'
+        return 'Celsius', 'T'
     elif physic_unit == '%':
-        return physic_unit, 'ALBEDO'
+        return physic_unit, 'Reflectance'
     elif physic_unit.upper() in ('MW M-2 SR-1 (CM-1)-1',):
-        return physic_unit, 'RADIANCE'
+        return physic_unit, 'Radiance'
     else:
-        return physic_unit, 'UNKNOWN'
+        return physic_unit, 'Unknown'
 
 
 def _get_projection_name(area_def):
@@ -515,16 +239,13 @@ def _get_pixel_size(projection_name, area_def):
     if projection_name == 'PLAT':
         upper_left = area_def.get_lonlat(0, 0)
         lower_right = area_def.get_lonlat(area_def.shape[0], area_def.shape[1])
-        pixel_size = abs(lower_right[0] - upper_left[0]) / area_def.shape[1], \
+        pixel_size = abs(lower_right[0] - upper_left[0]) / area_def.shape[1],\
             abs(upper_left[1] - lower_right[1]) / area_def.shape[0]
     elif projection_name in ('NPOL', 'SPOL'):
-        pixel_size = (np.rad2deg(area_def.pixel_size_x /
-                                 float(area_def.proj_dict['a'])),
-                      np.rad2deg(area_def.pixel_size_y /
-                                 float(area_def.proj_dict['b'])))
+        pixel_size = (np.rad2deg(area_def.pixel_size_x / float(area_def.proj_dict['a'])),
+                      np.rad2deg(area_def.pixel_size_y / float(area_def.proj_dict['b'])))
     else:
-        raise ValueError("Could not determine pixel size from" +
-                         " projection name '%s'" %
+        raise ValueError("Could determine pixel size from projection name '%s'" %
                          projection_name + " (Unknown)")
     return pixel_size
 
@@ -539,19 +260,20 @@ def _get_satellite_altitude(filename):
     for nam_, alt_ in sat_altitudes.items():
         if nam_ in filename:
             return alt_
-    return 0
+    return None
 
 
-def _finalize(geo_image, value_range=None):
-    """Finalize a mpop GeoImage for Ninjo. Specially take care of phycical scale,
-    offset and clipping.
+def _finalize(geo_image, dtype=np.uint8, value_range=None):
+    """Finalize a mpop GeoImage for Ninjo. Specialy take care of phycical scale
+    and offset.
 
     :Parameters:
         geo_image : mpop.imageo.geo_image.GeoImage
             See MPOP's documentation.
+        dtype : bits per sample np.unit8 or np.unit16 (default: np.unit8)
         value_range: list or tuple
             Defining minimum and maximum value range. Data will be clipped into
-            that range. Default is no clipping.
+            that range. Default is no clipping and auto scale.
 
     :Returns:
         image : numpy.array
@@ -561,21 +283,17 @@ def _finalize(geo_image, value_range=None):
         offset : float
             Offset for transform pixel value to physical value.
         fill_value : int
-            Value for used masked out pixels.
+            Value for masked out pixels.
 
     **Notes**:
         physic_val = image*scale + offset
-
-    **Bug**:
-        We do not handle different fill values for different channels.
     """
     if geo_image.mode == 'L':
         # PFE: mpop.satout.cfscene
-        dtype = np.uint8
+        data = geo_image.channels[0]
         fill_value = np.iinfo(dtype).min
         log.debug("Transparent pixel are forced to be %d" % fill_value)
-
-        data = geo_image.channels[0]
+        log.debug("Before scaling: %.2f, %.2f, %.2f" % (data.min(), data.mean(), data.max()))
         if np.ma.count_masked(data) == data.size:
             # All data is masked
             data = np.ones(data.shape, dtype=dtype) * fill_value
@@ -586,55 +304,56 @@ def _finalize(geo_image, value_range=None):
                 data.clip(value_range[0], value_range[1], data)
                 chn_min = value_range[0]
                 chn_max = value_range[1]
-                log.info("Scaling, using value range %.2f - %.2f" %
-                         (value_range[0], value_range[1]))
+                log.debug("Scaling, using value range %.2f - %.2f" %
+                          (value_range[0], value_range[1]))
             else:
-                chn_min = data.min()
                 chn_max = data.max()
+                chn_min = data.min()
+                log.debug("Doing auto scaling")
 
-            # Calculate scale and offset, give space for a transparent pixel.
-            scale = ((chn_max - chn_min) / (2 ** np.iinfo(dtype).bits - 2.0))
+            # Make room for transparent pixel.
+            scale = ((chn_max - chn_min) /
+                     (np.iinfo(dtype).max - 1.0))
 
             # Handle the case where all data has the same value.
             scale = scale or 1
             offset = chn_min
 
-            log.debug("Offset and scale: %f, %f" % (offset, scale))
-
-            log.debug("Before scaling:  %.2f, %.2f, %.2f" % (data.min(),
-                                                             data.mean(),
-                                                             data.max()))
-
-            # Save mask
+            # Scale data to dtype, and adjust for transparent pixel forced to be minimum.
             mask = data.mask
-
-            # Scale data to dtype, move away from zero and adjust offset
             data = 1 + ((data.data - offset) / scale).astype(dtype)
             offset -= scale
-
-            log.debug("After scaling:   %.2f, %.2f, %.2f" % (data.min(),
-                                                             data.mean(),
-                                                             data.max()))
-            # Generate transparent pixels
             data[mask] = fill_value
 
             if log.getEffectiveLevel() == logging.DEBUG:
+                d__ = np.ma.array(data, mask=(data == fill_value))
+                log.debug("After scaling:  %.2f, %.2f, %.2f" % (d__.min(),
+                                                                d__.mean(),
+                                                                d__.max()))
                 d__ = data * scale + offset
                 d__ = np.ma.array(d__, mask=(data == fill_value))
-                log.debug("Rescale:         %.2f, %.2f, %.2f" % (d__.min(),
-                                                                 d__.mean(),
-                                                                 d__.max()))
+                log.debug("Rescaling:      %.2f, %.2f, %.2f" % (d__.min(),
+                                                                d__.mean(),
+                                                                d__.max()))
                 del d__
 
         return data, scale, offset, fill_value
 
     elif geo_image.mode == 'RGB':
-        channels, fill_value = geo_image._finalize()
-        fill_value = (0, 0, 0)
-        log.debug("Transparent pixel are forced to be %d" % str(fill_value))
+        channels, fill_value = geo_image._finalize(dtype)
+        fill_value = fill_value or (0, 0, 0)
         data = np.dstack((channels[0].filled(fill_value[0]),
                           channels[1].filled(fill_value[1]),
                           channels[2].filled(fill_value[2])))
+        return data, 1.0, 0.0, fill_value[0]
+
+    elif geo_image.mode == 'RGBA':
+        channels, fill_value = geo_image._finalize(dtype)
+        fill_value = fill_value or (0, 0, 0, 0)
+        data = np.dstack((channels[0].filled(fill_value[0]),
+                          channels[1].filled(fill_value[1]),
+                          channels[2].filled(fill_value[2]),
+                          channels[3].filled(fill_value[3])))
         return data, 1.0, 0.0, fill_value[0]
 
     else:
@@ -642,8 +361,7 @@ def _finalize(geo_image, value_range=None):
                          str(geo_image.mode))
 
 
-def save(geo_image, filename, ninjo_product_name=None, value_range=None,
-         **kwargs):
+def save(geo_image, filename, ninjo_product_name=None, **kwargs):
     """MPOP's interface to Ninjo TIFF writer.
 
     :Parameters:
@@ -656,10 +374,28 @@ def save(geo_image, filename, ninjo_product_name=None, value_range=None,
             Optional index to Ninjo configuration file.
         kwargs : dict
             See _write
-    """
-    data, scale, offset, fill_value = _finalize(geo_image, value_range)
-    log.debug("Calculated offset and scale: %.4f, %.4f" % (offset, scale))
 
+    **Note**:
+        * Some arguments are type casted, since they could come from a config file, read as strings.
+        * 8 bits grayscale with a colormap (if specified, inverted for IR channels).
+        * 16 bits grayscale with no colormap (if specified, MinIsWhite is set for IR).
+        * min value will be reserved for transparent color.
+        * RGB images will use mpop.imageo.image's standard finalize.
+    """
+
+    dtype = np.uint8  # @UndefinedVariable
+    if 'nbits' in kwargs:
+        nbits = int(kwargs['nbits'])
+        if nbits == 16:
+            dtype = np.uint16  # @UndefinedVariable
+
+    try:
+        # TODO: don't force min and max to integers.
+        value_range = int(kwargs["ch_min"]), int(kwargs["ch_max"])
+    except KeyError:
+        value_range = None
+
+    data, scale, offset, fill_value = _finalize(geo_image, dtype=dtype, value_range=value_range)
     area_def = geo_image.area
     time_slot = geo_image.time_slot
 
@@ -669,7 +405,6 @@ def save(geo_image, filename, ninjo_product_name=None, value_range=None,
     kwargs['gradient'] = scale
     kwargs['axis_intercept'] = offset
     kwargs['is_calibrated'] = True
-
     write(data, filename, area_def, ninjo_product_name, **kwargs)
 
 
@@ -677,9 +412,9 @@ def write(image_data, output_fn, area_def, product_name=None, **kwargs):
     """Generic Ninjo TIFF writer.
 
     If 'prodcut_name' is given, it will load corresponding Ninjo tiff metadata
-    from '${PPP_CONFIG_DIR}/ninjotiff.cfg'. Else, all Ninjo tiff metadata
-    should be passed by '**kwargs'. A mixture is allowed, where passed
-    arguments overwrite config file.
+    from '${PPP_CONFIG_DIR}/ninjotiff.cfg'. Else, all Ninjo tiff metadata should
+    be passed by '**kwargs'. A mixture is allowed, where passed arguments
+    overwrite config file.
 
     :Parameters:
         image_data : 2D numpy array
@@ -699,17 +434,21 @@ def write(image_data, output_fn, area_def, product_name=None, **kwargs):
     lower_right = area_def.get_lonlat(area_def.shape[0], area_def.shape[1])
 
     if len(image_data.shape) == 3:
-        shape = (area_def.y_size, area_def.x_size, 3)
+        if image_data.shape[2] == 4:
+            shape = (area_def.y_size, area_def.x_size, 4)
+            log.info("Will generate RGBA product '%s'" % product_name)
+        else:
+            shape = (area_def.y_size, area_def.x_size, 3)
+            log.info("Will generate RGB product '%s'" % product_name)
         write_rgb = True
-        log.info("Will generate RGB product '%s'" % product_name)
     else:
         shape = (area_def.y_size, area_def.x_size)
         write_rgb = False
         log.info("Will generate product '%s'" % product_name)
 
     if image_data.shape != shape:
-        raise ValueError("Raster shape %s does not correspond to expected" +
-                         " shape %s" % (str(image_data.shape), str(shape)))
+        raise ValueError("Raster shape %s does not correspond to expected shape %s" % (
+            str(image_data.shape), str(shape)))
 
     # Ninjo's physical units and value.
     # If just a physical unit (e.g. 'C') is passed, it will then be
@@ -725,18 +464,21 @@ def write(image_data, output_fn, area_def, product_name=None, **kwargs):
         area_def.proj_id.split('_')[-1]
 
     # Get pixel size
-    if ('pixel_xres' not in kwargs) or ('pixel_yres' not in kwargs):
+    if 'pixel_xres' not in kwargs or 'pixel_yres' not in kwargs:
         kwargs['pixel_xres'], kwargs['pixel_yres'] = \
             _get_pixel_size(kwargs['projection'], area_def)
 
     # Get altitude.
-    kwargs['altitude'] = kwargs.pop('altitude', None) or \
+    altitude = kwargs.pop('altitude', None) or \
         _get_satellite_altitude(output_fn)
+    if altitude is not None:
+        kwargs['altitude'] = altitude
 
     if product_name:
-        options = get_product_config(product_name)
+        options = deepcopy(get_product_config(product_name))
     else:
         options = {}
+
     options['meridian_west'] = upper_left[0]
     options['meridian_east'] = lower_right[0]
     if kwargs['projection'].endswith("POL"):
@@ -761,12 +503,12 @@ def write(image_data, output_fn, area_def, product_name=None, **kwargs):
 
     _write(image_data, output_fn, write_rgb=write_rgb, **options)
 
-#------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
 #
 # Write tiff file.
 #
-
-
+# -----------------------------------------------------------------------------
 def _write(image_data, output_fn, write_rgb=False, **kwargs):
     """Proudly Found Elsewhere (PFE) https://github.com/davidh-ssec/polar2grid
     by David Hoese.
@@ -805,7 +547,7 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
                 - data_cat[0] = P (polar) or G (geostat)
                 - data_cat[1] = O (original) or P (product)
                 - data_cat[2:4] = RN or RB or RA or RN or AN
-                  (Raster, Bufr, ASCII, NIL)
+                                  (Raster, Bufr, ASCII, NIL)
 
             Example: 'PORN' or 'GORN' or 'GPRN' or 'PPRN'
         pixel_xres : float
@@ -854,8 +596,7 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
         altitude : float
             Altitude of the data provided (default 0.0)
         is_atmo_corrected : bool
-            Is the data atmosphere corrected? (True/1 for yes)
-            (default False/0)
+            Is the data atmosphere corrected? (True/1 for yes) (default False/0)
         is_calibrated : bool
             Is the data calibrated? (True/1 for yes) (default False/0)
         is_normalized : bool
@@ -864,15 +605,31 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
             Description string to be placed in the output TIFF (optional)
         transparent_pix : int
             Transparent pixel value (default -1)
+        compression : int
+            zlib compression level (default 6)
+        inv_def_temperature_cmap : bool (default True)
+            Invert the default colormap if physical value type is 'T'
+        omit_filename_path : bool (default False)
+            Do not store path in NTD_FileName tag
+
     :Raises:
         KeyError :
             if required keyword is not provided
     """
-    def _default_colormap(reverse=False):
+    def _raise_value_error(text):
+        log.error(text)
+        raise ValueError(text)
+
+    def _default_colormap(reverse=False, nbits16=False):
         # Basic B&W colormap
-        if reverse:
-            return [[x * 256 for x in range(255, -1, -1)]] * 3
-        return [[x * 256 for x in range(256)]] * 3
+        if nbits16:
+            if reverse:
+                return [[x for x in range(65535, -1, -1)]] * 3
+            return [[x for x in range(65536)]] * 3
+        else:
+            if reverse:
+                return [[x * 256 for x in range(255, -1, -1)]] * 3
+            return [[x * 256 for x in range(256)]] * 3
 
     def _eval_or_none(key, eval_func):
         try:
@@ -880,8 +637,13 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
         except KeyError:
             return None
 
+    def _eval_or_default(key, eval_func, default):
+        try:
+            return eval_func(kwargs[key])
+        except KeyError:
+            return default
+
     log.info("Creating output file '%s'" % (output_fn,))
-    tiff = TIFF.open(output_fn, "w")
 
     # Extract keyword arguments
     cmap = kwargs.pop("cmap", None)
@@ -906,165 +668,278 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
     central_meridian = _eval_or_none("central_meridian", float)
     min_gray_val = int(kwargs.pop("min_gray_val", 0))
     max_gray_val = int(kwargs.pop("max_gray_val", 255))
-    altitude = float(kwargs.pop("altitude", 0.0))
+    altitude = _eval_or_none("altitude", float)
     is_blac_corrected = int(bool(kwargs.pop("is_blac_corrected", 0)))
     is_atmo_corrected = int(bool(kwargs.pop("is_atmo_corrected", 0)))
     is_calibrated = int(bool(kwargs.pop("is_calibrated", 0)))
     is_normalized = int(bool(kwargs.pop("is_normalized", 0)))
+    inv_def_temperature_cmap = bool(kwargs.pop("inv_def_temperature_cmap", 1))
+    omit_filename_path = bool(kwargs.pop("omit_filename_path", 0))
     description = _eval_or_none("description", str)
 
     physic_value = str(kwargs.pop("physic_value", 'None'))
     physic_unit = str(kwargs.pop("physic_unit", 'None'))
     gradient = float(kwargs.pop("gradient", 1.0))
     axis_intercept = float(kwargs.pop("axis_intercept", 0.0))
-
-    transparent_pix = int(kwargs.pop("transparent_pix", -1))
+    try:
+        transparent_pix = int(kwargs.get("transparent_pix", -1))
+    except Exception:
+        transparent_pix = kwargs.get("transparent_pix")[0]
+    finally:
+        kwargs.pop("transparent_pix")
 
     # Keyword checks / verification
-    if not cmap:
-        if physic_value == 'T':
+
+    # Handle colormap or not.
+    min_is_white = False
+    if not write_rgb and not cmap:
+        if physic_value == 'T' and inv_def_temperature_cmap:
             reverse = True
         else:
             reverse = False
-        cmap = _default_colormap(reverse)
+        if np.iinfo(image_data.dtype).bits == 8:
+            # Always generate colormap for 8 bit gray scale.
+            cmap = _default_colormap(reverse)
+        elif reverse:
+            # No colormap for 16 bit gray scale, but for IR, specify white is minimum.
+            min_is_white = True
 
-    if len(cmap) != 3:
-        raise ValueError("Colormap (cmap) must be a list of 3 lists" +
-                         " (RGB) not %d" % len(cmap))
+    if cmap and len(cmap) != 3:
+        _raise_value_error(
+            "Colormap (cmap) must be a list of 3 lists (RGB), not %d" %
+            len(cmap))
 
     if len(data_cat) != 4:
-        raise ValueError("NinJo data type must be 4 characters")
+        _raise_value_error("NinJo data type must be 4 characters")
     if data_cat[0] not in ["P", "G"]:
-        raise ValueError("NinJo data type's first character must be" +
-                         " 'P' or 'G' not '%s'" % data_cat[0])
+        _raise_value_error(
+            "NinJo data type's first character must be 'P' or 'G' not '%s'" %
+            data_cat[0])
     if data_cat[1] not in ["O", "P"]:
-        raise ValueError("NinJo data type's second character must be" +
-                         " 'O' or 'P' not '%s'" % data_cat[1])
+        _raise_value_error(
+            "NinJo data type's second character must be 'O' or 'P' not '%s'" %
+            data_cat[1])
     if data_cat[2:4] not in ["RN", "RB", "RA", "BN", "AN"]:
-        raise ValueError("NinJo data type's last 2 characters must be" +
-                         " one of %s not '%s'" %
-                         ("['RN', 'RB', 'RA', 'BN', 'AN']", data_cat[2:4]))
+        _raise_value_error(
+            "NinJo data type's last 2 characters must be one of %s not '%s'" %
+            ("['RN','RB','RA','BN','AN']", data_cat[2:4]))
 
     if description is not None and len(description) >= 1000:
-        raise ValueError("NinJo description must be less than 1000" +
-                         " characters")
+        log.error("NinJo description must be less than 1000 characters")
+        raise ValueError("NinJo description must be less than 1000 characters")
 
     file_dt = datetime.utcnow()
     file_epoch = calendar.timegm(file_dt.timetuple())
     image_epoch = calendar.timegm(image_dt.timetuple())
 
-    def _write_oneres(image_data, pixel_xres, pixel_yres):
-        log.info("Writing tags and data for a resolution %dx%d" %
-                 image_data.shape[:2])
+    compression = _eval_or_default("compression", int, 6)
 
-        # Write Tag Data
+    def _create_args(image_data, pixel_xres, pixel_yres):
+        log.info("creating tags and data for a resolution %dx%d"
+                 % image_data.shape[:2])
+        args = dict()
+        extra_tags = []
+        args['extratags'] = extra_tags
+        args['software'] = 'tifffile/pytroll'
+        args['compress'] = compression
+
+        args['extrasamples_type'] = 2
 
         # Built ins
-        tiff.SetField("ImageWidth", image_data.shape[1])
-        tiff.SetField("ImageLength", image_data.shape[0])
-        tiff.SetField("BitsPerSample", 8)
-        tiff.SetField("Compression", libtiff.COMPRESSION_DEFLATE)
         if write_rgb:
-            tiff.SetField("Photometric", libtiff.PHOTOMETRIC_RGB)
-            tiff.SetField("SamplesPerPixel", 3)
+            args["photometric"] = 'rgb'
         else:
-            tiff.SetField("Photometric", libtiff.PHOTOMETRIC_PALETTE)
-            tiff.SetField("SamplesPerPixel", 1)
-            tiff.SetField("ColorMap", cmap)
-        tiff.SetField("Orientation", libtiff.ORIENTATION_TOPLEFT)
-        tiff.SetField("SMinSampleValue", 0)
-        tiff.SetField("SMaxsampleValue", 255)
-        tiff.SetField("PlanarConfig", libtiff.PLANARCONFIG_CONTIG)
-        tiff.SetField("TileWidth", tile_width)
-        tiff.SetField("TileLength", tile_length)
-        tiff.SetField("SampleFormat", libtiff.SAMPLEFORMAT_UINT)
+            if cmap:
+                args["photometric"] = 'palette'
+                args["colormap"] = [item for sublist in cmap for item in sublist]
+            elif min_is_white:
+                args["photometric"] = 'miniswhite'
+            else:
+                args["photometric"] = 'minisblack'
+
+        # planarconfig, samples_per_pixel, orientation, sample_format set by tifffile.py
+
+        args["tile_width"] = tile_width
+        args["tile_length"] = tile_length
+
+        # not necessary to set value SMinSampleValue and SMaxsampleValue
+        # TIFF6 Spec: The default for SMinSampleValue and SMaxSampleValue is
+        # the full range of the data type
+        # args["SMinSampleValue"] = 0
+        # args["SMaxsampleValue"] = 255
 
         # NinJo specific tags
         if description is not None:
-            tiff.SetField("Description", description)
+            extra_tags.append((NINJO_TAGS["NTD_Description"], 's', 0, description, True))
 
+        # Geo tiff tags
         if MODEL_PIXEL_SCALE_COUNT == 3:
-            tiff.SetField("ModelPixelScale", [pixel_xres, pixel_yres, 0.0])
+            extra_tags.append((GTF_ModelPixelScale,
+                               'd', 3, [pixel_xres, pixel_yres, 0.0], True))
         else:
-            tiff.SetField("ModelPixelScale", [pixel_xres, pixel_yres])
-        tiff.SetField("ModelTiePoint", [0.0, 0.0, 0.0, origin_lon,
-                                        origin_lat, 0.0])
-        tiff.SetField("Magic", "NINJO")
-        tiff.SetField("SatelliteNameID", sat_id)
-        tiff.SetField("DateID", image_epoch)
-        tiff.SetField("CreationDateID", file_epoch)
-        tiff.SetField("ChannelID", chan_id)
-        tiff.SetField("HeaderVersion", 2)
-        tiff.SetField("FileName", output_fn)
-        tiff.SetField("DataType", data_cat)
-        tiff.SetField("SatelliteNumber", "\x00")  # Hardcoded to 0
+            extra_tags.append((GTF_ModelPixelScale,
+                               'd', 2, [pixel_xres, pixel_yres], True))
+        extra_tags.append((GTF_ModelTiepoint,
+                           'd', 6, [0.0, 0.0, 0.0, origin_lon, origin_lat, 0.0], True))
+        extra_tags.append((NINJO_TAGS["NTD_Magic"], 's', 0, "NINJO", True))
+        extra_tags.append((NINJO_TAGS["NTD_SatelliteNameID"], 'I', 1, sat_id, True))
+        extra_tags.append((NINJO_TAGS["NTD_DateID"], 'I', 1, image_epoch, True))
+        extra_tags.append((NINJO_TAGS["NTD_CreationDateID"], 'I', 1, file_epoch, True))
+        extra_tags.append((NINJO_TAGS["NTD_ChannelID"], 'I', 1, chan_id, True))
+        extra_tags.append((NINJO_TAGS["NTD_HeaderVersion"], 'i', 1, 2, True))
+        if omit_filename_path:
+            extra_tags.append((NINJO_TAGS["NTD_FileName"], 's', 0,
+                               os.path.basename(output_fn), True))
+        else:
+            extra_tags.append((NINJO_TAGS["NTD_FileName"], 's', 0, output_fn, True))
+        extra_tags.append((NINJO_TAGS["NTD_DataType"], 's', 0, data_cat, True))
+        # Hardcoded to 0
+        extra_tags.append((NINJO_TAGS["NTD_SatelliteNumber"], 's', 0, "\x00", True))
+
         if write_rgb:
-            tiff.SetField("ColorDepth", 24)
+            extra_tags.append((NINJO_TAGS["NTD_ColorDepth"], 'i', 1, 24, True))
         elif cmap:
-            tiff.SetField("ColorDepth", 16)
+            extra_tags.append((NINJO_TAGS["NTD_ColorDepth"], 'i', 1, 16, True))
         else:
-            tiff.SetField("ColorDepth", 8)
-        tiff.SetField("DataSource", data_source)
-        tiff.SetField("XMinimum", 1)
-        tiff.SetField("XMaximum", image_data.shape[1])
-        tiff.SetField("YMinimum", 1)
-        tiff.SetField("YMaximum", image_data.shape[0])
-        tiff.SetField("Projection", projection)
-        tiff.SetField("MeridianWest", meridian_west)
-        tiff.SetField("MeridianEast", meridian_east)
+            extra_tags.append((NINJO_TAGS["NTD_ColorDepth"], 'i', 1, 8, True))
+
+        extra_tags.append((NINJO_TAGS["NTD_DataSource"], 's', 0, data_source, True))
+        extra_tags.append((NINJO_TAGS["NTD_XMinimum"], 'i', 1, 1, True))
+        extra_tags.append((NINJO_TAGS["NTD_XMaximum"], 'i', 1, image_data.shape[1], True))
+        extra_tags.append((NINJO_TAGS["NTD_YMinimum"], 'i', 1, 1, True))
+        extra_tags.append((NINJO_TAGS["NTD_YMaximum"], 'i', 1, image_data.shape[0], True))
+        extra_tags.append((NINJO_TAGS["NTD_Projection"], 's', 0, projection, True))
+        extra_tags.append((NINJO_TAGS["NTD_MeridianWest"], 'f', 1, meridian_west, True))
+        extra_tags.append((NINJO_TAGS["NTD_MeridianEast"], 'f', 1, meridian_east, True))
+
         if radius_a is not None:
-            tiff.SetField("EarthRadiusLarge", float(radius_a))
+            extra_tags.append((NINJO_TAGS["NTD_EarthRadiusLarge"],
+                               'f', 1, float(radius_a), True))
         if radius_b is not None:
-            tiff.SetField("EarthRadiusSmall", float(radius_b))
-        #tiff.SetField("GeodeticDate", "\x00") # ---?
+            extra_tags.append((NINJO_TAGS["NTD_EarthRadiusSmall"],
+                               'f', 1, float(radius_b), True))
+        # extra_tags.append((NINJO_TAGS["NTD_GeodeticDate"], 's', 0, "\x00", True)) # ---?
         if ref_lat1 is not None:
-            tiff.SetField("ReferenceLatitude1", ref_lat1)
+            extra_tags.append((NINJO_TAGS["NTD_ReferenceLatitude1"], 'f', 1, ref_lat1, True))
         if ref_lat2 is not None:
-            tiff.SetField("ReferenceLatitude2", ref_lat2)
+            extra_tags.append((NINJO_TAGS["NTD_ReferenceLatitude2"], 'f', 1, ref_lat2, True))
         if central_meridian is not None:
-            tiff.SetField("CentralMeridian", central_meridian)
-        tiff.SetField("PhysicValue", physic_value)
-        tiff.SetField("PhysicUnit", physic_unit)
-        tiff.SetField("MinGrayValue", min_gray_val)
-        tiff.SetField("MaxGrayValue", max_gray_val)
-        tiff.SetField("Gradient", gradient)
-        tiff.SetField("AxisIntercept", axis_intercept)
-        tiff.SetField("Altitude", altitude)
-        tiff.SetField("IsBlackLineCorrection", is_blac_corrected)
-        tiff.SetField("IsAtmosphereCorrected", is_atmo_corrected)
-        tiff.SetField("IsCalibrated", is_calibrated)
-        tiff.SetField("IsNormalized", is_normalized)
+            extra_tags.append((NINJO_TAGS["NTD_CentralMeridian"],
+                               'f', 1, central_meridian, True))
+        extra_tags.append((NINJO_TAGS["NTD_PhysicValue"], 's', 0, physic_value, True))
+        extra_tags.append((NINJO_TAGS["NTD_PhysicUnit"], 's', 0, physic_unit, True))
+        extra_tags.append((NINJO_TAGS["NTD_MinGrayValue"], 'i', 1, min_gray_val, True))
+        extra_tags.append((NINJO_TAGS["NTD_MaxGrayValue"], 'i', 1, max_gray_val, True))
+        extra_tags.append((NINJO_TAGS["NTD_Gradient"], 'f', 1, gradient, True))
+        extra_tags.append((NINJO_TAGS["NTD_AxisIntercept"], 'f', 1, axis_intercept, True))
+        if altitude is not None:
+            extra_tags.append((NINJO_TAGS["NTD_Altitude"], 'f', 1, altitude, True))
+        extra_tags.append((NINJO_TAGS["NTD_IsBlackLineCorrection"],
+                           'i', 1, is_blac_corrected, True))
+        extra_tags.append((NINJO_TAGS["NTD_IsAtmosphereCorrected"],
+                           'i', 1, is_atmo_corrected, True))
+        extra_tags.append((NINJO_TAGS["NTD_IsCalibrated"], 'i', 1, is_calibrated, True))
+        extra_tags.append((NINJO_TAGS["NTD_IsNormalized"], 'i', 1, is_normalized, True))
+        extra_tags.append((NINJO_TAGS["NTD_TransparentPixel"],
+                           'i', 1, transparent_pix, True))
 
-        tiff.SetField("TransparentPixel", transparent_pix)
+        return args
 
-        # Write Base Data Image
-        tiff.write_tiles(image_data)
-        tiff.WriteDirectory()
+    args = _create_args(image_data, pixel_xres, pixel_yres)
 
-    # Write multi-resolution overviews (or not)
-    tiff.SetDirectory(0)
-    _write_oneres(image_data, pixel_xres, pixel_yres)
-    for index, scale in enumerate((2, 4, 8, 16)):
-        shape = (image_data.shape[0] / scale,
-                 image_data.shape[1] / scale)
-        if shape[0] > tile_width and shape[1] > tile_length:
-            tiff.SetDirectory(index + 1)
-            _write_oneres(image_data[::scale, ::scale],
-                          pixel_xres * scale, pixel_yres * scale)
-    tiff.close()
+    tifargs = {}
+    header_only_keys = ('byteorder', 'bigtiff', 'software', 'writeshape')
+    for key in header_only_keys:
+        if key in args:
+            tifargs[key] = args[key]
+            del args[key]
+
+    if 'writeshape' not in args:
+        args['writeshape'] = True
+    if 'bigtiff' not in tifargs and \
+            image_data.size * image_data.dtype.itemsize > 2000 * 2 ** 20:
+        tifargs['bigtiff'] = True
+
+    with tifffile.TiffWriter(output_fn, **tifargs) as tif:
+            tif.save(image_data, **args)
+            for _, scale in enumerate((2, 4, 8, 16)):
+                shape = (image_data.shape[0] / scale,
+                         image_data.shape[1] / scale)
+                if shape[0] > tile_width and shape[1] > tile_length:
+                    args = _create_args(image_data[::scale, ::scale],
+                                        pixel_xres * scale, pixel_yres * scale)
+                    for key in header_only_keys:
+                        if key in args:
+                            del args[key]
+                    tif.save(image_data[::scale, ::scale], **args)
 
     log.info("Successfully created a NinJo tiff file: '%s'" % (output_fn,))
 
+
+# -----------------------------------------------------------------------------
+#
+# Read tags.
+#
+# -----------------------------------------------------------------------------
+def read_tags(filename):
+    """Will read tag, value pairs from Ninjo tiff file.
+
+    :Parameters:
+        filename : string
+            Ninjo tiff file.
+
+    :Return:
+        A list tags, one tag dictionary per page.
+    """
+    pages = []
+    with tifffile.TiffFile(filename) as tif:
+        for page in tif:
+            tags = {}
+            for tag in page.tags.values():
+                name, value = tag.name, tag.value
+                try:
+                    # Is it one of ours ?
+                    name = int(name)
+                    name = NINJO_TAGS_INV[name]
+                except ValueError:
+                    pass
+                except KeyError:
+                    name = tag.name
+                tags[name] = value
+            pages.append(tags)
+    return pages
+
 if __name__ == '__main__':
     import sys
+    import getopt
+
+    page_no = None
+    print_color_maps = False
+    opts, args = getopt.getopt(sys.argv[1:], "p:c")
+    for key, val in opts:
+        if key == "-p":
+            page_no = int(val)
+        if key == "-c":
+            print_color_maps = True
     try:
-        filename = sys.argv[1]
+        filename = args[0]
     except IndexError:
-        print >> sys.stderr, "usage: python ninjotiff.py <ninjotiff-filename>"
+        print >> sys.stderr, """usage: python ninjotiff.py [<-p page-number>] [-c] <ninjotiff-filename>
+    -p <page-number>: print page number (default are all pages).
+    -c: print color maps (default is not to print color maps)."""
         sys.exit(2)
 
-    for inf in info(filename):
-        print inf, '\n'
-    print colortable(filename)
-    #for d__ in image_data(filename):
-    #    print d__.min(), d__.mean(), d__.max()
+    pages = read_tags(filename)
+    if page_no is not None:
+        try:
+            pages = [pages[page_no]]
+        except IndexError:
+            print >>sys.stderr, "Invalid page number '%d'" % page_no
+            sys.exit(2)
+    for page in pages:
+        names = sorted(page.keys())
+        print ""
+        for name in names:
+            if not print_color_maps and name == "color_map":
+                continue
+            print name, page[name]
