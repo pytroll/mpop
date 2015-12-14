@@ -5,8 +5,10 @@ instruments = ('avhrr/3',)
 [avhrr/3-level3]
 format = nc_pps_l2.PPSReader
 # W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,NOAA19+CTTH_C_EUMS_20150820141700_33658.nc.bz2
-cloud_product_filename = W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,NOAA19+%(product)s_C_EUMS_%Y%m%d%H%M00_%(orbit)s.nc*
-cloud_product_geofilename = W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,NOAA19+CMA_C_EUMS_%Y%m%d%H%M00_%(orbit)s.nc*
+cloud_product_dir = /path/to/ears/nwc
+cloud_product_filename = W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,NOAA19+%(product)s_C_EUMS_%Y%m%d%H%M00_*.nc*
+cloud_product_geofilename = W_XX-EUMETSAT-Darmstadt,SING+LEV+SAT,NOAA19+CMA_C_EUMS_%Y%m%d%H%M00_*.nc*
+geolocation_product_name = CMA
 
 [avhrr/3-level1]
 format=hrpt
