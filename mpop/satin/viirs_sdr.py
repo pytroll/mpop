@@ -500,7 +500,6 @@ class ViirsBandData(object):
 
         self.band_uid = self.band_desc + hashlib.sha1(self.mask).hexdigest()
 
-
     def read_lonlat(self, geofilepaths=None, geodir=None):
 
         if geofilepaths is None:
@@ -515,7 +514,6 @@ class ViirsBandData(object):
         self.geolocation = ViirsGeolocationData(self.data.shape,
                                                 geofilepaths).read()
 
-
 # ------------------------------------------------------------------------------
 from mpop.plugin_base import Reader
 
@@ -526,7 +524,8 @@ class ViirsSDRReader(Reader):
     def __init__(self, *args, **kwargs):
         Reader.__init__(self, *args, **kwargs)
 
-    def load(self, satscene, calibrate=1, time_interval=None, area=None, filename=None, **kwargs):
+    def load(self, satscene, calibrate=1, time_interval=None,
+             area=None, filename=None, **kwargs):
         """Read viirs SDR reflectances and Tbs from file and load it into
         *satscene*.
         """
@@ -797,25 +796,6 @@ class ViirsSDRReader(Reader):
                                          if chn.is_loaded()])
 
 
-def get_lonlat(filename):
-    """Read lon,lat from hdf5 file"""
-    logger.debug("Geo File = " + filename)
-
-    md = HDF5MetaData(filename).read()
-
-    lats, lons = None, None
-    h5f = h5py.File(filename, 'r')
-    for key in md.get_data_keys():
-        if key.endswith("Latitude"):
-            lats = h5f[key].value
-        if key.endswith("Longitude"):
-            lons = h5f[key].value
-    h5f.close()
-
-    return (np.ma.masked_less(lons, -999, False),
-            np.ma.masked_less(lats, -999, False))
-
-
 def get_lonlat_into(filename, out_lons, out_lats, out_mask):
     """Read lon,lat from hdf5 file"""
     logger.debug("Geo File = " + filename)
@@ -826,7 +806,7 @@ def get_lonlat_into(filename, out_lons, out_lats, out_mask):
     for key in md.get_data_keys():
         if key.endswith("Latitude"):
             h5f[key].read_direct(out_lats)
-            out_mask = out_lats < -999
+            out_mask[:] = out_lats < -999
         if key.endswith("Longitude"):
             h5f[key].read_direct(out_lons)
     h5f.close()

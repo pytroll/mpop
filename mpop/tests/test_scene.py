@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2011, 2012, 2014.
+# Copyright (c) 2010, 2011, 2012, 2014, 2015.
 
 # SMHI,
 # Folkborgsvägen 1,
@@ -165,22 +165,6 @@ class TestSatelliteScene(unittest.TestCase):
         self.assert_(self.scene.area is None)
         self.assert_(self.scene.lat is None)
         self.assert_(self.scene.lon is None)
-
-        self.assertRaises(TypeError,
-                          SatelliteScene,
-                          time_slot=random_string(4))
-
-        self.assertRaises(TypeError,
-                          SatelliteScene,
-                          time_slot=np.random.uniform(1000))
-
-        self.assertRaises(TypeError,
-                          SatelliteScene,
-                          time_slot=int(np.random.uniform(1000)))
-
-        self.assertRaises(TypeError,
-                          SatelliteScene,
-                          time_slot=[])
 
         # area
 
@@ -353,22 +337,6 @@ class TestSatelliteInstrumentScene(unittest.TestCase):
             self.assertEquals(chn.name, channels[i][0])
             self.assertEquals(chn.wavelength_range, list(channels[i][1]))
             self.assertEquals(chn.resolution, channels[i][2])
-
-        self.assertRaises(TypeError,
-                          SatelliteInstrumentScene2,
-                          time_slot=random_string(4))
-
-        self.assertRaises(TypeError,
-                          SatelliteInstrumentScene2,
-                          time_slot=np.random.uniform(1000))
-
-        self.assertRaises(TypeError,
-                          SatelliteInstrumentScene2,
-                          time_slot=int(np.random.uniform(1000)))
-
-        self.assertRaises(TypeError,
-                          SatelliteInstrumentScene2,
-                          time_slot=[])
 
     def test_init(self):
         """Creation of a satellite instrument scene.

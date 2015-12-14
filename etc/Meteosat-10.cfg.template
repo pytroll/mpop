@@ -1,7 +1,7 @@
 [satellite]
 satname = 'meteosat'
+number = '10'
 projection = 'geos(0.0)'
-number = '09'
 instruments = ('seviri',)
 proj4_params = 'proj=geos lon_0=0.00 lat_0=0.00 a=6378169.00 b=6356583.80 h=35785831.00'
 
@@ -10,10 +10,10 @@ filename_epi = 'H-000-MSG?__-MSG?________-_________-%(segment)s-%Y%m%d%H%M-__'
 format = 'mipp/xrit/MSG'
 filename_pro = 'H-000-MSG?__-MSG?________-_________-%(segment)s-%Y%m%d%H%M-__'
 filename = 'H-000-MSG?__-MSG?________-%(channel)s-%(segment)s-%Y%m%d%H%M-__'
-dir = '/local_disk/usr/src/msg/import/SEVIRI_data.20091008'
+dir = '/local_disk/data/satellite/met10'
 
 [seviri-level2]
-format = 'mipp_xrit'
+format = 'mipp_xrit.XritReader'
 
 [seviri-level3]
 filename = SAFNWC_MSG?_%(product)s%Y%m%d%H%M_%(area)s

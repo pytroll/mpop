@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2014 Martin Raspaud
+# Copyright (c) 2014, 2015 Martin Raspaud
 
 # Author(s):
 
@@ -49,7 +49,7 @@ def load(satscene, *args, **kwargs):
     files_to_delete = []
 
     filename = kwargs.get("filename")
-    logger.debug("reading " + str(filename))
+    logger.debug("reading %s", str(filename))
     if filename is not None:
         if isinstance(filename, (list, set, tuple)):
             files = filename
@@ -116,7 +116,8 @@ def load(satscene, *args, **kwargs):
                  "M13": "M13",
                  "M14": "M14",
                  "M15": "M15",
-                 "M16": "M16"}
+                 "M16": "M16",
+                 "DNB": "DNB"}
 
     channels = [(chn, chan_dict[chn])
                 for chn in satscene.channels_to_load
@@ -126,29 +127,78 @@ def load(satscene, *args, **kwargs):
     except ValueError:
         return
 
-    datas = []
-    lonlats = []
+    m_chans = []
+    dnb_chan = []
+    for chn in chans:
+        if chn.startswith('M'):
+            m_chans.append(chn)
+        if chn.startswith('DNB'):
+            dnb_chan.append(chn)
+
+    m_datas = []
+    m_lonlats = []
+    dnb_datas = []
+    dnb_lonlats = []
 
     for fname in files_to_load:
+        logger.debug("Reading %s", fname)
         h5f = h5py.File(fname, "r")
-        arr, units = read(h5f, chans)
-        datas.append(arr)
-        lonlats.append(navigate(h5f))
+        if m_chans and "SVDNBC" not in os.path.split(fname)[-1]:
+            try:
+                arr, m_units = read(h5f, m_chans)
+                m_datas.append(arr)
+                m_lonlats.append(navigate(h5f, m_chans[0]))
+            except KeyError:
+                pass
+        if dnb_chan:
+            try:
+                arr, dnb_units = read(h5f, dnb_chan)
+                dnb_datas.append(arr)
+                dnb_lonlats.append(navigate(h5f, 'DNB'))
+            except KeyError:
+                pass
         h5f.close()
 
-    lons = np.ma.vstack([lonlat[0] for lonlat in lonlats])
-    lats = np.ma.vstack([lonlat[1] for lonlat in lonlats])
+    if m_chans:
+        m_lons = np.ma.vstack([lonlat[0] for lonlat in m_lonlats])
+        m_lats = np.ma.vstack([lonlat[1] for lonlat in m_lonlats])
+    if dnb_chan:
+        dnb_lons = np.ma.vstack([lonlat[0] for lonlat in dnb_lonlats])
+        dnb_lats = np.ma.vstack([lonlat[1] for lonlat in dnb_lonlats])
 
-    for nb, chn in enumerate(channels_to_load):
-        data = np.ma.vstack([dat[nb] for dat in datas])
-        satscene[chn] = data
-        satscene[chn].info["units"] = units[nb]
+    m_i = 0
+    dnb_i = 0
+    for chn in channels_to_load:
+        if chn.startswith('M'):
+            m_data = np.ma.vstack([dat[m_i] for dat in m_datas])
+            satscene[chn] = m_data
+            satscene[chn].info["units"] = m_units[m_i]
+            m_i += 1
+        if chn.startswith('DNB'):
+            dnb_data = np.ma.vstack([dat[dnb_i] for dat in dnb_datas])
+            satscene[chn] = dnb_data
+            satscene[chn].info["units"] = dnb_units[dnb_i]
+            dnb_i += 1
 
-    area_def = SwathDefinition(np.ma.masked_where(data.mask, lons),
-                               np.ma.masked_where(data.mask, lats))
+    if m_chans:
+        m_area_def = SwathDefinition(np.ma.masked_where(m_data.mask, m_lons),
+                                     np.ma.masked_where(m_data.mask, m_lats))
+    if dnb_chan:
+        dnb_area_def = SwathDefinition(np.ma.masked_where(dnb_data.mask,
+                                                          dnb_lons),
+                                       np.ma.masked_where(dnb_data.mask,
+                                                          dnb_lats))
 
     for chn in channels_to_load:
-        satscene[chn].area = area_def
+        if "DNB" not in chn:
+            satscene[chn].area = m_area_def
+
+    for chn in dnb_chan:
+        satscene[chn].area = dnb_area_def
+
+    for fname in files_to_delete:
+        if os.path.exists(fname):
+            os.remove(fname)
 
 
 def read(h5f, channels, calibrate=1):
@@ -163,11 +213,16 @@ def read(h5f, channels, calibrate=1):
 
     for channel in channels:
         rads = h5f["All_Data"][chan_dict[channel]]["Radiance"]
-        arr = np.ma.masked_greater(rads[:scans * 16, :], 65526)
-        arr = np.ma.where(arr <= rads.attrs['Threshold'],
-                          arr * rads.attrs['RadianceScaleLow'] +
-                          rads.attrs['RadianceOffsetLow'],
-                          arr * rads.attrs['RadianceScaleHigh'] + rads.attrs['RadianceOffsetHigh'],)
+        arr = np.ma.masked_greater(rads[:scans * 16, :].astype(np.float32),
+                                   65526)
+        try:
+            arr = np.ma.where(arr <= rads.attrs['Threshold'],
+                              arr * rads.attrs['RadianceScaleLow'] +
+                              rads.attrs['RadianceOffsetLow'],
+                              arr * rads.attrs['RadianceScaleHigh'] + \
+                              rads.attrs['RadianceOffsetHigh'],)
+        except KeyError:
+            pass
         unit = "W m-2 sr-1 μm-1"
         if calibrate == 0:
             raise NotImplementedError("Can't get counts from this data")
@@ -180,30 +235,36 @@ def read(h5f, channels, calibrate=1):
                 arr *= 100 * np.pi * a_vis / b_vis * (dse ** 2)
                 unit = "%"
             except KeyError:
-                a_ir = rads.attrs['BandCorrectionCoefficientA']
-                b_ir = rads.attrs['BandCorrectionCoefficientB']
-                lambda_c = rads.attrs['CentralWaveLength']
-                arr *= 1e6
-                arr = (h * c) / (k * lambda_c * np.log(1 +
-                                                       (2 * h * c ** 2) /
-                                                       ((lambda_c ** 5) * arr)))
-                arr *= a_ir
-                arr += b_ir
-                unit = "K"
+                try:
+                    a_ir = rads.attrs['BandCorrectionCoefficientA']
+                    b_ir = rads.attrs['BandCorrectionCoefficientB']
+                    lambda_c = rads.attrs['CentralWaveLength']
+                    arr *= 1e6
+                    arr = (h * c) / (k * lambda_c * \
+                                     np.log(1 +
+                                            (2 * h * c ** 2) /
+                                            ((lambda_c ** 5) * arr)))
+                    arr *= a_ir
+                    arr += b_ir
+                    unit = "K"
+                except KeyError:
+                    logger.debug("Assuming DNB channel, "
+                                 "keeping radiance values.")
         elif calibrate != 2:
             raise ValueError("Calibrate parameter should be 1 or 2")
+        arr[arr < 0] = 0
         res.append(arr)
         units.append(unit)
+
     return res, units
 
 
-def expand_array(data, scans, geostuff, c_align, c_exp):
-    s_track, s_scan = ((np.mgrid[0:scans * 16, 0:3200] % 16) + 0.5) / 16
-    s_track = s_track.reshape(scans, 16, 200, 16)
-    s_scan = s_scan.reshape(scans, 16, 200, 16)
+def expand_array(data, scans, c_align, c_exp, scan_size=16, tpz_size=16, nties=200, track_offset=0.5, scan_offset=0.5):
+    s_track, s_scan = np.mgrid[0:scans * scan_size, 0:nties*tpz_size]
+    s_track = (s_track.reshape(scans, scan_size, nties, tpz_size) % scan_size + track_offset) / scan_size
+    s_scan = (s_scan.reshape(scans, scan_size, nties, tpz_size) % tpz_size + scan_offset) / tpz_size
 
-    a_scan = s_scan + s_scan * \
-        (1 - s_scan) * c_exp + s_track * (1 - s_track) * c_align
+    a_scan = s_scan + s_scan * (1 - s_scan) * c_exp + s_track * (1 - s_track) * c_align
     a_track = s_track
 
     data_a = data[:scans * 2:2, np.newaxis, :-1, np.newaxis]
@@ -213,7 +274,7 @@ def expand_array(data, scans, geostuff, c_align, c_exp):
 
     fdata = ((1 - a_track) * ((1 - a_scan) * data_a + a_scan * data_b) +
              a_track * ((1 - a_scan) * data_d + a_scan * data_c))
-    return fdata.reshape(scans * 16, 3200)
+    return fdata.reshape(scans * scan_size, nties * tpz_size)
 
 
 def lonlat2xyz(lon, lat):
@@ -231,47 +292,56 @@ def xyz2lonlat(x, y, z):
     return lon, lat
 
 
-def navigate(h5f):
-    scans = h5f["All_Data"]["NumberOfScans"][0]
-    geostuff = h5f["All_Data"]["VIIRS-MOD-GEO_All"]
-    c_align = geostuff["AlignmentCoefficient"].value[np.newaxis, np.newaxis,
-                                                     :, np.newaxis]
-    c_exp = geostuff["ExpansionCoefficient"].value[np.newaxis, np.newaxis,
-                                                   :, np.newaxis]
-    lon = geostuff["Longitude"].value
-    lat = geostuff["Latitude"].value
+def navigate(h5f, channel):
 
-    if (np.max(lon) - np.min(lon) > 90) or (np.max(abs(lat)) > 60):
-        x, y, z = lonlat2xyz(lon, lat)
-        x, y, z = (expand_array(x, scans, geostuff, c_align, c_exp),
-                   expand_array(y, scans, geostuff, c_align, c_exp),
-                   expand_array(z, scans, geostuff, c_align, c_exp))
-        return xyz2lonlat(x, y, z)
+    if channel.startswith("M"):
+        chtype = "MOD"
+    elif channel == "DNB":
+        chtype = "DNB"
     else:
-        return (expand_array(lon, scans, geostuff, c_align, c_exp),
-                expand_array(lat, scans, geostuff, c_align, c_exp))
+        raise ValueError("Unknow channel type for band %s", channel)
 
-    # s_track, s_scan = ((np.mgrid[0:scans*16, 0:3200] % 16) + 0.5) / 16
-    # s_track = s_track.reshape(scans, 16, 200, 16)
-    # s_scan = s_scan.reshape(scans, 16, 200, 16)
+    scans = h5f["All_Data"]["NumberOfScans"][0]
+    geostuff = h5f["All_Data"]["VIIRS-"+chtype+"-GEO_All"]
+    all_c_align = geostuff["AlignmentCoefficient"].value[np.newaxis, np.newaxis,
+                                                     :, np.newaxis]
+    all_c_exp = geostuff["ExpansionCoefficient"].value[np.newaxis, np.newaxis,
+                                                   :, np.newaxis]
+    all_lon = geostuff["Longitude"].value
+    all_lat = geostuff["Latitude"].value
 
-    # a_scan = s_scan + s_scan*(1-s_scan)*c_exp + s_track*(1 - s_track) * c_align
-    # a_track = s_track
+    res = []
 
-    # lon_a = lon[:scans*2:2, np.newaxis, :-1, np.newaxis]
-    # lon_b = lon[:scans*2:2, np.newaxis, 1:, np.newaxis]
-    # lon_c = lon[1:scans*2:2, np.newaxis, 1:, np.newaxis]
-    # lon_d = lon[1:scans*2:2, np.newaxis, :-1, np.newaxis]
-    # lat_a = lat[:scans*2:2, np.newaxis, :-1, np.newaxis]
-    # lat_b = lat[:scans*2:2, np.newaxis, 1:, np.newaxis]
-    # lat_c = lat[1:scans*2:2, np.newaxis, 1:, np.newaxis]
-    # lat_d = lat[1:scans*2:2, np.newaxis, :-1, np.newaxis]
+    # FIXME: this supposes there is only one tiepoint zone in the track direction
+    scan_size = h5f["All_Data/VIIRS-"+channel+"-SDR_All"].attrs["TiePointZoneSizeTrack"][0]
+    track_offset = h5f["All_Data/VIIRS-"+channel+"-SDR_All"].attrs["PixelOffsetTrack"]
+    scan_offset = h5f["All_Data/VIIRS-"+channel+"-SDR_All"].attrs["PixelOffsetScan"]
 
-    # flon = ((1 - a_track) * ((1 - a_scan) * lon_a + a_scan * lon_b) +
-    #         a_track * ((1 - a_scan) * lon_d + a_scan * lon_c))
-    # flat = ((1 - a_track) * ((1 - a_scan) * lat_a + a_scan * lat_b) +
-    #         a_track * ((1 - a_scan) * lat_d + a_scan * lat_c))
-    # return flon.reshape(scans*16, 3200), flat.reshape(scans*16, 3200)
+    try:
+        group_locations = h5f["All_Data/VIIRS-"+chtype+"-GEO_All/TiePointZoneGroupLocationScanCompact"].value
+    except KeyError:
+        group_locations = [0]
+    param_start = 0
+    for tpz_size, nb_tpz, start in zip(h5f["All_Data/VIIRS-"+channel+"-SDR_All"].attrs["TiePointZoneSizeScan"],
+                                       h5f["All_Data/VIIRS-"+chtype+"-GEO_All/NumberOfTiePointZonesScan"].value,
+                                       group_locations):
+        lon = all_lon[:, start:start + nb_tpz + 1]
+        lat = all_lat[:, start:start + nb_tpz + 1]
+        c_align = all_c_align[:, :, param_start:param_start + nb_tpz, :]
+        c_exp = all_c_exp[:, :, param_start:param_start + nb_tpz, :]
+        param_start += nb_tpz
+        nties = nb_tpz
+        if (np.max(lon) - np.min(lon) > 90) or (np.max(abs(lat)) > 60):
+            x, y, z = lonlat2xyz(lon, lat)
+            x, y, z = (expand_array(x, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset),
+                       expand_array(y, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset),
+                       expand_array(z, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset))
+            res.append(xyz2lonlat(x, y, z))
+        else:
+            res.append((expand_array(lon, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset),
+                       expand_array(lat, scans, c_align, c_exp, scan_size, tpz_size, nties, track_offset, scan_offset)))
+    lons, lats = zip(*res)
+    return np.hstack(lons), np.hstack(lats)
 
 if __name__ == '__main__':
     #filename = "/local_disk/data/satellite/polar/compact_viirs/SVMC_npp_d20140114_t1245125_e1246367_b11480_c20140114125427496143_eum_ops.h5"

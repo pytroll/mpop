@@ -1,0 +1,47 @@
+[satellite]
+satname = noaa
+variant = 
+number = 11
+instruments = ('avhrr',)
+
+[avhrr-level2]
+#NSS.LHRR.NH.D92168.S1419.E1430.B1920505.GC
+#NSS.LHRR.NH.D92324.S1313.E1324.B2140707.GC
+#NSS.LHRR.NH.D92264.S1331.E1343.B2056060.GC
+#NSS.LHRR.NH.D92258.S1303.E1314.B2047575.GC
+filename = NSS.LHRR.NH.D92258.S1303*.GC
+dir = /home/sajid/data/avhrr/noheader_10bit
+format = lac_pod_l1b
+
+[avhrr-1]
+frequency = (0.58, 0.63, 0.68)
+resolution = 1090
+name = '1'
+size = (2048,)
+
+[avhrr-2]
+frequency = (0.725, 0.9125, 1.10)
+resolution = 1090
+name = '2'
+size = (2048,)
+
+[avhrr-3]
+frequency = (3.55, 3.74, 3.93)
+resolution = 1090
+name = '3'
+size = (2048,)
+
+[avhrr-4]
+frequency = (10.3, 10.8, 11.3)
+resolution = 1090
+name = '4'
+size = (2048,)
+
+[avhrr-5]
+frequency = (11.5, 12.0, 12.5)
+resolution = 1090
+name = '5'
+size = (2048,)
+
+
+

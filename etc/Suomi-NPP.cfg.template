@@ -1,7 +1,4 @@
 [satellite]
-satname = npp
-variant = 
-number = 
 instruments = ('viirs',)
 
 [viirs-level2]
@@ -11,13 +8,13 @@ dir = /data/viirs/sdr
 geo_dir = /data/viirs/sdr
 format = viirs_sdr.ViirsSDRReader
 
-
 [viirs-level3]
-filename = %(satellite)s_%Y%m%d_%H%M_%(orbit)s_*_%(product)s.h5
-geofilename = %(satellite)s_%Y%m%d_%H%M_%(orbit)s_*_viirs.h5
-geodir = /san1/pps/import/PPS_data/remapped
-dir = /san1/pps/import/PPS_data/remapped
-format = nwcsaf_pps
+format = nc_pps_l2.PPSReader
+cloud_product_filename = S_NWC_%(product)s_npp_%(orbit)s_*.nc
+cloud_product_geofilename = S_NWC_CMA_npp_%(orbit)s_*.nc
+cloud_product_dir=/path/to/pps/cloud/products/
+cloud_product_geodir=/path/to/geolocation/files/for/pps/
+geolocation_product_name = CMA
 
 
 [viirs-m01]

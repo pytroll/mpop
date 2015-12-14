@@ -17,7 +17,7 @@ instruments = ('msu-gs',)
 projection = 'geos(+76.0)'
 
 [msu-gs-level2]
-format = 'mipp_xrit'
+format = 'mipp_xrit.XritReader'
 
 [msu-gs-level1]
 format = 'mipp/xrit/GOMS'

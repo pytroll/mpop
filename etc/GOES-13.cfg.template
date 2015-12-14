@@ -17,7 +17,7 @@ instruments = ('imager13',)
 projection = 'geos(-75.0)'
 
 [imager13-level2]
-format = 'mipp_xrit'
+format = 'mipp_xrit.XritReader'
 
 [imager13-level1]
 format = 'mipp/xrit/SGS'

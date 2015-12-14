@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2011, 2012, 2013, 2014.
+# Copyright (c) 2010, 2011, 2012, 2013, 2014, 2015.
 
 # SMHI,
 # Folkborgsvägen 1,
@@ -40,6 +40,14 @@ try:
     from pyorbital.astronomy import sun_zenith_angle as sza
 except ImportError:
     sza = None
+
+
+class GeolocationIncompleteError(Exception):
+
+    """Exception to try catch cases where the original data have not been read or
+    expanded properly so that each pixel has a geo-location"""
+
+    pass
 
 
 class NotLoadedError(Exception):
@@ -193,7 +201,7 @@ class Channel(GenericChannel):
             sun_zenith = sza(self.info['time'], lonlats[0], lonlats[1])
 
         try:
-            refl39 = Calculator(self.info['satname'], self.info['satnumber'],
+            refl39 = Calculator(self.info['satname'] + self.info['satnumber'],
                                 self.info['instrument_name'], self.name)
         except NameError:
             LOG.warning("pyspectral missing!")
@@ -309,6 +317,15 @@ class Channel(GenericChannel):
         if self.is_loaded():
             LOG.info("Projecting channel %s (%fμm)..."
                      % (self.name, self.wavelength_range[1]))
+            import pyresample
+            if (hasattr(coverage_instance, 'in_area') and
+                isinstance(coverage_instance.in_area, pyresample.geometry.SwathDefinition) and
+                    hasattr(coverage_instance.in_area.lats, 'shape') and
+                    coverage_instance.in_area.lats.shape != self._data.shape):
+                raise GeolocationIncompleteError("Lons and lats doesn't match data! " +
+                                                 "Data can't be re-projected unless " +
+                                                 "each pixel of the swath has a " +
+                                                 "geo-location atached to it.")
             data = coverage_instance.project_array(self._data)
             res.data = data
             return res
@@ -343,7 +360,8 @@ class Channel(GenericChannel):
         else:
             return self.data.shape
 
-    def sunzen_corr(self, time_slot, lonlats=None, limit=80., mode='cos'):
+    def sunzen_corr(self, time_slot, lonlats=None, limit=80., mode='cos',
+                    sunmask=False):
         '''Perform Sun zenith angle correction for the channel at
         *time_slot* (datetime.datetime() object) and return the
         corrected channel.  The parameter *limit* can be used to set
@@ -394,6 +412,17 @@ class Channel(GenericChannel):
         # channel
         self.info["sun_zen_corrected"] = self.name + '_SZC'
 
+        if sunmask:
+            if isinstance(sunmask, (float, int)):
+                sunmask = sunmask
+            else:
+                sunmask = 90.
+            cos_limit = np.cos(np.radians(sunmask))
+            LOG.debug("Masking out data where sun-zenith " +
+                      "is greater than %f deg", sunmask)
+            LOG.debug("cos_limit = %f", cos_limit)
+            # Mask out data where the sun elevation is below a threshold:
+            new_ch.data = np.ma.masked_where(cos_zen < cos_limit, new_ch.data, copy=False)
         return new_ch
 
     # Arithmetic operations on channels.

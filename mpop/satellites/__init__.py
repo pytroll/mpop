@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2011, 2014.
+# Copyright (c) 2010, 2011, 2014, 2015.
 
 # SMHI,
 # Folkborgsvägen 1,
@@ -49,17 +49,21 @@ def get_custom_composites(name):
     try:
         module_name = conf.get("composites", "module")
     except (NoSectionError, NoOptionError):
+        LOG.debug("No custom composites provided i config file...")
         return []
 
+    LOG.debug("module_name = %s", str(module_name))
     try:
         name = name.replace("/", "")
         module = __import__(module_name, globals(), locals(), [name])
     except ImportError:
+        LOG.debug("Failed to import custom compositer for %s", str(name))
         return []
 
     try:
         return getattr(module, name)
     except AttributeError:
+        LOG.debug("Could not get attribute %s from %s", str(name), str(module))
         return []
 
 
@@ -79,8 +83,7 @@ def get_sat_instr_compositer((satellite, number, variant), instrument):
     try:
         module = __import__(module_name, globals(), locals(), [class_name])
         klass = getattr(module, class_name)
-        for k in get_custom_composites(variant + satellite +
-                                       number + instrument):
+        for k in get_custom_composites(instrument):
             klass.add_method(k)
         return klass
     except (ImportError, AttributeError):
@@ -125,14 +128,17 @@ def build_sat_instr_compositer((satellite, number, variant), instrument):
     conf.read(config_file)
 
     try:
+        LOG.debug('Instrument: ' + str(instrument))
         mod = __import__("mpop.instruments." + instrument,
                          globals(), locals(),
                          [instrument.capitalize() + 'Compositer'])
         instrument_class = getattr(mod, instrument.capitalize() + 'Compositer')
         for i in get_custom_composites(instrument):
+            # LOG.debug("Custom composite = " + str(i))
             instrument_class.add_method(i)
 
     except (ImportError, AttributeError):
+        LOG.debug("Build instrument compositer: " + str(instrument))
         instrument_class = build_instrument_compositer(instrument)
 
     sat_class = type(str(variant.capitalize() +
@@ -143,8 +149,8 @@ def build_sat_instr_compositer((satellite, number, variant), instrument):
                      (instrument_class,),
                      {})
 
-    for i in get_custom_composites(variant + satellite +
-                                   number + instrument):
+    for i in get_custom_composites(instrument):
+        LOG.debug("Add method to sat_class: " + str(i))
         sat_class.add_method(i)
 
     return sat_class
