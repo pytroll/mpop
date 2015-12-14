@@ -38,7 +38,7 @@ Saving an image for 'chn' will then go like:
 """
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Basic check.
 try:
@@ -77,9 +77,11 @@ CHANNEL_DICT = {
     'hrv_north': ('HRV',)
     }
 
+BITS_PER_SAMPLE = 8
+
+DO_CONVECTION = False
 
 for area_name, area_in, area_out in AREAS:
-
     global_data = GeostationaryFactory.create_scene("meteosat",
                                                     SATNO, 
                                                     "seviri", 
@@ -128,15 +130,49 @@ for area_name, area_in, area_out in AREAS:
         # If physics unit is not passed, we will expect to find it in ninjotiff's config file.
         #
         filename = ('MSG-' + TIMESLOT.strftime("%Y%m%d_%H%M") + '-' +
-                    area_name.split('_')[-1] + '-' + chn_name + '.tif')
+                    area_name.split('_')[-1] + '-' + chn_name + '-%db.tif' % BITS_PER_SAMPLE)
         LOG.info("Saving to Ninjo tif %s" % filename)
         img.save(filename,
                  fformat='mpop.imageo.formats.ninjotiff',
                  physic_unit=physic_unit,
                  ninjo_product_name=chn_name,
                  ch_min=value_range[0],
-                 ch_max=value_range[1])
+                 ch_max=value_range[1],
+                 nbits=BITS_PER_SAMPLE)
 
         # Cleanup.
         scene.unload([chn])
         global_data.unload([chn])
+
+
+if DO_CONVECTION:
+    #
+    # RGB example, convection
+    #
+    # NOT ready for 16 bit
+    BITS_PER_SAMPLE = 8
+    
+    product_name = 'convection'
+    area_name, area_in, area_out = ('visir_europe', 'MSGNH', 'msg_ninjo_europe_big')   
+    channels = [0.635, 1.63, 3.75, 6.7, 7.3, 10.8]
+
+    global_data = GeostationaryFactory.create_scene("meteosat",
+                                                    SATNO, 
+                                                    "seviri", 
+                                                    area=area_in,
+                                                    time_slot=TIMESLOT)
+
+    # Load channels.
+    global_data.load(channels)
+
+    # Resample to Plate Caree.
+    scene = global_data.project(area_out, mode='quick', precompute=True)
+    img = scene.image.convection()
+
+    filename = ('MSG-' + TIMESLOT.strftime("%Y%m%d_%H%M") + '-' +
+                area_name.split('_')[-1] + '-' + product_name + '-%db.tif' % BITS_PER_SAMPLE)
+    LOG.info("Saving to Ninjo tif %s" % filename)
+    img.save(filename,
+             fformat='mpop.imageo.formats.ninjotiff',
+             ninjo_product_name='msg_' + product_name,
+             nbits=BITS_PER_SAMPLE)

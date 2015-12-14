@@ -291,7 +291,7 @@ def _finalize(geo_image, dtype=np.uint8, value_range=None):
     if geo_image.mode == 'L':
         # PFE: mpop.satout.cfscene
         data = geo_image.channels[0]
-        fill_value = 0
+        fill_value = np.iinfo(dtype).min
         log.debug("Transparent pixel are forced to be %d" % fill_value)
         log.debug("Before scaling: %.2f, %.2f, %.2f" % (data.min(), data.mean(), data.max()))
         if np.ma.count_masked(data) == data.size:
@@ -311,26 +311,30 @@ def _finalize(geo_image, dtype=np.uint8, value_range=None):
                 chn_min = data.min()
                 log.debug("Doing auto scaling")
 
-            # Make room for transparent pixel
+            # Make room for transparent pixel.
             scale = ((chn_max - chn_min) /
-                     (2 ** np.iinfo(dtype).bits - 2.0))
+                     (np.iinfo(dtype).max - 1.0))
 
-            # Handle the case where all data has the same value
+            # Handle the case where all data has the same value.
             scale = scale or 1
             offset = chn_min
 
-            # Scale data to dtype, move away from transparent pixel (0) and adjust offset
+            # Scale data to dtype, and adjust for transparent pixel forced to be minimum.
             mask = data.mask
             data = 1 + ((data.data - offset) / scale).astype(dtype)
             offset -= scale
             data[mask] = fill_value
 
             if log.getEffectiveLevel() == logging.DEBUG:
+                d__ = np.ma.array(data, mask=(data == fill_value))
+                log.debug("After scaling:  %.2f, %.2f, %.2f" % (d__.min(),
+                                                                d__.mean(),
+                                                                d__.max()))
                 d__ = data * scale + offset
                 d__ = np.ma.array(d__, mask=(data == fill_value))
-                log.debug("After scaling: %.2f, %.2f, %.2f" % (d__.min(),
-                                                               d__.mean(),
-                                                               d__.max()))
+                log.debug("Rescaling:      %.2f, %.2f, %.2f" % (d__.min(),
+                                                                d__.mean(),
+                                                                d__.max()))
                 del d__
 
         return data, scale, offset, fill_value
@@ -370,16 +374,24 @@ def save(geo_image, filename, ninjo_product_name=None, **kwargs):
             Optional index to Ninjo configuration file.
         kwargs : dict
             See _write
+
+    **Note**:
+        * Some arguments are type casted, since they could come from a config file, read as strings.
+        * 8 bits grayscale with a colormap (if specified, inverted for IR channels).
+        * 16 bits grayscale with no colormap (if specified, MinIsWhite is set for IR).
+        * min value will be reserved for transparent color.
+        * RGB images will use mpop.imageo.image's standard finalize.
     """
 
     dtype = np.uint8  # @UndefinedVariable
     if 'nbits' in kwargs:
-        nbits = kwargs['nbits']
-        if nbits == '16':
+        nbits = int(kwargs['nbits'])
+        if nbits == 16:
             dtype = np.uint16  # @UndefinedVariable
 
     try:
-        value_range = kwargs["ch_min"], kwargs["ch_max"]
+        # TODO: don't force min and max to integers.
+        value_range = int(kwargs["ch_min"]), int(kwargs["ch_max"])
     except KeyError:
         value_range = None
 
@@ -595,10 +607,10 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
             Transparent pixel value (default -1)
         compression : int
             zlib compression level (default 6)
-        inv_def_temperature_cmap : bool
-            invert the default colormap if physical value type is 'T'
+        inv_def_temperature_cmap : bool (default True)
+            Invert the default colormap if physical value type is 'T'
         omit_filename_path : bool (default False)
-            do not store path in NTD_FileName tag
+            Do not store path in NTD_FileName tag
 
     :Raises:
         KeyError :
@@ -661,8 +673,7 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
     is_atmo_corrected = int(bool(kwargs.pop("is_atmo_corrected", 0)))
     is_calibrated = int(bool(kwargs.pop("is_calibrated", 0)))
     is_normalized = int(bool(kwargs.pop("is_normalized", 0)))
-    inv_def_temperature_cmap = bool(kwargs.pop("inv_def_temperature_cmap",
-                                               1))
+    inv_def_temperature_cmap = bool(kwargs.pop("inv_def_temperature_cmap", 1))
     omit_filename_path = bool(kwargs.pop("omit_filename_path", 0))
     description = _eval_or_none("description", str)
 
@@ -678,14 +689,22 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
         kwargs.pop("transparent_pix")
 
     # Keyword checks / verification
-    if not cmap:
+
+    # Handle colormap or not.
+    min_is_white = False
+    if not write_rgb and not cmap:
         if physic_value == 'T' and inv_def_temperature_cmap:
             reverse = True
         else:
             reverse = False
-        cmap = _default_colormap(reverse, image_data.dtype == np.uint16)
+        if np.iinfo(image_data.dtype).bits == 8:
+            # Always generate colormap for 8 bit gray scale.
+            cmap = _default_colormap(reverse)
+        elif reverse:
+            # No colormap for 16 bit gray scale, but for IR, specify white is minimum.
+            min_is_white = True
 
-    if len(cmap) != 3:
+    if cmap and len(cmap) != 3:
         _raise_value_error(
             "Colormap (cmap) must be a list of 3 lists (RGB), not %d" %
             len(cmap))
@@ -730,12 +749,15 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
         if write_rgb:
             args["photometric"] = 'rgb'
         else:
-            args["photometric"] = 'palette'
-            args["colormap"] = [item for sublist in cmap for item in sublist]
+            if cmap:
+                args["photometric"] = 'palette'
+                args["colormap"] = [item for sublist in cmap for item in sublist]
+            elif min_is_white:
+                args["photometric"] = 'miniswhite'
+            else:
+                args["photometric"] = 'minisblack'
 
-        args["planarconfig"] = 'contig'
-
-        # samples_per_pixel, orientation, sample_format set by tifffile.py
+        # planarconfig, samples_per_pixel, orientation, sample_format set by tifffile.py
 
         args["tile_width"] = tile_width
         args["tile_length"] = tile_length
@@ -876,6 +898,7 @@ def read_tags(filename):
             for tag in page.tags.values():
                 name, value = tag.name, tag.value
                 try:
+                    # Is it one of ours ?
                     name = int(name)
                     name = NINJO_TAGS_INV[name]
                 except ValueError:
@@ -891,14 +914,19 @@ if __name__ == '__main__':
     import getopt
 
     page_no = None
-    opts, args = getopt.getopt(sys.argv[1:], "p:")
+    print_color_maps = False
+    opts, args = getopt.getopt(sys.argv[1:], "p:c")
     for key, val in opts:
         if key == "-p":
             page_no = int(val)
+        if key == "-c":
+            print_color_maps = True
     try:
         filename = args[0]
     except IndexError:
-        print >> sys.stderr, "usage: python ninjotiff.py [<-p page-number>] <ninjotiff-filename>"
+        print >> sys.stderr, """usage: python ninjotiff.py [<-p page-number>] [-c] <ninjotiff-filename>
+    -p <page-number>: print page number (default are all pages).
+    -c: print color maps (default is not to print color maps)."""
         sys.exit(2)
 
     pages = read_tags(filename)
@@ -912,4 +940,6 @@ if __name__ == '__main__':
         names = sorted(page.keys())
         print ""
         for name in names:
+            if not print_color_maps and name == "color_map":
+                continue
             print name, page[name]

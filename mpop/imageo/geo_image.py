@@ -116,7 +116,9 @@ class GeoImage(Image):
         if fill_value is not None:
             for i, chan in enumerate(channels):
                 chn = chan.filled(fill_value[i])
-                dst_ds.GetRasterBand(i + 1).WriteArray(chn)
+                bnd = dst_ds.GetRasterBand(i + 1)
+                bnd.SetNoDataValue(fill_value[i])
+                bnd.WriteArray(chn)
         else:
             mask = np.zeros(channels[0].shape, dtype=np.bool)
             i = 0
