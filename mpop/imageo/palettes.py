@@ -52,9 +52,9 @@ def vv_legend():
     """Palette for Swedish road authorities (Vägverket).
     """
     legend = []
-    legend.append((0,   0,   0))  # Unprocessed: Black
-    legend.append((0, 120,   0))  # Land
-    legend.append((0,   0, 215))  # Sea: Blue
+    legend.append((  0,   0,   0))  # Unprocessed: Black
+    legend.append((  0, 120,   0))  # Land
+    legend.append((  0,   0, 215))  # Sea: Blue
     # Cloud type values 5 to 8:
     legend.append((255, 150,   0))  # Very low cumuliform
     legend.append((255, 100,   0))  # Very low
