@@ -1,11 +1,46 @@
 Changelog
 =========
 
-v1.1.0 (2015-02-19)
+v1.2.1 (2015-12-14)
+-------------------
+
+- Update changelog. [Martin Raspaud]
+
+- Bump version: 1.2.0 → 1.2.1. [Martin Raspaud]
+
+- Merge branch 'pre-master' [Martin Raspaud]
+
+- Merge branch 'pre-master' [Martin Raspaud]
+
+  Conflicts:
+  	doc/source/pp.rst
+
+- Update changelog. [Martin Raspaud]
+
+- Bump version: 1.1.0 → 1.2.0. [Martin Raspaud]
+
+- Merge branch 'pre-master' [Martin Raspaud]
+
+  Conflicts:
+  	mpop/version.py
+  	setup.py
+
+
+v1.2.0 (2015-12-14)
 -------------------
 
 Fix
 ~~~
+
+- Bugfix: converted MSG products should be saveable. [Martin Raspaud]
+
+- Bugfix: satellite name in msg_hdf now supports missing number. [Martin
+  Raspaud]
+
+- Bugfix: misspelling. [Martin Raspaud]
+
+- Bugfix: mipp_xrit: do not crash on unknown channels, just warn and
+  skip. [Martin Raspaud]
 
 - Bugfix: setup.py includes now eps xml format description. [Martin
   Raspaud]
@@ -35,6 +70,373 @@ Fix
 
 Other
 ~~~~~
+
+- Update changelog. [Martin Raspaud]
+
+- Bump version: 1.1.0 → 1.2.0. [Martin Raspaud]
+
+- Add template parameters for NOAA-19 ears-nwc. [Adam.Dybbroe]
+
+  Parameters needed if you want to load only with time_interval and
+  not using the filename argument
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Merged (by hand) sentinel1-feature branch. [Lars Orum Rasmussen]
+
+- Added support for gdal's SetNoDataValue if fill_value is not None.
+  [Lars Orum Rasmussen]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Lars Orum Rasmussen]
+
+- Added a RGB example. [Lars Orum Rasmussen]
+
+- Don't use colormaps for 16b grayscale (Ninjo will fail enhancements)
+  [Lars Orum Rasmussen]
+
+  For 16b IR, if specified, set min-is-white
+
+  For 16b grayscale, it seems that transparent pixel (in Ninjo) are forced to be zero
+
+  Transparent pixel for 16b IR are handled bad
+
+
+- Add template config for ears-nwc Metop-B reading. [Adam.Dybbroe]
+
+- Fix bug when using time_interval argument loading ears-nwc data.
+  [Adam.Dybbroe]
+
+- Add brightness temperature calibration to the IR bands. [Adam.Dybbroe]
+
+- Update EARS config files for new (2014) PPS product format.
+  [Adam.Dybbroe]
+
+- Remove old FY3 mersi reader. [Adam.Dybbroe]
+
+- Apply VIS/NIR calibration including sun-zenith correction.
+  [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Now ninjotiff can list tags. [Lars Orum Rasmussen]
+
+  Ninjo tags are now a dictionary
+
+
+- Add FY-3B template config file. [Adam.Dybbroe]
+
+- Add first draft FY3B VIRR reader. [Adam.Dybbroe]
+
+  No calibration yet, but counts can be projected and displayed
+
+- Added contributions from Christian (DWD) to ninjotiff: now using
+  tifffile.py and support for RGBA. [Lars Orum Rasmussen]
+
+  Changed scaling into a value range (so it works for me)
+
+
+- Merge branch 'pre-master' of https://github.com/pytroll/mpop into pre-
+  master. [Panu Lahtinen]
+
+- Delete world_map.ascii. [Martin Raspaud]
+
+- Read DNB using PyTables, separate read() to read_m() and read_dnb()
+  [Panu Lahtinen]
+
+- Update coords2area_def with preview mode. [Martin Raspaud]
+
+- Merge branch 'pre-master' of https://github.com/pytroll/mpop into pre-
+  master. [Panu Lahtinen]
+
+- Remove debug printout from pps reader. [Adam.Dybbroe]
+
+- Support a list of files which will be concatenated, enables usage of
+  granule data. [Panu Lahtinen]
+
+- Fix for channel names and channel loading. [Panu Lahtinen]
+
+- Added Himawari-8 config template file. [Martin Raspaud]
+
+- Mask out 0-counts areas in aapp_l1b. [Martin Raspaud]
+
+- Support saving GeoImages in IO buffers. [Martin Raspaud]
+
+- Add support for noaa gac and lac data. [Martin Raspaud]
+
+- Take care of fill_value in datasets. [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Fix the sun zenith angle correction fix. [Martin Raspaud]
+
+- Do not check time_slot type. [Martin Raspaud]
+
+- Bugfix ctth scaling: Only keep same datatype if data are not scaled.
+  [Adam.Dybbroe]
+
+- Less debug info. [Adam.Dybbroe]
+
+- Bugfix. Sun zenith correction can now take an additional keyword - and
+  data are masked out accordingly. [Adam.Dybbroe]
+
+- Fix overview_sun, avoid redish rgb's when sun is very low (below
+  horizon) [Adam.Dybbroe]
+
+- Read also the palette data etc. [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Add orbit number info in the scene metadata upon loading. (hdfeos)
+  [Martin Raspaud]
+
+- Hdfeos: orbit number is now an int. [Martin Raspaud]
+
+- Fix geolocation reading for multiple-file processing (hdfeos) [Martin
+  Raspaud]
+
+- Changed error message to a warning. [Adam.Dybbroe]
+
+- Fix hdf_eos to allow reading several granules. [Martin Raspaud]
+
+- Enhancing the dnb_overview, so that pixels with solar contamination
+  are masked out. [Adam.Dybbroe]
+
+- Bringing back the night_overview (=cloudtop) [Adam.Dybbroe]
+
+- Comment out the night_overview. [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Bugfix overview_sun. [Martin Raspaud]
+
+- Use builtin sunzen_corr for overview_sun. [Martin Raspaud]
+
+- Switch to nullterm string in msg_hdf for nr products. [Martin Raspaud]
+
+- Bugfix. [Adam.Dybbroe]
+
+- Improve overview for viirs and overview_sun. [Adam.Dybbroe]
+
+- Re-introduce the fix for VIIRS bowtie deletions. [Adam.Dybbroe]
+
+- Shouting when both a list of file names and a time interval is used.
+  Accepts tine_interval even for local files. [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+  Conflicts:
+  	mpop/satin/nc_pps_l2.py
+
+- Fixed incorrect production sources and geolocation file names for
+  'local' products. [Panu Lahtinen]
+
+- Added a unit test to the nc_pps_l2 reader, and adapted the reader a
+  bit. [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of https://github.com/pytroll/mpop into pre-
+  master. [Panu Lahtinen]
+
+- Fixme reminder. [Adam.Dybbroe]
+
+- Restructure how the data and geolocation files are listed and read.
+  [Panu Lahtinen]
+
+- Fixed workaround for DIMENSION_LIST attributes. [Panu Lahtinen]
+
+- Minor fixes - thanks Panu! [Adam.Dybbroe]
+
+- Cleaning up a bit and pep8. [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Updated reading to support both M and DNB channel data. [Panu
+  Lahtinen]
+
+- Adapt navigation to compact_viirs dnb. [Martin Raspaud]
+
+- Do not crash when an unknown channel is requested in msg_hdf. [Martin
+  Raspaud]
+
+- Fix template files. [Adam.Dybbroe]
+
+- Fix template files for NOAA satellites and Metop-A/B. [Adam.Dybbroe]
+
+- Bugfix, treating cases when no geolocation is found for product.
+  [Adam.Dybbroe]
+
+- More debug info. [Adam.Dybbroe]
+
+- More debug info. [Adam.Dybbroe]
+
+- Fix save function and bugfix. [Adam.Dybbroe]
+
+- More debug info and better exception handling - pps reader.
+  [Adam.Dybbroe]
+
+- Rewritten the netCDF4 PPS reader. [Adam.Dybbroe]
+
+- Cleaning up for unused code. [Adam.Dybbroe]
+
+- Add the info attribute to NordRadCType. [Martin Raspaud]
+
+- Fix filename search in msg_hdf. [Martin Raspaud]
+
+- Fix extension problem in product search for msg_hdf. [Martin Raspaud]
+
+- Replace pyhl with h5py in msg_hdf reader. [Martin Raspaud]
+
+- Bugfix ascat l2 reader. [Adam.Dybbroe]
+
+- Trying to fix odd behaviour when loading list of products. But it
+  still doesn't work - need a small refactoring. [Adam.Dybbroe]
+
+- Added support option to select granules in time interval.
+  [Adam.Dybbroe]
+
+- More debug info - for custom compositer. [Adam.Dybbroe]
+
+- Merge pull request #17 from spareeth/pre-master. [Martin Raspaud]
+
+  ASCAT SAR soil moisture level 2 netcdf data from EUMETSAT
+
+- Add new reader and config files for ASCAT SAR soil moisture level 2
+  netcdf data from EUMETSAT. [Sajid Pareeth]
+
+- Add new reader and config files for ASCAT SAR soil moisture level 2
+  netcdf data from EUMETSAT. [Sajid Pareeth]
+
+- Added possibility to read granule data from EARS, also some PEP8 work.
+  [Panu Lahtinen]
+
+- Avoid leaking memory. [Martin Raspaud]
+
+- Bugfix. [Adam.Dybbroe]
+
+- Raise an error if projection is attempted when swathdata doesn't have
+  full geolocation. [Adam.Dybbroe]
+
+- Remove one verbose debug printout. [Adam.Dybbroe]
+
+- Adapt for new PPS netCDF format modification (adding a dimension of
+  length 1) [Adam.Dybbroe]
+
+- Check for cloudtype=None. [Adam.Dybbroe]
+
+- Add option to provide MSG filename to load call. [Adam.Dybbroe]
+
+- Check if PPS file is bzipped, and handle it correctly. [Adam.Dybbroe]
+
+- Fix orbit number attribute name in msg_hdf. [Martin Raspaud]
+
+- Possible to pass value range to save. [Lars Orum Rasmussen]
+
+- Chlorophyll-a palette is gone - now it raise an exception if asked
+  for... [Adam.Dybbroe]
+
+- Merge branch 'feature-osisaf-sst-reader' into pre-master.
+  [Adam.Dybbroe]
+
+- Adding a reader and palette support for OSISAF SST netCDF products.
+  [Adam.Dybbroe]
+
+- Fixed external calibration "newer/older than data" message. [Panu
+  Lahtinen]
+
+- Fix ctth writing. [Martin Raspaud]
+
+- Fixed typo. [Martin Raspaud]
+
+- Add orbit number in generated cloud product hdf files. [Martin
+  Raspaud]
+
+- Fix new pyspectral calculator signature. [Martin Raspaud]
+
+- Putting back the mipp information in template config files. [Martin
+  Raspaud]
+
+- Pyspectral now uses standard platform names. [Martin Raspaud]
+
+- Merge branch 'pre-master' of https://github.com/mraspaud/mpop into
+  pre-master. [Panu Lahtinen]
+
+- Add algorithm version in output cloud products. [Martin Raspaud]
+
+- Exception handling for missing external calibration data. [Panu
+  Lahtinen]
+
+- Minor PEP8 tweaks. [Panu Lahtinen]
+
+- Script to generate external calibration files for AVHRR instruments.
+  [Panu Lahtinen]
+
+- Support for external calibration coefficients for AVHRR. [Panu
+  Lahtinen]
+
+- Removed obsolete "satname" and "number" from satellite configs,
+  updated documentation. [Panu Lahtinen]
+
+- Renamed satellite configs to conform to OSCAR naming scheme. [Panu
+  Lahtinen]
+
+- Add luts to the pps products from msg format. [Martin Raspaud]
+
+- Add metadata to nwcsaf products. [Martin Raspaud]
+
+- Add \0 to palette strings. [Martin Raspaud]
+
+- Fix pps format output for msg products. [Martin Raspaud]
+
+- Remove phase palette from msg products to avoid confusion. [Martin
+  Raspaud]
+
+- Bugfix, np.string -> np.string_ [Martin Raspaud]
+
+- Change variable length strings in h5 products to fixed. [Martin
+  Raspaud]
+
+- Fix some cloud product conversions. [Martin Raspaud]
+
+- Fix MSG format to PPS format conversion. [Martin Raspaud]
+
+- Merge branch 'pre-master' of github.com:mraspaud/mpop into pre-master.
+  [Martin Raspaud]
+
+- Merge pull request #16 from pnuu/simplified_platforms. [Martin
+  Raspaud]
+
+  Simplified platform names for reading custom composites
+
+- Simplified platform names for reading custom composites. [Panu
+  Lahtinen]
+
+- Change: accept arbitrary kwargs for saving msg hdf products. [Martin
+  Raspaud]
+
+- Revert concatenation to it's original place, in order to keep the
+  tests working. [Martin Raspaud]
+
+- Fix whole globe area_extent for loading. [Martin Raspaud]
+
+- Fix rpm building. [Martin Raspaud]
+
+- Fix masking of lonlats in viirs_sdr. [Martin Raspaud]
+
+- Fixing pps-nc reader. [Adam Dybbroe]
+
+- Clean temporary files after loading. [Adam Dybbroe]
+
+- Pep8 stuff. [Adam Dybbroe]
+
+- Fixed polar-stereographic projection bugs, thanks to Ron Goodson.
+  [Lars Orum Rasmussen]
 
 - Update changelog. [Martin Raspaud]
 
