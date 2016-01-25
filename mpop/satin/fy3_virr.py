@@ -61,6 +61,7 @@ def load(satscene, *args, **kwargs):
     else:
         options["calibrate"] = True
 
+    LOGGER.debug("Calibrate = " + str(options["calibrate"]))
     LOGGER.info("Loading instrument '%s'", satscene.instrument_name)
 
     try:
@@ -93,6 +94,7 @@ def load_virr(satscene, options):
                 'EV_RefSB']
 
     calibrate = options['calibrate']
+    LOGGER.debug("Calibrate = " + str(calibrate))
 
     h5f = h5py.File(filename, 'r')
 
@@ -156,6 +158,8 @@ def load_virr(satscene, options):
                     # Therefore multply wavenumber by 100 and radiances by
                     # 10^-5
                     data = rad2temp(emiss_centroid_wn[i] * 100., data * 1e-5)
+                    LOGGER.debug("IR data calibrated")
+
                 if dset in ['EV_RefSB']:
                     data = (visnir_offs[i] +
                             data * visnir_scales[i]) / np.cos(np.deg2rad(sunz))
