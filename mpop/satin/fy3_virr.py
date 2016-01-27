@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2015 Adam.Dybbroe
+# Copyright (c) 2015, 2016 Adam.Dybbroe
 
 # Author(s):
 
@@ -101,6 +101,10 @@ def load_virr(satscene, options):
     # Get geolocation information
     lons = h5f['Longitude'][:]
     lats = h5f['Latitude'][:]
+    # Mask out unrealistic values:
+    mask = np.logical_or(lats > 90., lons > 90.)
+    lons = np.ma.masked_array(lons, mask=mask)
+    lats = np.ma.masked_array(lats, mask=mask)
     sunz = h5f['SolarZenith'][:]
     slope = h5f['SolarZenith'].attrs['Slope'][0]
     intercept = h5f['SolarZenith'].attrs['Intercept'][0]
