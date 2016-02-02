@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2011, 2014, 2015.
+# Copyright (c) 2010, 2011, 2014, 2015, 2016.
 
 # SMHI,
 # Folkborgsvägen 1,

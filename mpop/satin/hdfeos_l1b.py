@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010-2014.
+# Copyright (c) 2010-2014, 2016.
 
 # SMHI,
 # Folkborgsvägen 1,
@@ -91,8 +91,8 @@ class ModisReader(Reader):
         options["geofile"] = os.path.join(options["dir"], options["geofile"])
         options.update(kwargs)
 
-        fparser = Parser(options["filename"])
-        gparser = Parser(options["geofile"])
+        fparser = Parser(options.get("filename"))
+        gparser = Parser(options.get("geofile"))
 
         if filename is not None:
             datasets = {}
@@ -102,10 +102,12 @@ class ModisReader(Reader):
             for fname in filename:
                 if fnmatch(os.path.basename(fname), fparser.globify()):
                     metadata = fparser.parse(os.path.basename(fname))
-                    datasets.setdefault(metadata["start_time"], []).append(fname)
+                    datasets.setdefault(
+                        metadata["start_time"], []).append(fname)
                 elif fnmatch(os.path.basename(fname), gparser.globify()):
                     metadata = fparser.parse(fname)
-                    datasets.setdefault(metadata["start_time"], []).append(fname)
+                    datasets.setdefault(
+                        metadata["start_time"], []).append(fname)
 
             scenes = []
             for start_time, dataset in datasets.iteritems():
@@ -114,14 +116,14 @@ class ModisReader(Reader):
                 self.load_dataset(newscn, filename=dataset, *args, **kwargs)
                 scenes.append(newscn)
 
-            entire_scene = assemble_segments(sorted(scenes, key=lambda x: x.time_slot))
+            entire_scene = assemble_segments(
+                sorted(scenes, key=lambda x: x.time_slot))
             satscene.channels = entire_scene.channels
             satscene.area = entire_scene.area
             satscene.orbit = int(entire_scene.orbit)
             satscene.info["orbit_number"] = int(entire_scene.orbit)
         else:
             self.load_dataset(satscene, *args, **kwargs)
-
 
     def load_dataset(self, satscene, filename=None, *args, **kwargs):
         """Read data from file and load it into *satscene*.
@@ -135,8 +137,8 @@ class ModisReader(Reader):
         options["geofile"] = os.path.join(options["dir"], options["geofile"])
         options.update(kwargs)
 
-        fparser = Parser(options["filename"])
-        gparser = Parser(options["geofile"])
+        fparser = Parser(options.get("filename"))
+        gparser = Parser(options.get("geofile"))
 
         if isinstance(filename, (list, set, tuple)):
             # we got the entire dataset.
@@ -244,7 +246,8 @@ class ModisReader(Reader):
         #    return
 
         for band_name in loaded_bands:
-            lon, lat = self.get_lonlat(satscene[band_name].resolution, satscene.time_slot, cores)
+            lon, lat = self.get_lonlat(
+                satscene[band_name].resolution, satscene.time_slot, cores)
             area = geometry.SwathDefinition(lons=lon, lats=lat)
             satscene[band_name].area = area
 
@@ -1018,21 +1021,20 @@ if __name__ == "__main__":
                  u'/data/prod/satellit/modis/lvl1/thin_MYD021KM.A2015287.0300.005.2015287050819.NRT.hdf',
                  u'/data/prod/satellit/modis/lvl1/thin_MYD021KM.A2015287.0305.005.2015287050825.NRT.hdf']
 
-
     from mpop.utils import debug_on
     debug_on()
     from mpop.satellites import PolarFactory
     from datetime import datetime
     time_slot = datetime(2015, 10, 14, 2, 55)
     orbit = "18181"
-    global_data = PolarFactory.create_scene("EARSEOS-Aqua", "", "modis", time_slot, orbit)
+    global_data = PolarFactory.create_scene(
+        "EARSEOS-Aqua", "", "modis", time_slot, orbit)
 
     global_data.load([3.75, 0.555, 0.551, 7.3, 1.63, 10.8, 0.488, 12.0, 0.85, 0.469, 0.748, 0.443, 0.645, 6.7, 0.635,
                       8.7, 0.412], filename=filenames)
-
 
     #global_data.channels_to_load = set(['31'])
     #reader = ModisReader(global_data)
     #reader.load(global_data, filename=filenames)
     print global_data
-    #global_data[10.8].show()
+    # global_data[10.8].show()
