@@ -38,7 +38,7 @@ from fnmatch import fnmatch
 import os.path
 from ConfigParser import ConfigParser
 import multiprocessing
-from trollsift.parser import Parser
+from trollsift.parser import Parser, globify
 
 import math
 import numpy as np
@@ -66,6 +66,15 @@ def get_filename(template, time_slot):
     return file_list[0]
 
 
+def check_filename(template):
+    file_list = glob.glob(template)
+    if len(file_list) > 1:
+        raise IOError("More than 1 file matching template %s", tmpl)
+    elif len(file_list) == 0:
+        raise IOError("No EOS MODIS file matching " + tmpl)
+    return file_list[0]
+
+
 class ModisReader(Reader):
 
     pformat = "hdfeos_l1b"
@@ -73,6 +82,10 @@ class ModisReader(Reader):
     res = {"1": 1000,
            "Q": 250,
            "H": 500}
+
+    inv_res = {1000: "1",
+               250: "Q",
+               500: "H"}
 
     def __init__(self, *args, **kwargs):
         Reader.__init__(self, *args, **kwargs)
@@ -166,19 +179,20 @@ class ModisReader(Reader):
             resolution = int(options["resolution"]) or 1000
 
             for res in [250, 500, 1000]:
-                datafile = os.path.join(options['dir'],
-                                        options["filename" + str(res)])
+                datafile = globify(os.path.join(options['dir'],
+                                                options["filename"]),
+                                   {'resolution': self.inv_res[res],
+                                    'start_time': satscene.time_slot})
                 try:
-                    self.datafiles[res] = get_filename(datafile,
-                                                       satscene.time_slot)
+                    self.datafiles[res] = check_filename(datafile)
                 except IOError:
                     self.datafiles[res] = None
                     logger.warning("Can't find file for resolution %s with template: %s",
                                    str(res), datafile)
 
             try:
-                self.geofile = get_filename(options["geofile"],
-                                            satscene.time_slot)
+                self.geofile = check_filename(globify(options["geofile"],
+                                                      {'start_time': satscene.time_slot}))
             except IOError:
                 self.geofile = None
                 logger.warning("Can't find geofile with template: %s",
