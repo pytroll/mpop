@@ -153,7 +153,7 @@ def load(satscene, *args, **kwargs):
             if tables:
                 h5f = tables.open_file(fname, "r")
             else:
-                logger.warning("DNB data could not be read from %f, "
+                logger.warning("DNB data could not be read from %s, "
                                "PyTables not available.", fname)
                 continue
         else:
