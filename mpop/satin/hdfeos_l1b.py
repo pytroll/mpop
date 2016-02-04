@@ -116,12 +116,16 @@ class ModisReader(Reader):
                 self.load_dataset(newscn, filename=dataset, *args, **kwargs)
                 scenes.append(newscn)
 
-            entire_scene = assemble_segments(
-                sorted(scenes, key=lambda x: x.time_slot))
-            satscene.channels = entire_scene.channels
-            satscene.area = entire_scene.area
-            satscene.orbit = int(entire_scene.orbit)
-            satscene.info["orbit_number"] = int(entire_scene.orbit)
+            if not scenes:
+                logger.debug("Looking for files")
+                self.load_dataset(satscene, *args, **kwargs)
+            else:
+                entire_scene = assemble_segments(
+                    sorted(scenes, key=lambda x: x.time_slot))
+                satscene.channels = entire_scene.channels
+                satscene.area = entire_scene.area
+                satscene.orbit = int(entire_scene.orbit)
+                satscene.info["orbit_number"] = int(entire_scene.orbit)
         else:
             self.load_dataset(satscene, *args, **kwargs)
 
