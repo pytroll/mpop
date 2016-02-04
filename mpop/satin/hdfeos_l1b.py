@@ -66,8 +66,8 @@ def get_filename(template, time_slot):
     return file_list[0]
 
 
-def check_filename(template):
-    file_list = glob.glob(template)
+def check_filename(tmpl):
+    file_list = glob.glob(tmpl)
     if len(file_list) > 1:
         raise IOError("More than 1 file matching template %s", tmpl)
     elif len(file_list) == 0:
