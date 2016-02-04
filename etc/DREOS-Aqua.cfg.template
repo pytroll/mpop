@@ -1,22 +1,25 @@
 [satellite]
+satname='aqua'
+number=''
+instruments=('modis',)
+
+[modis-level2]
+format=hdfeos_l1b.ModisReader
 instruments = ('modis',)
 
 [modis-level2]
 format=hdfeos_l1b
 dir=/data/prod/satellit/modis/lvl1
-
-filename250 = MOD02Qkm_A%y%j_%H%M%S_*.hdf
-filename500 = MOD02Hkm_A%y%j_%H%M%S_*.hdf
-filename1000 = MOD021km_A%y%j_%H%M%S_*.hdf
-
-geofile = MOD03_A%y%j_%H%M%S_*.hdf
+filename = MYD02{resolution:1s}km_A{start_time:%y%j_%H%M%S}_{processing_time:%Y%j%H%M%S}.hdf
+geofile=MYD03_A{start_time:%y%j_%H%M%S}_{processing_time:%Y%j%H%M%S}.hdf
 
 [modis-level3]
 format = nc_pps_l2.PPSReader
-cloud_product_filename = S_NWC_%(product)s_eos1_%(orbit)s_*.nc
+cloud_product_filename = S_NWC_%(product)s_eos2_%(orbit)s_*.nc
 cloud_product_dir = /path/to/pps/output
-cloud_product_geofilename = S_NWC_CMA_eos1_%(orbit)s_*.nc
+cloud_product_geofilename = S_NWC_CMA_eos2_%(orbit)s_*.nc
 geolocation_product_name = CMA
+
 
 [modis-1]
 name = '1'
