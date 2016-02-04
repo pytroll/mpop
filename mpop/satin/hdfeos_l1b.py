@@ -156,8 +156,9 @@ class ModisReader(Reader):
             filename = options["filename"]
             resolution = self.res[os.path.basename(filename)[5]]
             self.datafiles[resolution] = filename
-        else:
+        if not self.datafiles:
             # find files according to config
+            logger.debug("Didn't get any valid file as input, looking in defined places")
             resolution = int(options["resolution"]) or 1000
 
             for res in [250, 500, 1000]:
