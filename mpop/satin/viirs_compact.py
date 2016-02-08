@@ -174,42 +174,48 @@ def load(satscene, *args, **kwargs):
                 pass
         h5f.close()
 
-    if m_chans:
+    if m_lonlats:
         m_lons = np.ma.vstack([lonlat[0] for lonlat in m_lonlats])
         m_lats = np.ma.vstack([lonlat[1] for lonlat in m_lonlats])
-    if dnb_chan:
+    if dnb_lonlats:
         dnb_lons = np.ma.vstack([lonlat[0] for lonlat in dnb_lonlats])
         dnb_lats = np.ma.vstack([lonlat[1] for lonlat in dnb_lonlats])
 
     m_i = 0
     dnb_i = 0
     for chn in channels_to_load:
-        if chn.startswith('M'):
+        if m_datas and chn.startswith('M'):
             m_data = np.ma.vstack([dat[m_i] for dat in m_datas])
             satscene[chn] = m_data
             satscene[chn].info["units"] = m_units[m_i]
             m_i += 1
-        if chn.startswith('DNB'):
+        if dnb_datas and chn.startswith('DNB'):
             dnb_data = np.ma.vstack([dat[dnb_i] for dat in dnb_datas])
             satscene[chn] = dnb_data
             satscene[chn].info["units"] = dnb_units[dnb_i]
             dnb_i += 1
 
-    if m_chans:
+    if m_datas:
         m_area_def = SwathDefinition(np.ma.masked_where(m_data.mask, m_lons),
                                      np.ma.masked_where(m_data.mask, m_lats))
-    if dnb_chan:
+    else:
+        logger.warning("No M channel data available.")
+
+    if dnb_datas:
         dnb_area_def = SwathDefinition(np.ma.masked_where(dnb_data.mask,
                                                           dnb_lons),
                                        np.ma.masked_where(dnb_data.mask,
                                                           dnb_lats))
+    else:
+        logger.warning("No DNB data available.")
 
     for chn in channels_to_load:
-        if "DNB" not in chn:
+        if "DNB" not in chn and m_datas:
             satscene[chn].area = m_area_def
 
-    for chn in dnb_chan:
-        satscene[chn].area = dnb_area_def
+    if dnb_datas:
+        for chn in dnb_chan:
+            satscene[chn].area = dnb_area_def
 
     for fname in files_to_delete:
         if os.path.exists(fname):
