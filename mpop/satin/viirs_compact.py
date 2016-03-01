@@ -231,17 +231,24 @@ def read_m(h5f, channels, calibrate=1):
     scans = h5f["All_Data"]["NumberOfScans"][0]
     res = []
     units = []
+    arr_mask = np.ma.nomask
 
     for channel in channels:
         rads = h5f["All_Data"][chan_dict[channel]]["Radiance"]
-        arr = np.ma.masked_greater(rads[:scans * 16, :].astype(np.float32),
-                                   65526)
+        if channel in ("M9",):
+            arr = rads[:scans * 16, :].astype(np.float32)
+            arr[arr > 65526] = np.nan
+            arr = np.ma.masked_array(arr, mask=arr_mask)
+        else:
+            arr = np.ma.masked_greater(rads[:scans * 16, :].astype(np.float32),
+                                       65526)
         try:
             arr = np.ma.where(arr <= rads.attrs['Threshold'],
                               arr * rads.attrs['RadianceScaleLow'] +
                               rads.attrs['RadianceOffsetLow'],
                               arr * rads.attrs['RadianceScaleHigh'] + \
                               rads.attrs['RadianceOffsetHigh'],)
+            arr_mask = arr.mask
         except KeyError:
             print "KeyError"
             pass
