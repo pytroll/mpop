@@ -587,3 +587,29 @@ class ViirsCompositer(VisirCompositer):
         return img
 
     hr_cloudtop.prerequisites = set(['I04', 'I05'])
+
+    def snow_age(self):
+        """Make a Snow age RGB image composite.
+        """
+        self.check_channels('M07', 'M08', 'M09', 'M10', 'M11')
+
+        m07 = self['M07'].data
+        m08 = self['M08'].data
+        m09 = self['M09'].data
+        m10 = self['M10'].data
+        m11 = self['M11'].data
+
+        refcu = m11 - m10
+        refcu[refcu < 0] = 0
+
+        ch1 = m07 - refcu / 2. - m09 / 4.
+        ch2 = m08 + refcu / 4. + m09 / 4.
+        ch3 = m11 + m09
+
+        img = geo_image.GeoImage((ch1, ch2, ch3), self.area, self.time_slot,
+                                 fill_value=(0, 0, 0), mode="RGB")
+        img.stretch('linear')
+
+        return img
+
+    snow_age.prerequisites = set(['M07', 'M08', 'M09', 'M10', 'M11'])
