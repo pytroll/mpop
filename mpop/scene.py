@@ -461,6 +461,12 @@ class SatelliteInstrumentScene(SatelliteScene):
             if len(self.channels_to_load) == 0:
                 return
 
+            if "reader_level" in kwargs.keys():
+                if kwargs["reader_level"] != None:
+                    LOG.debug("Using explecit definition of reader level: "+kwargs["reader_level"] )
+                    if kwargs["reader_level"] != level:
+                        continue
+
             LOG.debug("Looking for sources in section " + level)
             reader_name = conf.get(level, 'format')
             try:
