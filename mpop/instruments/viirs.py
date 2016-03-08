@@ -609,6 +609,20 @@ class ViirsCompositer(VisirCompositer):
         ch2 = m08 + refcu / 4. + m09 / 4.
         ch3 = m11 + m09
 
+        # Bernard Bellec snow Look-Up Tables V 1.0 (c) Meteo-France
+        # These Look-up Tables allow you to create the RGB snow product
+        # for SUOMI-NPP VIIRS Imager according to the algorithm
+        # presented at the second CSPP/IMAPP users' meeting at Eumetsat
+        # in Darmstadt on 14-16 April 2015
+        # The algorithm and the product are described in this
+        # presentation :
+        # http://www.ssec.wisc.edu/meetings/cspp/2015/Agenda%20PDF/Wednesday/Roquet_snow_product_cspp2015.pdf
+        #
+        # For further information you may contact
+        # Bernard Bellec at Bernard.Bellec@meteo.fr
+        # or
+        # Pascale Roquet at Pascale.Roquet@meteo.fr
+
         luts = np.array([[0, 0, 0], [1, 2, 2], [3, 8, 5], [4, 12, 8], [6, 15, 10], [8, 18, 13], [9, 21, 16],
                          [11, 24, 19], [13, 26, 21], [14, 28, 24], [16, 30, 27], [18, 32, 30], [19, 34, 32],
                          [21, 36, 35], [22, 38, 38], [24, 40, 40], [26, 42, 43], [27, 43, 46], [29, 45, 49],
