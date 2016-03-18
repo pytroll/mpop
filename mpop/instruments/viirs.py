@@ -595,7 +595,7 @@ class ViirsCompositer(VisirCompositer):
         """
         self.check_channels('M07', 'M08', 'M09', 'M10', 'M11')
 
-        coeff = 255 // 160
+        coeff = 255. / 160.
         m07 = self['M07'].data * coeff
         m08 = self['M08'].data * coeff
         m09 = self['M09'].data * coeff
@@ -672,7 +672,9 @@ class ViirsCompositer(VisirCompositer):
                          [251, 254, 253], [251, 254, 253], [251, 254, 253], [252, 254, 253], [252, 254, 254],
                          [252, 254, 254], [253, 254, 254], [253, 254, 254], [253, 254, 254], [253, 254, 254],
                          [254, 254, 254], [254, 254, 254], [254, 254, 254], [254, 254, 254], [255, 255, 255]]) / 255.0
-
+        np.ma.clip(ch1, 0, 255, ch1)
+        np.ma.clip(ch2, 0, 255, ch2)
+        np.ma.clip(ch3, 0, 255, ch3)
         ch1 = np.ma.array(luts[:, 0][ch1.astype(np.uint8)], copy=False, mask=ch1.mask)
         ch2 = np.ma.array(luts[:, 1][ch2.astype(np.uint8)], copy=False, mask=ch2.mask)
         ch3 = np.ma.array(luts[:, 2][ch3.astype(np.uint8)], copy=False, mask=ch3.mask)
