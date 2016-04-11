@@ -81,12 +81,33 @@ class ViirsCompositer(VisirCompositer):
     overview.prerequisites = set(['M05', 'M07', 'M15'])
 
     def overview_sun(self, stretch='linear', gamma=1.6):
-        """Make an Overview RGB image composite from VIIRS
-        channels. Sun-zenith correction is implicit for VIIRS
+        """Make an overview RGB image composite normalising with cosine to the
+        sun zenith angle.
         """
-        return self.overview(stretch=stretch, gamma=gamma)
+        self.check_channels('M05', 'M07', 'M15')
 
-    overview_sun.prerequisites = overview.prerequisites
+        lonlats = self['M15'].area.get_lonlats()
+
+        red = self['M05'].sunzen_corr(self.time_slot, lonlats, limit=88.,
+                                      sunmask=95).data
+        green = self['M07'].sunzen_corr(self.time_slot, lonlats, limit=88.,
+                                       sunmask=95).data
+        blue = -self['M15'].data
+
+        img = geo_image.GeoImage((red, green, blue),
+                                 self.area,
+                                 self.time_slot,
+                                 fill_value=(0, 0, 0),
+                                 mode="RGB")
+
+        if stretch:
+            img.enhance(stretch=stretch)
+        if gamma:
+            img.enhance(gamma=gamma)
+
+        return img
+
+    overview_sun.prerequisites = set(['M05', 'M07', 'M15'])
 
     def hr_overview(self):
         """Make a high resolution Overview RGB image composite 
@@ -596,11 +617,14 @@ class ViirsCompositer(VisirCompositer):
         self.check_channels('M07', 'M08', 'M09', 'M10', 'M11')
 
         coeff = 255. / 160.
-        m07 = self['M07'].data * coeff
-        m08 = self['M08'].data * coeff
-        m09 = self['M09'].data * coeff
-        m10 = self['M10'].data * coeff
-        m11 = self['M11'].data * coeff
+
+        lonlats = self['M11'].area.get_lonlats()
+
+        m07 = self['M07'].sunzen_corr(self.time_slot, lonlats, limit=88., sunmask=95).data * coeff
+        m08 = self['M08'].sunzen_corr(self.time_slot, lonlats, limit=88., sunmask=95).data * coeff
+        m09 = self['M09'].sunzen_corr(self.time_slot, lonlats, limit=88., sunmask=95).data * coeff
+        m10 = self['M10'].sunzen_corr(self.time_slot, lonlats, limit=88., sunmask=95).data * coeff
+        m11 = self['M11'].sunzen_corr(self.time_slot, lonlats, limit=88., sunmask=95).data * coeff
 
         refcu = m11 - m10
         refcu[refcu < 0] = 0

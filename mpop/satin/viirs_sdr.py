@@ -740,6 +740,9 @@ class ViirsSDRReader(Reader):
             satscene[chn].info['band_id'] = band.band_id
             satscene[chn].info['start_time'] = band.begin_time
             satscene[chn].info['end_time'] = band.end_time
+            if chn in ['M01', 'M02', 'M03', 'M04', 'M05', 'M06', 'M07', 'M08', 'M09', 'M10', 'M11',
+                       'I01', 'I02', 'I03']:
+                satscene[chn].info['sun_zen_correction_applied'] = True
 
             # We assume the same geolocation should apply to all M-bands!
             # ...and the same to all I-bands:
