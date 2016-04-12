@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2011, 2012, 2013, 2014, 2015.
+# Copyright (c) 2011, 2012, 2013, 2014, 2015, 2016.
 
 # Author(s):
 
@@ -514,6 +514,7 @@ class ViirsBandData(object):
         self.geolocation = ViirsGeolocationData(self.data.shape,
                                                 geofilepaths).read()
 
+
 # ------------------------------------------------------------------------------
 from mpop.plugin_base import Reader
 
@@ -523,6 +524,68 @@ class ViirsSDRReader(Reader):
 
     def __init__(self, *args, **kwargs):
         Reader.__init__(self, *args, **kwargs)
+        self.geofiles = []
+        self.shape = None
+
+    def get_sunsat_angles(self, **kwargs):
+
+        if 'bandtype' in kwargs:
+            bandtype = kwargs['bandtype']
+        else:
+            bandtype = 'M'
+
+        if bandtype.startswith('M'):
+            geofilenames = [geofile for geofile in self.geofiles
+                            if os.path.basename(geofile).startswith('GMTCO')]
+            if len(geofilenames) == 0:
+                # Try the geoid instead:
+                geofilenames = [geofile for geofile in self.geofiles
+                                if os.path.basename(geofile).startswith('GMODO')]
+        elif bandtype.startswith('I'):
+            geofilenames = [geofile for geofile in self.geofiles
+                            if os.path.basename(geofile).startswith('GITCO')]
+            if len(geofilenames) == 0:
+                # Try the geoid instead:
+                geofilenames = [geofile for geofile in self.geofiles
+                                if os.path.basename(geofile).startswith('GIMGO')]
+        elif bandtype.startswith('DNB'):
+            geofilenames = [geofile for geofile in self.geofiles
+                            if os.path.basename(geofile).startswith('GDNBO')]
+
+        else:
+            logger.error("Band type %s not supported", bandtype)
+            return None
+
+        data = {}
+        mask = {}
+        h5names = ['SolarZenithAngle', 'SolarAzimuthAngle',
+                   'SatelliteZenithAngle', 'SatelliteAzimuthAngle']
+        local_names = ['sunz', 'sun_azi',
+                       'satz', 'sat_azi']
+        for item in local_names:
+            data[item] = np.empty(self.shape,
+                                  dtype=np.float32)
+            mask[item] = np.zeros(self.shape,
+                                  dtype=np.bool)
+
+        granule_length = self.shape[0] / len(geofilenames)
+
+        for index, filename in enumerate(geofilenames):
+
+            swath_index = index * granule_length
+            y0_ = swath_index
+            y1_ = swath_index + granule_length
+
+            for angle, param_name in zip(h5names, local_names):
+                get_viewing_angle_into(filename,
+                                       data[param_name][y0_:y1_, :],
+                                       mask[param_name][y0_:y1_, :], angle)
+
+        for item in local_names:
+            data[item] = np.ma.array(data[item], mask=mask[item], copy=False)
+
+        return (data['sunz'], data['sun_azi'],
+                data['satz'], data['sat_azi'])
 
     def load(self, satscene, calibrate=1, time_interval=None,
              area=None, filename=None, **kwargs):
@@ -662,6 +725,8 @@ class ViirsSDRReader(Reader):
 
         glob_info = {}
 
+        self.geofiles = geofile_list
+
         logger.debug("Channels to load: " + str(satscene.channels_to_load))
         for chn in satscene.channels_to_load:
             # Take only those files in the list matching the band:
@@ -757,6 +822,7 @@ class ViirsSDRReader(Reader):
                          str(satscene.time_slot) + "_"
                          + str(satscene[chn].data.shape) + "_" +
                          band.band_uid)
+
             satscene[chn].area.area_id = area_name
             satscene[chn].area_id = area_name
             # except ImportError:
@@ -770,6 +836,8 @@ class ViirsSDRReader(Reader):
             ##    glob_info['mission_name'] = band.global_info['Mission_Name']
 
         ViirsGeolocationData.clear_cache()
+
+        self.shape = satscene[chn].data.shape
 
         # Compulsory global attribudes
         satscene.info["title"] = (satscene.satname.capitalize() +
@@ -809,6 +877,27 @@ def get_lonlat_into(filename, out_lons, out_lats, out_mask):
             out_mask[:] = out_lats < -999
         if key.endswith("Longitude"):
             h5f[key].read_direct(out_lons)
+    h5f.close()
+
+
+def get_viewing_angle_into(filename, out_val, out_mask, param):
+    """Read a sun-sat viewing angle from hdf5 file"""
+    logger.debug("Sun-Sat viewing geometry = " + filename)
+
+    if param not in ['SolarZenithAngle',
+                     'SolarAzimuthAngle',
+                     'SatelliteZenithAngle'
+                     'SatelliteAzimuthAngle']:
+        logger.warning('Viewing geometry parameter %s not supported!', param)
+        return None
+
+    md = HDF5MetaData(filename).read()
+
+    h5f = h5py.File(filename, 'r')
+    for key in md.get_data_keys():
+        if key.endswith('/' + param):
+            h5f[key].read_direct(out_val)
+            out_mask[:] = out_val < -999
     h5f.close()
 
 
