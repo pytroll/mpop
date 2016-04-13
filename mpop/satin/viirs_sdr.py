@@ -528,6 +528,14 @@ class ViirsSDRReader(Reader):
         self.shape = None
 
     def get_sunsat_angles(self, **kwargs):
+        """Get sun-satellite viewing geometry for a given band type (M, I, or
+        DNB)
+        Optional arguments:
+            bandtype = 'M', 'I', or 'DNB'
+        Return
+            sun-zenith, sun-azimuth, sat-zenith, sat-azimuth
+
+        """
 
         if 'bandtype' in kwargs:
             bandtype = kwargs['bandtype']
@@ -889,7 +897,7 @@ def get_viewing_angle_into(filename, out_val, out_mask, param):
 
     if param not in ['SolarZenithAngle',
                      'SolarAzimuthAngle',
-                     'SatelliteZenithAngle'
+                     'SatelliteZenithAngle',
                      'SatelliteAzimuthAngle']:
         logger.warning('Viewing geometry parameter %s not supported!', param)
         return None
