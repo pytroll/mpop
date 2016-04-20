@@ -235,7 +235,9 @@ def load(satscene, calibrate=True, area_extent=None, **kwargs):
                 LOG.info('hdr["Level1_5ImageCalibration"][chn_nb]["Cal_Offset"]: '+str(hdr["Level1_5ImageCalibration"][chn_nb]["Cal_Offset"]))
 
                 if calibrate:
-                    Calibrator = _Calibrator(hdr, chn_name)
+                    #Calibrator = _Calibrator(hdr, chn_name)
+                    bits_per_pixel = 10   ### !!! I have no idea if this is correct !!!
+                    Calibrator = _Calibrator(hdr, chn_name, bits_per_pixel) ## changed call in mipp/xrit/MSG.py
                     data, calibration_unit = Calibrator (data_tmp, calibrate=1)
                 else:
                     data = data_tmp
