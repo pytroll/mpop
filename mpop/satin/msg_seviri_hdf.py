@@ -24,7 +24,9 @@ LOG = logging.getLogger(__name__)
 #debug_on()
 
 SatelliteIds = { '08': 321,  # Meteosat 8 
+                  '8': 321,  # Meteosat 8 
                  '09': 322,  # Meteosat 9 
+                  '9': 322,  # Meteosat 9 
                  '10': 323,  # Meteosat 10
                  '11': 324 } # Meteosat 11
 
