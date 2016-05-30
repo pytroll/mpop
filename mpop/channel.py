@@ -314,6 +314,8 @@ class Channel(GenericChannel):
                       calibration_unit=self.unit)
         res.area = coverage_instance.out_area
         res.info = self.info
+        if hasattr(self, 'palette'):      # UH, new 
+            res.palette = self.palette    # UH, new
         if self.is_loaded():
             LOG.info("Projecting channel %s (%fμm)..."
                      % (self.name, self.wavelength_range[1]))
