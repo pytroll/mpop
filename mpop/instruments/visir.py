@@ -102,7 +102,7 @@ class VisirCompositer(Compositer):
         img.enhance(stretch="crude")
         return img
 
-    def overview(self, stretch='crude', gamma=1.6):
+    def overview(self, stretch='crude', gamma=1.6, fill_value=(0, 0, 0)):
         """Make an overview RGB image composite.
 
         +--------------------+--------------------+
@@ -126,7 +126,7 @@ class VisirCompositer(Compositer):
         img = geo_image.GeoImage((ch1, ch2, ch3),
                                  self.area,
                                  self.time_slot,
-                                 fill_value=(0, 0, 0),
+                                 fill_value=fill_value,
                                  mode="RGB")
 
         if stretch:
@@ -139,7 +139,7 @@ class VisirCompositer(Compositer):
     overview.prerequisites = set([0.635, 0.85, 10.8])
 
     # def overview_sun(self, stretch='crude', gamma=1.6):
-    def overview_sun(self, stretch='linear', gamma=1.6):
+    def overview_sun(self, stretch='linear', gamma=1.6, fill_value=(0, 0, 0)):
         """Make an overview RGB image composite normalising with cosine to the
         sun zenith angle.
         """
@@ -156,7 +156,7 @@ class VisirCompositer(Compositer):
         img = geo_image.GeoImage((red, green, blue),
                                  self.area,
                                  self.time_slot,
-                                 fill_value=(0, 0, 0),
+                                 fill_value=fill_value,
                                  mode="RGB")
 
         if stretch:
@@ -187,7 +187,7 @@ class VisirCompositer(Compositer):
 
     night_overview.prerequisites = set([3.75, 10.8, 12.0])
 
-    def natural(self, stretch=None, gamma=1.8):
+    def natural(self, stretch=None, gamma=1.8, fill_value=(0, 0, 0)):
         """Make a Natural Colors RGB image composite.
 
         +--------------------+--------------------+--------------------+
@@ -209,7 +209,7 @@ class VisirCompositer(Compositer):
         img = geo_image.GeoImage((ch1, ch2, ch3),
                                  self.area,
                                  self.time_slot,
-                                 fill_value=(0, 0, 0),
+                                 fill_value=fill_value,
                                  mode="RGB",
                                  crange=((0, 90),
                                          (0, 90),
@@ -224,7 +224,7 @@ class VisirCompositer(Compositer):
 
     natural.prerequisites = set([0.635, 0.85, 1.63])
 
-    def airmass(self):
+    def airmass(self, fill_value=(0, 0, 0)):
         """Make an airmass RGB image composite.
 
         +--------------------+--------------------+--------------------+
@@ -246,7 +246,7 @@ class VisirCompositer(Compositer):
         img = geo_image.GeoImage((ch1, ch2, ch3),
                                  self.area,
                                  self.time_slot,
-                                 fill_value=(0, 0, 0),
+                                 fill_value=fill_value,
                                  mode="RGB",
                                  crange=((-25, 0),
                                          (-40, 5),
@@ -319,7 +319,7 @@ class VisirCompositer(Compositer):
 
     wv_low.prerequisites = set([7.3])
 
-    def green_snow(self):
+    def green_snow(self, fill_value=(0, 0, 0)):
         """Make a Green Snow RGB image composite.
 
         +--------------------+--------------------+
@@ -343,7 +343,7 @@ class VisirCompositer(Compositer):
         img = geo_image.GeoImage((ch1, ch2, ch3),
                                  self.area,
                                  self.time_slot,
-                                 fill_value=(0, 0, 0),
+                                 fill_value=fill_value,
                                  mode="RGB")
 
         img.enhance(stretch="crude")
@@ -353,7 +353,7 @@ class VisirCompositer(Compositer):
 
     green_snow.prerequisites = set([0.635, 1.63, 10.8])
 
-    def red_snow(self):
+    def red_snow(self, fill_value=(0, 0, 0)):
         """Make a Red Snow RGB image composite.
 
         +--------------------+--------------------+
@@ -377,7 +377,7 @@ class VisirCompositer(Compositer):
         img = geo_image.GeoImage((ch1, ch2, ch3),
                                  self.area,
                                  self.time_slot,
-                                 fill_value=(0, 0, 0),
+                                 fill_value=fill_value,
                                  mode="RGB")
 
         img.enhance(stretch="crude")
@@ -386,7 +386,7 @@ class VisirCompositer(Compositer):
 
     red_snow.prerequisites = set([0.635, 1.63, 10.8])
 
-    def convection(self):
+    def convection(self, fill_value=(0, 0, 0)):
         """Make a Severe Convection RGB image composite.
 
         +--------------------+--------------------+--------------------+
@@ -408,7 +408,7 @@ class VisirCompositer(Compositer):
         img = geo_image.GeoImage((ch1, ch2, ch3),
                                  self.area,
                                  self.time_slot,
-                                 fill_value=(0, 0, 0),
+                                 fill_value=fill_value,
                                  mode="RGB",
                                  crange=((-30, 0),
                                          (0, 55),
@@ -418,7 +418,7 @@ class VisirCompositer(Compositer):
 
     convection.prerequisites = set([0.635, 1.63, 3.75, 6.7, 7.3, 10.8])
 
-    def dust(self):
+    def dust(self, fill_value=(0, 0, 0)):
         """Make a Dust RGB image composite.
 
         +--------------------+--------------------+--------------------+
@@ -439,7 +439,7 @@ class VisirCompositer(Compositer):
         img = geo_image.GeoImage((ch1, ch2, ch3),
                                  self.area,
                                  self.time_slot,
-                                 fill_value=(0, 0, 0),
+                                 fill_value=fill_value,
                                  mode="RGB",
                                  crange=((-4, 2),
                                          (0, 15),
@@ -451,7 +451,7 @@ class VisirCompositer(Compositer):
 
     dust.prerequisites = set([8.7, 10.8, 12.0])
 
-    def ash(self):
+    def ash(self, fill_value=(0, 0, 0)):
         """Make a Ash RGB image composite.
 
         +--------------------+--------------------+--------------------+
@@ -472,7 +472,7 @@ class VisirCompositer(Compositer):
         img = geo_image.GeoImage((ch1, ch2, ch3),
                                  self.area,
                                  self.time_slot,
-                                 fill_value=(0, 0, 0),
+                                 fill_value=fill_value,
                                  mode="RGB",
                                  crange=((-4, 2),
                                          (-4, 5),
@@ -482,7 +482,7 @@ class VisirCompositer(Compositer):
 
     ash.prerequisites = set([8.7, 10.8, 12.0])
 
-    def fog(self):
+    def fog(self, fill_value=(0, 0, 0)):
         """Make a Fog RGB image composite.
 
         +--------------------+--------------------+--------------------+
@@ -503,7 +503,7 @@ class VisirCompositer(Compositer):
         img = geo_image.GeoImage((ch1, ch2, ch3),
                                  self.area,
                                  self.time_slot,
-                                 fill_value=(0, 0, 0),
+                                 fill_value=fill_value,
                                  mode="RGB",
                                  crange=((-4, 2),
                                          (0, 6),
@@ -515,7 +515,7 @@ class VisirCompositer(Compositer):
 
     fog.prerequisites = set([8.7, 10.8, 12.0])
 
-    def night_fog(self):
+    def night_fog(self, fill_value=(0, 0, 0)):
         """Make a Night Fog RGB image composite.
 
         +--------------------+--------------------+--------------------+
@@ -537,7 +537,7 @@ class VisirCompositer(Compositer):
         img = geo_image.GeoImage((ch1, ch2, ch3),
                                  self.area,
                                  self.time_slot,
-                                 fill_value=(0, 0, 0),
+                                 fill_value=fill_value,
                                  mode="RGB",
                                  crange=((-4, 2),
                                          (0, 6),
@@ -549,7 +549,7 @@ class VisirCompositer(Compositer):
 
     night_fog.prerequisites = set([3.75, 10.8, 12.0])
 
-    def cloudtop(self, stretch=(0.005, 0.005), gamma=None):
+    def cloudtop(self, stretch=(0.005, 0.005), gamma=None, fill_value=(0, 0, 0)):
         """Make a Cloudtop RGB image composite.
 
         +--------------------+--------------------+
@@ -573,7 +573,7 @@ class VisirCompositer(Compositer):
         img = geo_image.GeoImage((ch1, ch2, ch3),
                                  self.area,
                                  self.time_slot,
-                                 fill_value=(0, 0, 0),
+                                 fill_value=fill_value,
                                  mode="RGB")
 
         if stretch:
