@@ -178,7 +178,6 @@ class ProductConfigs(object):
                 return str(val)
 
         filename = self._find_a_config_file()
-        #print "Reading Ninjo config file: '%s'" % filename
         log.info("Reading Ninjo config file: '%s'" % filename)
 
         cfg = ConfigParser()
@@ -263,7 +262,7 @@ def _get_satellite_altitude(filename):
     return None
 
 
-def _finalize(geo_image, dtype=np.uint8, value_range=None, value_range_measurement_unit=None):
+def _finalize(geo_image, dtype=np.uint8, value_range_measurement_unit=None, data_is_scaled_01=True):
     """Finalize a mpop GeoImage for Ninjo. Specialy take care of phycical scale
     and offset.
 
@@ -271,13 +270,11 @@ def _finalize(geo_image, dtype=np.uint8, value_range=None, value_range_measureme
         geo_image : mpop.imageo.geo_image.GeoImage
             See MPOP's documentation.
         dtype : bits per sample np.unit8 or np.unit16 (default: np.unit8)
-        value_range: list or tuple
+        value_range_measurement_unit: list or tuple
             Defining minimum and maximum value range. Data will be clipped into
             that range. Default is no clipping and auto scale.
-            Input data assumes to be in physical value range.
-        value_range_measurement_unit: list or tuple
-            Defining minimum and maximum value range.
-            Input data assumes to be in the [0.0, 1.0] range.
+        data_is_scaled_01: boolean
+            If true (default), input data is assumed to be in the [0.0, 1.0] range.
 
     :Returns:
         image : numpy.array
@@ -305,7 +302,7 @@ def _finalize(geo_image, dtype=np.uint8, value_range=None, value_range_measureme
             scale = 1
             offset = 0
         else:
-            if value_range_measurement_unit:
+            if value_range_measurement_unit and data_is_scaled_01:
                 # No additional scaling of the input data - assume that data is within [0.0, 1.0]
                 # and interpretate 0.0 as value_range_measurement_unit[0]
                 # and 1.0 as value_range_measurement_unit[1]
@@ -330,12 +327,12 @@ def _finalize(geo_image, dtype=np.uint8, value_range=None, value_range_measureme
                 scale /= scale_fill_value
 
             else:
-                if value_range:
-                    data.clip(value_range[0], value_range[1], data)
-                    chn_min = value_range[0]
-                    chn_max = value_range[1]
+                if value_range_measurement_unit:
+                    data.clip(value_range_measurement_unit[0], value_range_measurement_unit[1], data)
+                    chn_min = value_range_measurement_unit[0]
+                    chn_max = value_range_measurement_unit[1]
                     log.debug("Scaling, using value range %.2f - %.2f" %
-                              (value_range[0], value_range[1]))
+                              (value_range_measurement_unit[0], value_range_measurement_unit[1]))
                 else:
                     chn_max = data.max()
                     chn_min = data.min()
@@ -421,19 +418,15 @@ def save(geo_image, filename, ninjo_product_name=None, **kwargs):
             dtype = np.uint16  # @UndefinedVariable
 
     try:
-        # TODO: don't force min and max to integers.
-        value_range = int(kwargs["ch_min"]), int(kwargs["ch_max"])
-    except KeyError:
-        value_range = None
-
-    try:
         value_range_measurement_unit = (float(kwargs["ch_min_measurement_unit"]),
                                         float(kwargs["ch_max_measurement_unit"]))
     except KeyError:
         value_range_measurement_unit = None
 
-    data, scale, offset, fill_value = _finalize(geo_image, dtype=dtype, value_range=value_range,
-                                                value_range_measurement_unit=value_range_measurement_unit)
+    data_is_scaled_01 = bool(kwargs.get("data_is_scaled_01", True))
+
+    data, scale, offset, fill_value = _finalize(geo_image, dtype=dtype, data_is_scaled_01=data_is_scaled_01,
+                                                value_range_measurement_unit=value_range_measurement_unit,)
     area_def = geo_image.area
     time_slot = geo_image.time_slot
 
@@ -469,7 +462,7 @@ def write(image_data, output_fn, area_def, product_name=None, **kwargs):
             See _write
     """
     upper_left = area_def.get_lonlat(0, 0)
-    lower_right = area_def.get_lonlat(area_def.shape[0]-1, area_def.shape[1]-1)
+    lower_right = area_def.get_lonlat(area_def.shape[0] - 1, area_def.shape[1] - 1)
 
     if len(image_data.shape) == 3:
         if image_data.shape[2] == 4:

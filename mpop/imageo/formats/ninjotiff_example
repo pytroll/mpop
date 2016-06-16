@@ -39,6 +39,8 @@ Saving an image for 'chn' will then go like:
 import sys
 import os
 from datetime import datetime, timedelta
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 # Basic check.
 try:
@@ -109,7 +111,7 @@ for area_name, area_in, area_out in AREAS:
         value_range = None
         if physic_unit in ('C', 'CELSIUS'):
             # IR
-            value_range = [-88.5, 40]
+            value_range = [-88.5, 40.]
         else:
             # VIS
             value_range = [0., 125.]
@@ -136,8 +138,9 @@ for area_name, area_in, area_out in AREAS:
                  fformat='mpop.imageo.formats.ninjotiff',
                  physic_unit=physic_unit,
                  ninjo_product_name=chn_name,
-                 ch_min=value_range[0],
-                 ch_max=value_range[1],
+                 ch_min_measurement_unit=value_range[0],
+                 ch_max_measurement_unit=value_range[1],
+                 data_is_scaled_01=False,  # Default is True
                  nbits=BITS_PER_SAMPLE)
 
         # Cleanup.
