@@ -384,6 +384,15 @@ def _finalize(geo_image, dtype=np.uint8, value_range_measurement_unit=None, data
                           channels[3].filled(fill_value[3])))
         return data, 1.0, 0.0, fill_value[0]
 
+    elif geo_image.mode == 'P':
+        fill_value = 0
+        data = geo_image.channels[0]
+        if isinstance(data, np.ma.core.MaskedArray):
+            data = data.filled(fill_value)
+        data = data.astype(dtype)
+        log.debug("Value range: %.2f, %.2f, %.2f" % (data.min(), data.mean(), data.max()))
+        return data, 1.0, 0.0, fill_value
+
     else:
         raise ValueError("Don't known how til handle image mode '%s'" %
                          str(geo_image.mode))
@@ -408,14 +417,14 @@ def save(geo_image, filename, ninjo_product_name=None, **kwargs):
         * 8 bits grayscale with a colormap (if specified, inverted for IR channels).
         * 16 bits grayscale with no colormap (if specified, MinIsWhite is set for IR).
         * min value will be reserved for transparent color.
-        * RGB images will use mpop.imageo.image's standard finalize.
+        * If possible mpop.imageo.image's standard finalize will be used.
     """
 
-    dtype = np.uint8  # @UndefinedVariable
+    dtype = np.uint8
     if 'nbits' in kwargs:
         nbits = int(kwargs['nbits'])
         if nbits == 16:
-            dtype = np.uint16  # @UndefinedVariable
+            dtype = np.uint16
 
     try:
         value_range_measurement_unit = (float(kwargs["ch_min_measurement_unit"]),
@@ -427,15 +436,17 @@ def save(geo_image, filename, ninjo_product_name=None, **kwargs):
 
     data, scale, offset, fill_value = _finalize(geo_image, dtype=dtype, data_is_scaled_01=data_is_scaled_01,
                                                 value_range_measurement_unit=value_range_measurement_unit,)
+
     area_def = geo_image.area
     time_slot = geo_image.time_slot
 
     # Some Ninjo tiff names
-    kwargs['image_dt'] = time_slot
-    kwargs['transparent_pix'] = fill_value
     kwargs['gradient'] = scale
     kwargs['axis_intercept'] = offset
+    kwargs['transparent_pix'] = fill_value
+    kwargs['image_dt'] = time_slot
     kwargs['is_calibrated'] = True
+
     write(data, filename, area_def, ninjo_product_name, **kwargs)
 
 
@@ -467,15 +478,15 @@ def write(image_data, output_fn, area_def, product_name=None, **kwargs):
     if len(image_data.shape) == 3:
         if image_data.shape[2] == 4:
             shape = (area_def.y_size, area_def.x_size, 4)
-            log.info("Will generate RGBA product '%s'" % product_name)
+            log.info("Will generate RGBA product")
         else:
             shape = (area_def.y_size, area_def.x_size, 3)
-            log.info("Will generate RGB product '%s'" % product_name)
+            log.info("Will generate RGB product")
         write_rgb = True
     else:
         shape = (area_def.y_size, area_def.x_size)
         write_rgb = False
-        log.info("Will generate product '%s'" % product_name)
+        log.info("Will generate single band product")
 
     if image_data.shape != shape:
         raise ValueError("Raster shape %s does not correspond to expected shape %s" % (
