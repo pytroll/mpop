@@ -599,7 +599,7 @@ class AAPP1b(object):
         # transfer channel data to class attributes
         for ch_ in channels:
             try:
-                self.channels[ch_] = np.vstack(channels[ch_])
+                self.channels[ch_] = np.ma.vstack(channels[ch_])
             except ValueError:
                 self.channels[ch_] = None
         if "3A" in chns or "3B" in chns:

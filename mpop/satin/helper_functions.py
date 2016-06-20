@@ -61,12 +61,15 @@ def area_def_names_to_extent(area_def_names, proj4_str,
         except AttributeError:
             boundaries = name.get_boundary_lonlats()
 
-        if (all(boundaries[0].side1 > 1e20) or
-                all(boundaries[0].side2 > 1e20) or
-                all(boundaries[0].side3 > 1e20) or
-                all(boundaries[0].side4 > 1e20)):
-            maximum_extent = list(default_extent)
-            continue
+        if (any(boundaries[0].side1 > 1e20) or
+                any(boundaries[0].side2 > 1e20) or
+                any(boundaries[0].side3 > 1e20) or
+                any(boundaries[0].side4 > 1e20)):
+            if default_extent:
+                maximum_extent = list(default_extent)
+                continue
+            else:
+                return None
 
         lon_sides = (boundaries[0].side1, boundaries[0].side2,
                      boundaries[0].side3, boundaries[0].side4)
@@ -76,6 +79,8 @@ def area_def_names_to_extent(area_def_names, proj4_str,
         maximum_extent = boundaries_to_extent(proj4_str, maximum_extent,
                                               default_extent,
                                               lon_sides, lat_sides)
+        if not maximum_extent:
+            return None
 
     maximum_extent[0] -= 10000
     maximum_extent[1] -= 10000
@@ -104,6 +109,11 @@ def boundaries_to_extent(proj4_str, maximum_extent, default_extent,
     # replace invalid values with NaN
     x_dir[np.abs(x_dir) > 1e20] = np.nan
     y_dir[np.abs(y_dir) > 1e20] = np.nan
+    
+    # return None when no default specified
+    if not default_extent:
+        if any(np.isnan(x_dir)) or any(np.isnan(x_dir)):
+            return None
 
     # Get the maximum needed extent from different corners.
     extent = [np.nanmin(x_dir),
