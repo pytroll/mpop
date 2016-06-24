@@ -33,12 +33,15 @@ Saving an image for 'chn' will then go like:
     image.save(filename,
                fformat='mpop.imageo.formats.ninjotiff',
                physic_unit=physic_unit,
-               value_range=value_range,
+               ch_min_measurement_unit=min_value,
+               ch_max_measurement_unit=max_value,
                **ninjotiff_config[chn])
 """
 import sys
 import os
 from datetime import datetime, timedelta
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 # Basic check.
 try:
@@ -78,7 +81,6 @@ CHANNEL_DICT = {
     }
 
 BITS_PER_SAMPLE = 8
-
 DO_CONVECTION = False
 
 for area_name, area_in, area_out in AREAS:
@@ -106,17 +108,20 @@ for area_name, area_in, area_out in AREAS:
             physic_unit = scene[chn].unit = 'C'
 
         # Value range as DWD
-        value_range = None
         if physic_unit in ('C', 'CELSIUS'):
             # IR
-            value_range = [-88.5, 40]
+            value_range = (-88.5, 40.)
         else:
             # VIS
-            value_range = [0., 125.]
+            value_range = (0., 125.)
         
-
-        # GeoImage without any data scaling or enhancement.
-        img = scene.image(chn, mode="L")
+        #
+        # A GeoImage specifying a color range.
+        #
+        # If no color_range specified, MPOP will not scaled the data into the [0., 1.] range.
+        # In that case set the data_is_scaled_01 option to False in img.save
+        #
+        img = scene.image(chn, mode="L", crange=[value_range])
         LOG.info("%s (%s, %s) %.2f %.2f %.2f" % (chn_name, physic_unit,
                                                  img.channels[0].dtype,
                                                  img.channels[0].min(),
@@ -136,8 +141,8 @@ for area_name, area_in, area_out in AREAS:
                  fformat='mpop.imageo.formats.ninjotiff',
                  physic_unit=physic_unit,
                  ninjo_product_name=chn_name,
-                 ch_min=value_range[0],
-                 ch_max=value_range[1],
+                 ch_min_measurement_unit=value_range[0],
+                 ch_max_measurement_unit=value_range[1],
                  nbits=BITS_PER_SAMPLE)
 
         # Cleanup.
