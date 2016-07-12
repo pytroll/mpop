@@ -427,6 +427,320 @@ class Channel(GenericChannel):
             new_ch.data = np.ma.masked_where(cos_zen < cos_limit, new_ch.data, copy=False)
         return new_ch
 
+    def get_viewing_geometry(self, orbital, time_slot, altitude=None):
+        '''Calculates the azimuth and elevation angle as seen by the observer 
+           at the position of the current area pixel. 
+           inputs:
+             orbital   an orbital object define by the tle file 
+                       (see pyorbital.orbital import Orbital or mpop/scene.py get_oribtal)
+             time_slot time object specifying the observation time
+             altitude  optinal: altitude of the observer above the earth ellipsoid
+           outputs:
+             azi       azimuth viewing angle in degree (south is 0, counting clockwise)
+             ele       elevation viewing angle in degree (zenith is 90, horizon is 0)
+        '''
+
+        try:
+            from pyorbital.orbital import Orbital
+        except ImportError:
+            LOG.warning("Could not load pyorbital.orbial.Orbital")
+            return None
+
+        try:
+            from pyorbital import tlefile
+        except ImportError:
+            LOG.warning("Could not load pyorbital.tlefile")
+            return None
+
+        (lons, lats) = self.area.get_lonlats()
+        # Calculate observer azimuth and elevation
+        if altitude==None:
+            altitude = np.zeros(lons.shape)
+        azi, ele = orbital.get_observer_look(time_slot, lons, lats, altitude)
+
+        return (azi, ele) 
+
+    def vinc_vect(phi, lembda, alpha, s, f=None, a=None, degree=True):
+        """ Vincenty's Direct formular
+
+        Returns the lat and long of projected point and reverse azimuth
+        given a reference point and a distance and azimuth to project.
+        lats, longs and azimuths are passed in radians.
+
+        Keyword arguments:
+            phi    Latitude in degree/radians
+            lembda Longitude in degree/radians
+            alpha    Geodetic azimuth in degree/radians
+            s    Ellipsoidal distance in meters
+            f    WGS84 parameter
+            a    WGS84 parameter
+            degree Boolean if in/out values are in degree or radians.
+                   Default is in degree
+
+        Returns:
+            (phiout,  lembdaout,  alphaout ) as a tuple
+
+        """
+        if degree:
+            phi = np.deg2rad(phi)
+            lembda = np.deg2rad(lembda)
+            alpha = np.deg2rad(alpha)
+
+        if f is None:
+            f = 1/298.257223563
+        if a is None:
+            a = 6378137
+
+        two_pi = 2.0*np.pi
+
+        if isinstance(alpha, np.ndarray):
+            alpha[alpha < 0.0] += two_pi
+            alpha[alpha > two_pi] -= two_pi
+
+        else:
+            if alpha < 0.0:
+                alpha = alpha + two_pi
+            if (alpha > two_pi):
+                alpha = alpha - two_pi
+        """
+        alphama = np.ma.masked_less_equal(alphama, two_pi)
+        alpha = alphama - two_pi
+        alpha.mask = np.ma.nomask
+        logger.debug(alpha)
+        """
+        b = a * (1.0 - f)
+
+        tan_u1 = (1-f) * np.tan(phi)
+        u_1 = np.arctan(tan_u1)
+        sigma1 = np.arctan2(tan_u1, np.cos(alpha))
+
+        sinalpha = np.cos(u_1) * np.sin(alpha)
+        cosalpha_sq = 1.0 - sinalpha * sinalpha
+
+        u_2 = cosalpha_sq * (a * a - b * b) / (b * b)
+        aa_ = 1.0 + (u_2 / 16384) * (4096 + u_2 * (-768 + u_2 *
+                                                   (320 - 175 * u_2)))
+        bb_ = (u_2 / 1024) * (256 + u_2 * (-128 + u_2 * (74 - 47 * u_2)))
+
+        # Starting with the approximation
+        sigma = (s / (b * aa_))
+        last_sigma = 2.0 * sigma + 2.0  # something impossible
+
+        # Iterate the following three equations
+        # until there is no significant change in sigma
+
+        # two_sigma_m , delta_sigma
+
+        def iter_sigma(sigma, last_sigma, sigma1, s, b, aa_, bb_):
+            while (abs((last_sigma - sigma) / sigma) > 1.0e-9):
+                two_sigma_m = 2 * sigma1 + sigma
+
+                delta_sigma = (bb_ * np.sin(sigma) *
+                               (np.cos(two_sigma_m) + (bb_/4) *
+                                (np.cos(sigma) *
+                                 (-1 + 2 * np.power(np.cos(two_sigma_m), 2) -
+                                  (bb_ / 6) * np.cos(two_sigma_m) *
+                                  (-3 + 4 * np.power(np.sin(sigma), 2)) *
+                                  (-3 + 4 * np.power(np.cos(two_sigma_m), 2))))))
+                last_sigma = sigma
+                sigma = (s / (b * aa_)) + delta_sigma
+
+            return(sigma, two_sigma_m)
+
+        # Check for array inputs
+        arraybool = [isinstance(ele, np.ndarray) for ele in (sigma, last_sigma,
+                                                             sigma1)]
+        logger.debug("Sigma Arrays?: " + str(arraybool))
+        if all(arraybool):
+            viter_sigma = np.vectorize(iter_sigma)
+            sigma, two_sigma_m = viter_sigma(sigma, last_sigma, sigma1, s, b, aa_,
+                                             bb_)
+
+        else:
+            sigma, two_sigma_m = iter_sigma(sigma, last_sigma, sigma1, s, b, aa_,
+                                            bb_)
+
+        phiout = np.arctan2((np.sin(u_1) * np.cos(sigma) +
+                             np.cos(u_1) * np.sin(sigma) * np.cos(alpha)),
+                            ((1 - f) * np.sqrt(np.power(sinalpha, 2) +
+                                               pow(np.sin(u_1) *
+                                               np.sin(sigma) -
+                                               np.cos(u_1) *
+                                               np.cos(sigma) *
+                                               np.cos(alpha), 2))))
+
+        deltalembda = np.arctan2((np.sin(sigma) * np.sin(alpha)),
+                                 (np.cos(u_1) * np.cos(sigma) -
+                                  np.sin(u_1) * np.sin(sigma) * np.cos(alpha)))
+
+        cc_ = (f/16) * cosalpha_sq * (4 + f * (4 - 3 * cosalpha_sq))
+
+        omega = (deltalembda - (1 - cc_) * f * sinalpha *
+                 (sigma + cc_ * np.sin(sigma) * (np.cos(two_sigma_m) + cc_ *
+                                                 np.cos(sigma) *
+                                                 (-1 + 2 *
+                                                  np.power(np.cos(two_sigma_m),
+                                                           2)))))
+
+        lembdaout = lembda + omega
+
+        alphaout = np.arctan2(sinalpha, (-np.sin(u_1) * np.sin(sigma) +
+                                         np.cos(u_1) * np.cos(sigma) *
+                                         np.cos(alpha)))
+
+        alphaout = alphaout + two_pi / 2.0
+
+        if isinstance(alphaout, np.ndarray):
+            alphaout[alphaout < 0.0] += two_pi
+            alphaout[alphaout > two_pi] -= two_pi
+
+        else:
+            if alphaout < 0.0:
+                alphaout = alphaout + two_pi
+            if (alphaout > two_pi):
+                alphaout = alphaout - two_pi
+
+        if degree:
+            phiout = np.rad2deg(phiout)
+            lembdaout = np.rad2deg(lembdaout)
+            alphaout = np.rad2deg(alphaout)
+
+        return(phiout, lembdaout, alphaout)
+
+
+    def parallax_corr(self, cth=None, time_slot=None, orbital=None, azi=None, ele=None, fill="False"):
+        '''Perform the parallax correction for channel at
+        *time_slot* (datetime.datetime() object), assuming the cloud top height cth
+        and the viewing geometry given by the satellite orbital "orbital" and return the
+        corrected channel. 
+        Authors: Ulrich Hamann (MeteoSwiss), Thomas Leppelt (DWD)
+        Example calls:
+            * calling this function (using orbital and time_slot)
+                 orbital = data.get_oribtal()
+                 data["VIS006"].parallax_corr(cth=data["CTTH"].height, time_slot=data.time_slot, orbital=orbital)
+            * calling this function (using viewing geometry)
+                 orbital = data.get_oribtal()
+                 (azi, ele) = get_viewing_geometry(self, orbital, time_slot)
+                 data["VIS006"].parallax_corr(cth=data["CTTH"].height, azi=azi, ele=ele)
+        Optional input:
+          cth        The parameter cth is the cloud top height 
+                     (or  the altitude of the object that should be shifted).
+                     cth must have the same size and projection as the channel
+
+          orbital    an orbital object define by the tle file 
+                     (see pyorbital.orbital import Orbital or mpop/scene.py get_oribtal)
+          azi        azimuth viewing angle in degree (south is 0, counting clockwise)
+                     e.g. as given by self.get_viewing_geometry
+          ele        elevation viewing angle in degree (zenith is 90, horizon is 0)
+                     e.g. as given by self.get_viewing_geometry
+          fill       specifies the interpolation method to fill the gaps
+                     (basically areas behind the cloud that can't be observed by the satellite instrument)
+                     "False" (default): no interpolation, gaps are np.nan values and mask is set accordingly
+                     "nearest": fill gaps with nearest neighbour
+                     "bilinear": use scipy.interpolate.griddata with linear interpolation 
+                                 to fill the gaps
+                   
+        output: 
+          parallax corrected channel
+                     the content of the channel will be parallax corrected.
+                     The name of the new channel will be
+                     *original_chan.name+'_PC'*, eg. "IR_108_PC". This name is
+                     also stored to the info dictionary of the originating channel.
+        '''
+
+        # get time_slot from info, if present
+        if time_slot==None:
+            if "time" in self.info.keys():
+                time_slot=self.info["time"]
+
+        if azi==None or ele==None:
+            if time_slot==None or orbital==None:
+                print "*** Error in parallax_corr (mpop/channel.py)"
+                print "    parallax_corr needs either time_slot and orbital"
+                print "    data[\"IR_108\"].parallax_corr(data[\"CTTH\"].height, time_slot=data.time_slot, orbital=orbital)"
+                print "    or the azimuth and elevation angle"
+                print "    data[\"IR_108\"].parallax_corr(data[\"CTTH\"].height, azi=azi, ele=ele)"
+                quit()
+            else:
+                print ("... calculate viewing geometry (orbit and time are given)")
+                (azi, ele) = self.get_viewing_geometry(orbital, time_slot)
+        else:
+            print ("... azimuth and elevation angle given")
+
+        # mask the cloud top height
+        cth_ = np.ma.masked_where(cth < 0, cth, copy=False)
+
+        # Elevation displacement
+        dz = cth_ / np.tan(np.deg2rad(ele))
+
+        # Create the new channel (by copying) and initialize the data with None values
+        new_ch = copy.deepcopy(self)
+        new_ch.data[:,:] = np.nan
+
+        # Set the name
+        new_ch.name += '_PC'
+
+        # Add information about the corrected version to original channel
+        self.info["parallax_corrected"] = self.name + '_PC'
+
+        # get projection coordinates in meter
+        (proj_x,proj_y) = self.area.get_proj_coords()
+
+        print "... calculate parallax shift"
+        # shifting pixels according to parallax corretion 
+        proj_x_pc = proj_x - np.sin(np.deg2rad(azi)) * dz # shift West-East   in m  # ??? sign correct ??? 
+        proj_y_pc = proj_y + np.cos(np.deg2rad(azi)) * dz # shift North-South in m
+
+        # get indices for the pixels for the original position 
+        (y,x)  = self.area.get_xy_from_proj_coords(proj_x, proj_y)
+            # comment: might be done more efficient with meshgrid
+            # >>> x = np.arange(-5.01, 5.01, 0.25)
+            # >>> y = np.arange(-5.01, 5.01, 0.25)
+            # >>> xx, yy = np.meshgrid(x, y)
+        # get indices for the pixels at the parallax corrected position 
+        (y_pc,x_pc) = self.area.get_xy_from_proj_coords(proj_x_pc, proj_y_pc)
+
+        # copy cloud free satellite pixels (surface observations)
+        ind = np.where(cth_.mask == True)
+        new_ch.data[x[ind],y[ind]] = self.data[x[ind],y[ind]]
+
+        print "... copy data to parallax corrected position"
+        # copy cloudy pixel with new position modified with parallax shift
+        ind = np.where(x_pc.mask == False)
+        new_ch.data[x_pc[ind],y_pc[ind]] = self.data[x[ind],y[ind]]
+
+        # Mask out data gaps (areas behind the clouds)
+        new_ch.data = np.ma.masked_where(np.isnan(new_ch.data), new_ch.data, copy=False)
+
+        if fill.lower()=="false":
+            return new_ch
+        elif fill=="nearest":
+            print "*** fill missing values with nearest neighbour" 
+            from scipy.ndimage import distance_transform_edt
+            invalid = np.isnan(new_ch.data)
+            ind = distance_transform_edt(invalid, return_distances=False, return_indices=True)
+            new_ch.data = new_ch.data[tuple(ind)]
+        elif fill=="bilinear":
+            # this function does not interpolate at the outer boundaries 
+            from scipy.interpolate import griddata
+            ind = np.where(new_ch.data.mask == False)
+            points = np.transpose(np.append([y[ind]], [x[ind]], axis=0))
+            values = new_ch.data[ind]
+            new_ch.data = griddata(points, values, (y, x), method='linear')
+
+            # fill the remaining pixels with nearest neighbour
+            from scipy.ndimage import distance_transform_edt
+            invalid = np.isnan(new_ch.data)
+            ind = distance_transform_edt(invalid, return_distances=False, return_indices=True)
+            new_ch.data = new_ch.data[tuple(ind)]
+        else:
+            print "*** Error in parallax_corr (channel.py)"
+            print "    unknown gap fill method ", fill
+            quit()
+
+        return new_ch
+
+
     # Arithmetic operations on channels.
 
     def __pow__(self, other):
