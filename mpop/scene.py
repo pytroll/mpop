@@ -83,6 +83,14 @@ class Satellite(object):
         """
         return self.variant + self.satname + self.number
 
+    def sat_nr(self, string=False):
+        import re
+        sat_nr = re.findall(r'\d+', self.fullname)[0]
+        if string:
+            return sat_nr
+        else:
+            return int(sat_nr)
+
     @classmethod
     def remove_attribute(cls, name):
         """Remove an attribute from the class.
@@ -566,7 +574,6 @@ class SatelliteInstrumentScene(SatelliteScene):
 
         return self.orbital
 
-
     def estimate_cth(self, cth_atm="best", time_slot=None):
         """
         General purpose
@@ -614,7 +621,7 @@ class SatelliteInstrumentScene(SatelliteScene):
                 if hasattr(self, 'time_slot'):
                     time_slot = self.time_slot
                 else:
-                    print "*** Error, in parallax_corr (mpop/channel.py)"
+                    print "*** Error, in estimate_cth (mpop/channel.py)"
                     print "    when using cth_atm=\"best\" also the time_slot information is required!"
                     quit()
 
@@ -667,7 +674,7 @@ class SatelliteInstrumentScene(SatelliteScene):
         return cth
 
 
-    def parallax_corr(self, fill="False", replace=False, cth_atm='best'):
+    def parallax_corr(self, fill="False", estimate_cth=False, cth_atm='best', replace=False):
         """
         perform the CTH parallax corretion for all loaded channels
         """
@@ -686,19 +693,27 @@ class SatelliteInstrumentScene(SatelliteScene):
                 break
 
         # choose best way to get CTH for parallax correction
-        if "CTTH" in loaded_channels:
-            # make a copy of CTH, as it might get replace by its parallax corrected version
-            cth = copy.deepcopy(self["CTTH"].height)
-        elif "IR_108" in loaded_channels:
-            # try to estimate CTH with IR_108
-            self.estimate_cth()
-            cth = self["CTH"].data
-        else:
-            print "*** Error in parallax_corr mpop.scene.py"
-            print "    parallax correction needs some cloud top height information"
-            print "    please load the NWC-SAF CTTH product (recommended) or"
-            print "    the IR_108 (CTH will be roughly estimated with that channel)"
-            quit()
+        if not estimate_cth:
+            if "CTTH" in loaded_channels:
+                # make a copy of CTH, as it might get replace by its parallax corrected version
+                cth = copy.deepcopy(self["CTTH"].height)
+            else:
+                print "*** Error in parallax_corr (mpop.scene.py)"
+                print "    parallax correction needs some cloud top height information"
+                print "    please load the NWC-SAF CTTH product (recommended) or"
+                print "    activate the option data.parallax_corr( estimate_cth=True )"
+                quit()
+        else: 
+            if "IR_108" in loaded_channels:
+                # try to estimate CTH with IR_108
+                self.estimate_cth()
+                cth = self["CTH"].data
+            else:
+                print "*** Error in parallax_corr (mpop.scene.py)"
+                print "    parallax correction needs some cloud top height information"
+                print "    you specified the estimation of CTH with the IR_108, but "
+                print "    this channel is not loaded"
+                quit()
 
         # perform parallax correction for each loaded channel
         for chn in self.loaded_channels():
