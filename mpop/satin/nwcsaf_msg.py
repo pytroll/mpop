@@ -2942,7 +2942,7 @@ def load(scene, **kwargs):
             ct_chan = MsgCloudMask() 
             ct_chan.read(filename,calibrate)
             ct_chan.satid = (scene.satname.capitalize() +
-                             str(int(scene.number)).rjust(2))
+                             str(scene.sat_nr()).rjust(2))
             ct_chan.resolution = ct_chan.area.pixel_size_x
             scene.channels.append(ct_chan)
 
@@ -2961,7 +2961,7 @@ def load(scene, **kwargs):
         LOG.debug("Uncorrected file: %s", filename)
         ct_chan.name = "CloudType"
         ct_chan.satid = (scene.satname.capitalize() +
-                         str(int(scene.number)).rjust(2))
+                         str(scene.sat_nr()).rjust(2))
         ct_chan.resolution = ct_chan.area.pixel_size_x
         scene.channels.append(ct_chan)
 
@@ -2981,9 +2981,11 @@ def load(scene, **kwargs):
             ct_chan_plax.read(filename)
             ct_chan_plax.name = "CloudType_plax"
             ct_chan_plax.satid = (scene.satname.capitalize() +
-                                  str(int(scene.number)).rjust(2))
+                                  str(scene.sat_nr()).rjust(2))
             ct_chan_plax.resolution = ct_chan_plax.area.pixel_size_x
             scene.channels.append(ct_chan_plax)
+
+    print "*** hallo world***"
 
     if "CTTH" in scene.channels_to_load:
         filename_wildcards = (scene.time_slot.strftime(pathname)
@@ -2993,8 +2995,10 @@ def load(scene, **kwargs):
         if filename != None:
             ct_chan = MsgCTTH()
             ct_chan.read(filename,calibrate)
-            ct_chan.satid = (scene.satname.capitalize() +
-                             str(int(scene.number)).rjust(2))
+            print "CCC", scene.sat_nr()
+            ct_chan.satid = (scene.satname[0:8].capitalize() +
+                             str(scene.sat_nr()).rjust(2))
+            print "bullshit (nwcsat_msg.py) ", ct_chan.satid   # "Meteosat 9"
             ct_chan.resolution = ct_chan.area.pixel_size_x
             scene.channels.append(ct_chan)
         
@@ -3008,7 +3012,7 @@ def load(scene, **kwargs):
             ct_chan.read(filename,calibrate)
             ct_chan.name = "CRR_"          # !!!!! changed as we create another channel named 'CRR' when transforming the format
             ct_chan.satid = (scene.satname.capitalize() +
-                             str(int(scene.number)).rjust(2))
+                             str(scene.sat_nr()).rjust(2))
             ct_chan.resolution = ct_chan.area.pixel_size_x
             scene.channels.append(ct_chan)
 
@@ -3022,7 +3026,7 @@ def load(scene, **kwargs):
             ct_chan.read(filename,calibrate)
             ct_chan.name = "PC"
             ct_chan.satid = (scene.satname.capitalize() +
-                             str(int(scene.number)).rjust(2))
+                             str(scene.sat_nr()).rjust(2))
             ct_chan.resolution = ct_chan.area.pixel_size_x
             scene.channels.append(ct_chan)
 
@@ -3036,7 +3040,7 @@ def load(scene, **kwargs):
             ct_chan.read(filename,calibrate)
             ct_chan.name = "SPhR"
             ct_chan.satid = (scene.satname.capitalize() +
-                             str(int(scene.number)).rjust(2))
+                             str(scene.sat_nr()).rjust(2))
             ct_chan.resolution = ct_chan.area.pixel_size_x
             scene.channels.append(ct_chan)
 
@@ -3050,7 +3054,7 @@ def load(scene, **kwargs):
             ct_chan.read(filename,calibrate)
             ct_chan.name = "PCPh_"
             ct_chan.satid = (scene.satname.capitalize() +
-                             str(int(scene.number)).rjust(2))
+                             str(scene.sat_nr()).rjust(2))
             ct_chan.resolution = ct_chan.area.pixel_size_x
             scene.channels.append(ct_chan)
 
@@ -3064,7 +3068,7 @@ def load(scene, **kwargs):
             ct_chan.read(filename,calibrate)
             ct_chan.name = "CRPh_"
             ct_chan.satid = (scene.satname.capitalize() +
-                             str(int(scene.number)).rjust(2))
+                             str(scene.sat_nr()).rjust(2))
             ct_chan.resolution = ct_chan.area.pixel_size_x
             scene.channels.append(ct_chan)
 
@@ -3072,8 +3076,11 @@ def load(scene, **kwargs):
         # print "nwcsaf_msg", len(filename), filename
         if len(filename) > 12:
             sat_nr= int(basename(filename)[10:11])+7
-            if scene.number != str(sat_nr).zfill(2):
-                print "*** Warning, change Meteosat number to "+str(sat_nr).zfill(2)+" (input: "+scene.number+")"
-                scene.number = str(sat_nr).zfill(2) 
+            if int(scene.sat_nr()) != int(sat_nr):
+                print "*** Warning, change Meteosat number to "+str(sat_nr)+" (input: "+scene.sat_nr()+")"
+                #scene.number = str(sat_nr).zfill(2)
+                # !!! update number !!!
+                scene.number = str(sat_nr)
+ 
 
     LOG.info("Loading channels done.")
