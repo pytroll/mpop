@@ -834,6 +834,10 @@ class ViirsSDRReader(Reader):
 
             satscene[chn].area.area_id = area_name
             satscene[chn].area_id = area_name
+
+            if self.shape is None:
+                self.shape = band.data.shape
+
             # except ImportError:
             #    satscene[chn].area = None
             #    satscene[chn].lat = np.ma.array(band.latitude, mask=band.data.mask)
@@ -845,8 +849,6 @@ class ViirsSDRReader(Reader):
             ##    glob_info['mission_name'] = band.global_info['Mission_Name']
 
         ViirsGeolocationData.clear_cache()
-
-        self.shape = satscene[chn].data.shape
 
         # Compulsory global attribudes
         satscene.info["title"] = (satscene.satname.capitalize() +
