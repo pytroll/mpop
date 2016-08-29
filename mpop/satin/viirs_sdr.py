@@ -31,16 +31,18 @@ Format documentation:
 http://npp.gsfc.nasa.gov/science/sciencedocuments/082012/474-00001-03_CDFCBVolIII_RevC.pdf
 
 """
+import hashlib
+import logging
 import os.path
 from ConfigParser import ConfigParser
 from datetime import datetime, timedelta
 
-import numpy as np
 import h5py
-import hashlib
-import logging
+import numpy as np
 
 from mpop import CONFIG_PATH
+# ------------------------------------------------------------------------------
+from mpop.plugin_base import Reader
 from mpop.utils import strftime
 
 NO_DATE = datetime(1958, 1, 1)
@@ -515,10 +517,6 @@ class ViirsBandData(object):
                                                 geofilepaths).read()
 
 
-# ------------------------------------------------------------------------------
-from mpop.plugin_base import Reader
-
-
 class ViirsSDRReader(Reader):
     pformat = "viirs_sdr"
 
@@ -836,6 +834,10 @@ class ViirsSDRReader(Reader):
 
             satscene[chn].area.area_id = area_name
             satscene[chn].area_id = area_name
+
+            if self.shape is None:
+                self.shape = band.data.shape
+
             # except ImportError:
             #    satscene[chn].area = None
             #    satscene[chn].lat = np.ma.array(band.latitude, mask=band.data.mask)
@@ -847,8 +849,6 @@ class ViirsSDRReader(Reader):
             ##    glob_info['mission_name'] = band.global_info['Mission_Name']
 
         ViirsGeolocationData.clear_cache()
-
-        self.shape = satscene[chn].data.shape
 
         # Compulsory global attribudes
         satscene.info["title"] = (satscene.satname.capitalize() +

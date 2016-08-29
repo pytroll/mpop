@@ -35,11 +35,12 @@ Edited by Christian Kliche (Ernst Basler + Partner) to replace pylibtiff with
 a modified version of tifffile.py (created by Christoph Gohlke)
 """
 
-import os
-import logging
 import calendar
-from datetime import datetime
+import logging
+import os
 from copy import deepcopy
+from datetime import datetime
+
 import numpy as np
 
 from mpop.imageo.formats import tifffile
@@ -143,6 +144,7 @@ def get_product_config(product_name, force_read=False):
 
 
 class _Singleton(type):
+
     def __init__(cls, name_, bases_, dict_):
         super(_Singleton, cls).__init__(name_, bases_, dict_)
         cls.instance = None
@@ -225,6 +227,8 @@ def _get_projection_name(area_def):
     proj_name = area_def.proj_dict['proj']
     if proj_name in ('eqc',):
         return 'PLAT'
+    elif proj_name in ('merc',):
+        return 'MERC'
     elif proj_name in ('stere',):
         lat_0 = area_def.proj_dict['lat_0']
         if lat_0 < 0:
@@ -235,7 +239,7 @@ def _get_projection_name(area_def):
 
 
 def _get_pixel_size(projection_name, area_def):
-    if projection_name == 'PLAT':
+    if projection_name in ['PLAT', 'MERC']:
         upper_left = area_def.get_lonlat(0, 0)
         lower_right = area_def.get_lonlat(area_def.shape[0] - 1, area_def.shape[1] - 1)
         pixel_size = abs(lower_right[0] - upper_left[0]) / (area_def.shape[1] - 1),\
@@ -903,17 +907,17 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
         tifargs['bigtiff'] = True
 
     with tifffile.TiffWriter(output_fn, **tifargs) as tif:
-            tif.save(image_data, **args)
-            for _, scale in enumerate((2, 4, 8, 16)):
-                shape = (image_data.shape[0] / scale,
-                         image_data.shape[1] / scale)
-                if shape[0] > tile_width and shape[1] > tile_length:
-                    args = _create_args(image_data[::scale, ::scale],
-                                        pixel_xres * scale, pixel_yres * scale)
-                    for key in header_only_keys:
-                        if key in args:
-                            del args[key]
-                    tif.save(image_data[::scale, ::scale], **args)
+        tif.save(image_data, **args)
+        for _, scale in enumerate((2, 4, 8, 16)):
+            shape = (image_data.shape[0] / scale,
+                     image_data.shape[1] / scale)
+            if shape[0] > tile_width and shape[1] > tile_length:
+                args = _create_args(image_data[::scale, ::scale],
+                                    pixel_xres * scale, pixel_yres * scale)
+                for key in header_only_keys:
+                    if key in args:
+                        del args[key]
+                tif.save(image_data[::scale, ::scale], **args)
 
     log.info("Successfully created a NinJo tiff file: '%s'" % (output_fn,))
 
