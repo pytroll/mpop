@@ -1,0 +1,88 @@
+[satellite]
+satname = s2a
+variant = 
+number = 
+instruments = ('msi',)
+
+[msi-level2]
+filename=%(satellite)s_OPER_%(instrument)s_L1C_??_????_%Y%m%dT%H%M%S_A%(orbit)s_T?????_%(band)s.jp2
+dir = /s2a_datadir
+format = s2_msi
+
+[msi-b1]
+frequency = (0.433, 0.443, 0.453)
+resolution = 60
+name = 'B01'
+size = (1830,1830)
+
+[msi-b2]
+frequency = (0.4575, 0.490, 0.5225)
+resolution = 10
+name = 'B02'
+size = (10980,10980)
+
+[msi-b3]
+frequency = (0.5225, 0.560, 0.5775)
+resolution = 10
+name = 'B03'
+size = (10980,10980)
+
+[msi-b4]
+frequency = (0.650, 0.665, 0.680)
+resolution = 10
+name = 'B04'
+size = (10980,10980)
+
+[msi-b5]
+frequency = (0.6975, 0.705, 0.7125)
+resolution = 20
+name = 'B05'
+size = (5490,5490)
+
+[msi-b6]
+frequency = (0.7325, 0.740, 0.7475)
+resolution = 20
+name = 'B06'
+size = (5490,5490)
+
+[msi-b7]
+frequency = (0.773, 0.783, 0.793)
+resolution = 20 
+name = 'B07'
+size = (5490,5490)
+
+[msi-b8]
+frequency = (0.7845, 0.842, 0.8995)
+resolution = 10  
+name = 'B08'
+size = (10980,10980)
+
+[msi-b8a]
+frequency = (0.855,0.865,0.875)
+resolution = 20
+name = 'B8A'
+size = (5490,5490)
+
+[msi-b9]
+frequency = (0.935,0.945,0.955)
+resolution = 60   
+name = 'B09'
+size = (1830,1830)
+
+[msi-b10]
+frequency = (1.360,1.375,1.390)
+resolution = 60
+name = 'B10'
+size = (1830,1830)
+
+[msi-b11]
+frequency = (1.565,1.610,1.655)
+resolution = 20
+name = 'B11'
+size = (5490,5490)
+
+[msi-b12]
+frequency = (2.100,2.190,2.280)
+resolution = 20 
+name = 'B12'
+size = (5490,5490)
