@@ -35,11 +35,11 @@ def tv_legend():
     """Palette for TV.
     """
     legend = []
-    legend.append((0,   0,   0))  # Unprocessed: Black
-    legend.append((0, 120,   0))  # Land
-    legend.append((0,   0, 215))  # Sea: Blue
-    legend.append((0, 120,   0))  # Land (Snow on land)
-    legend.append((0,   0, 215))  # Sea: Blue (Snow/Ice on sea)
+    legend.append((  0,   0,   0))  # Unprocessed: Black
+    legend.append((  0, 120,   0))  # Land
+    legend.append((  0,   0, 215))  # Sea: Blue
+    legend.append((  0, 120,   0))  # Land (Snow on land)
+    legend.append((  0,   0, 215))  # Sea: Blue (Snow/Ice on sea)
 
     for i in range(5, 256):
         # All other pixel values are grey according to IR temp.
@@ -52,9 +52,9 @@ def vv_legend():
     """Palette for Swedish road authorities (Vägverket).
     """
     legend = []
-    legend.append((0,   0,   0))  # Unprocessed: Black
-    legend.append((0, 120,   0))  # Land
-    legend.append((0,   0, 215))  # Sea: Blue
+    legend.append((  0,   0,   0))  # Unprocessed: Black
+    legend.append((  0, 120,   0))  # Land
+    legend.append((  0,   0, 215))  # Sea: Blue
     # Cloud type values 5 to 8:
     legend.append((255, 150,   0))  # Very low cumuliform
     legend.append((255, 100,   0))  # Very low
@@ -67,6 +67,16 @@ def vv_legend():
 
     return convert_palette(legend)
 
+def cloud_phase():
+    """Palette for cloud phase.
+    """
+    legend = []
+    legend.append((  0,    0,   0)) # Unprocessed: Black
+    legend.append((  0,    0, 215)) # Water Clouds: Blue
+    legend.append(( 240, 240, 240)) # Ice Clouds: Almost White
+    legend.append(( 120, 120,   0)) # Uncertain Phase: ?
+    
+    return convert_palette(legend)
 
 def cms_modified():
     """Palette for regular cloud classification.
@@ -79,8 +89,8 @@ def nwcsaf_cloudtype():
     """
     legend = []
     legend.append((100, 100, 100))  # Unprocessed: Grey
-    legend.append((0, 120,   0))
-    legend.append((0,   0,   0))  # Sea: Black
+    legend.append((  0, 120,   0))
+    legend.append((  0,   0,   0))  # Sea: Black
     legend.append((250, 190, 250))  # Snow
     legend.append((220, 160, 220))  # Sea-ice
 
@@ -95,12 +105,12 @@ def nwcsaf_cloudtype():
     legend.append((255, 255, 255))  # Very high cumuliform
     legend.append((230, 230, 230))  # Very high
 
-    legend.append((0,  80, 215))  # Semi-transparent thin
-    legend.append((0, 180, 230))  # Semi-transparent medium
-    legend.append((0, 240, 240))  # Semi-transparent thick
-    legend.append((90, 200, 160))  # Semi-transparent above
+    legend.append((  0,  80, 215))  # Semi-transparent thin
+    legend.append((  0, 180, 230))  # Semi-transparent medium
+    legend.append((  0, 240, 240))  # Semi-transparent thick
+    legend.append(( 90, 200, 160))  # Semi-transparent above
     legend.append((200,   0, 200))  # Broken
-    legend.append((95,  60,  30))  # Undefined: Brown
+    legend.append(( 95,  60,  30))  # Undefined: Brown
 
     return convert_palette(legend)
 
@@ -109,7 +119,7 @@ def ctth_height():
     """CTTH height palette.
     """
     legend = []
-    legend.append((0,     0,   0))
+    legend.append((  0,   0,   0))
     legend.append((255,   0, 216))  # 0 meters
     legend.append((126,   0,  43))
     legend.append((153,  20,  47))
@@ -121,11 +131,11 @@ def ctth_height():
     legend.append((216, 255,   0))
     legend.append((178, 255,   0))
     legend.append((153, 255,   0))
-    legend.append((0,   255,   0))
-    legend.append((0,   140,  48))
-    legend.append((0,   178, 255))
-    legend.append((0,   216, 255))
-    legend.append((0,   255, 255))
+    legend.append((  0, 255,   0))
+    legend.append((  0, 140,  48))
+    legend.append((  0, 178, 255))
+    legend.append((  0, 216, 255))
+    legend.append((  0, 255, 255))
     legend.append((238, 214, 210))
     legend.append((239, 239, 223))
     legend.append((255, 255, 255))  # 10,000 meters
@@ -141,46 +151,46 @@ def ctth_height_pps():
     Identical to the one found in the hdf5 files.
     """
     legend = []
-    legend.append((255, 0, 216))  # 0 meters
-    legend.append((255, 0, 216))  # 0 meters
-    legend.append((255, 0, 216))  # 0 meters
-    legend.append((126, 0, 43))
-    legend.append((126, 0, 43))
-    legend.append((153, 20, 47))
-    legend.append((153, 20, 47))
-    legend.append((153, 20, 47))
-    legend.append((178, 51, 0))
-    legend.append((178, 51, 0))
-    legend.append((255, 76, 0))
-    legend.append((255, 76, 0))
-    legend.append((255, 76, 0))
-    legend.append((255, 102, 0))
-    legend.append((255, 102, 0))
-    legend.append((255, 164, 0))
-    legend.append((255, 164, 0))
-    legend.append((255, 164, 0))
-    legend.append((255, 216, 0))
-    legend.append((255, 216, 0))
-    legend.append((216, 255, 0))
-    legend.append((216, 255, 0))
-    legend.append((178, 255, 0))
-    legend.append((178, 255, 0))
-    legend.append((178, 255, 0))
-    legend.append((153, 255, 0))
-    legend.append((153, 255, 0))
-    legend.append((0, 255, 0))
-    legend.append((0, 255, 0))
-    legend.append((0, 255, 0))
-    legend.append((0, 140, 48))
-    legend.append((0, 140, 48))
-    legend.append((0, 178, 255))
-    legend.append((0, 178, 255))
-    legend.append((0, 178, 255))
-    legend.append((0, 216, 255))
-    legend.append((0, 216, 255))
-    legend.append((0, 255, 255))
-    legend.append((0, 255, 255))
-    legend.append((0, 255, 255))
+    legend.append((255,   0, 216))  # 0 meters
+    legend.append((255,   0, 216))  # 0 meters
+    legend.append((255,   0, 216))  # 0 meters
+    legend.append((126,   0,  43))
+    legend.append((126,   0,  43))
+    legend.append((153,  20,  47))
+    legend.append((153,  20,  47))
+    legend.append((153,  20,  47))
+    legend.append((178,  51,   0))
+    legend.append((178,  51,   0))
+    legend.append((255,  76,   0))
+    legend.append((255,  76,   0))
+    legend.append((255,  76,   0))
+    legend.append((255, 102,   0))
+    legend.append((255, 102,   0))
+    legend.append((255, 164,   0))
+    legend.append((255, 164,   0))
+    legend.append((255, 164,   0))
+    legend.append((255, 216,   0))
+    legend.append((255, 216,   0))
+    legend.append((216, 255,   0))
+    legend.append((216, 255,   0))
+    legend.append((178, 255,   0))
+    legend.append((178, 255,   0))
+    legend.append((178, 255,   0))
+    legend.append((153, 255,   0))
+    legend.append((153, 255,   0))
+    legend.append((  0, 255,   0))
+    legend.append((  0, 255,   0))
+    legend.append((  0, 255,   0))
+    legend.append((  0, 140,  48))
+    legend.append((  0, 140,  48))
+    legend.append((  0, 178, 255))
+    legend.append((  0, 178, 255))
+    legend.append((  0, 178, 255))
+    legend.append((  0, 216, 255))
+    legend.append((  0, 216, 255))
+    legend.append((  0, 255, 255))
+    legend.append((  0, 255, 255))
+    legend.append((  0, 255, 255))
     legend.append((238, 214, 210))
     legend.append((238, 214, 210))
     legend.append((239, 239, 223))
@@ -280,3 +290,44 @@ def convert_palette(palette):
                             i[1] / 255.0,
                             i[2] / 255.0))
     return new_palette
+ 
+def convert_palette2colormap(palette):
+    """Convert palette from [0,255] range to [0,1].
+    """ 
+    from trollimage.colormap import Colormap
+    j=0
+    n_pal = len(palette)-1
+    values=[]
+    colors=[]
+
+    red   = [r for (r, g, b) in palette]
+    green = [g for (r, g, b) in palette]
+    blue  = [b for (r, g, b) in palette]
+
+    max_pal = max( max(red), max(blue), max(green) )
+    if max_pal <= 1.0:
+        # print "palette already normalized"
+        denom =   1.0
+    else:
+        # print "palette normalized to 255"
+        denom = 255.0
+
+    for i in palette:
+        values.append( (n_pal-j) /  float(n_pal) )
+        colors.append((i[0] / denom, i[1] / denom, i[2] / denom))
+        j=j+1
+    # reverse order to the entries
+    values=values[::-1]
+    colors=colors[::-1]
+
+    #for i in palette:
+    #    values.append( j /  float(n_pal))
+    #    colors.append((i[0] / 255.0, i[1] / 255.0, i[2] / 255.0))
+    #    j=j+1
+
+    # attention:
+    # Colormap(values, colors) uses the second input option of Colormap
+    # values has to be a list (not a tuple) and 
+    # colors has to be the corresponding list of color tuples 
+
+    return Colormap(values, colors)

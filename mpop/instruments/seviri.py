@@ -301,11 +301,12 @@ class SeviriCompositer(VisirCompositer):
     snow.prerequisites = refl39_chan.prerequisites | set(
         [0.8, 1.63, 3.75])
 
-    def day_microphysics(self, wintertime=False):
+    def day_microphysics(self, wintertime=False, fill_value=None):
         """Make a 'Day Microphysics' RGB as suggested in the MSG interpretation guide
         (rgbpart04.ppt). It is kind of special as it requires the derivation of
         the daytime component of the mixed Terrestrial/Solar 3.9 micron
         channel. Furthermore the sun zenith angle is used.
+        for black backgroup specify: fill_value=(0,0,0)
         """
 
         self.refl39_chan()
@@ -336,7 +337,7 @@ class SeviriCompositer(VisirCompositer):
                                  self.area,
                                  self.time_slot,
                                  crange=crange,
-                                 fill_value=None, mode="RGB")
+                                 fill_value=fill_value, mode="RGB") 
         if wintertime:
             img.gamma((1.0, 1.5, 1.0))
         else:

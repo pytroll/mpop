@@ -83,6 +83,14 @@ class Satellite(object):
         """
         return self.variant + self.satname + self.number
 
+    def sat_nr(self, string=False):
+        import re
+        sat_nr = re.findall(r'\d+', self.fullname)[0]
+        if string:
+            return sat_nr
+        else:
+            return int(sat_nr)
+
     @classmethod
     def remove_attribute(cls, name):
         """Remove an attribute from the class.
@@ -461,6 +469,12 @@ class SatelliteInstrumentScene(SatelliteScene):
             if len(self.channels_to_load) == 0:
                 return
 
+            if "reader_level" in kwargs.keys():
+                if kwargs["reader_level"] != None:
+                    LOG.debug("Using explecit definition of reader level: "+kwargs["reader_level"] )
+                    if kwargs["reader_level"] != level:
+                        continue
+
             LOG.debug("Looking for sources in section " + level)
             reader_name = conf.get(level, 'format')
             try:
@@ -549,6 +563,178 @@ class SatelliteInstrumentScene(SatelliteScene):
         """Return the set of loaded_channels.
         """
         return set([chan for chan in self.channels if chan.is_loaded()])
+
+    def get_orbital(self):
+        from pyorbital.orbital import Orbital
+        from pyorbital import tlefile
+
+        from pyorbital.tlefile import get_norad_line
+        sat_line = get_norad_line(self.satname, self.number)
+        self.orbital = Orbital(sat_line)
+
+        return self.orbital
+
+    def estimate_cth(self, cth_atm="best", time_slot=None):
+        """
+        General purpose
+        ===============
+           Estimation of the cloud top height using the 10.8 micron channel
+           limitations: this is the most simple approach
+           a simple fit of the ir108 to the temperature profile
+                * no correction for water vapour or any other trace gas
+                * no viewing angle dependency
+                * no correction for semi-transparent clouds
+                * no special treatment of temperature inversions
+        Example call
+        ============
+           data.estimate_cth(cth_atm="best")
+        input arguments
+        ===============
+          cth_atm    * using temperature profile to estimate the cloud top height
+                       possible choices are (see estimate_cth in mpop/tools.py):
+                       "standard", "tropics", "midlatitude summer", "midlatitude winter", "subarctic summer", "subarctic winter"
+                       this will choose the corresponding atmospheric AFGL temperature profile
+                     * new choice: "best" -> choose according to central (lon,lat) and time from:  
+                       "tropics", "midlatitude summer", "midlatitude winter", "subarctic summer", "subarctic winter"
+          time_slot  current observation time as (datetime.datetime() object)
+                     time_slot option can be omitted, the function tries to use self.time_slot
+        """
+
+        print "*** Simple estimation of Cloud Top Height with IR_108 channel"
+
+        # check if IR_108 is loaded
+        loaded_channels = [chn.name for chn in self.loaded_channels()]
+        if "IR_108" not in loaded_channels:
+            print "*** Error in estimate_cth (mpop/scene.py)"
+            print "    IR_108 is required to estimate CTH, but not loaded"
+            quit()
+        else:
+            ir108 = self["IR_108"].data
+
+        # choose atmosphere
+        if cth_atm.lower() == "best":
+            # get central lon/lat coordinates
+            (yc,xc) = ir108.shape
+            (lon,lat) = self.area.get_lonlat(yc/2, xc/2)
+
+            if time_slot==None:
+                if hasattr(self, 'time_slot'):
+                    time_slot = self.time_slot
+                else:
+                    print "*** Error, in estimate_cth (mpop/channel.py)"
+                    print "    when using cth_atm=\"best\" also the time_slot information is required!"
+                    quit()
+
+            # automatic choise of temperature profile
+            doy = time_slot.timetuple().tm_yday
+            print "... automatic choise of temperature profile lon=",lon," lat=",lat,", time=", str(time_slot),", doy=", doy
+            if abs(lat) <= 30.0:
+                cth_atm="tropics"
+            elif doy < 80 or doy <= 264:
+                # northern summer
+                if lat < -60.0:
+                    cth_atm = "subarctic winter"
+                elif -60.0 <= lat and lat < -30.0:
+                    cth_atm = "midlatitude winter"
+                elif 30.0 < lat  and lat <= 60.0:
+                    cth_atm = "midlatitude summer"
+                elif 60.0 < lat:
+                    cth_atm = "subarctic summer"
+            else:
+                # northern winter
+                if lat < -60.0:
+                    cth_atm = "subarctic summer"
+                elif -60.0 <= lat and lat < -30.0:
+                    cth_atm = "midlatitude summer"
+                elif 30.0 < lat  and lat <= 60.0:
+                    cth_atm = "midlatitude winter"
+                elif 60 < lat:
+                    cth_atm = "subarctic winter"                    
+            print "    choosing temperature profile for ", cth_atm
+
+        # estimate cloud top height by searching first fit of ir108 with temperature profile
+        from mpop.tools import estimate_cth
+        cth = estimate_cth(ir108, cth_atm=cth_atm)
+
+        # create new channel named "CTH"
+        self.channels.append(Channel(name="CTH",
+                             wavelength_range=[0.,0.,0.],
+                             resolution=self["IR_108"].resolution, 
+                             data=cth,
+                             calibration_unit="m"))
+
+        # copy additional information from IR_108
+        self["CTH"].info = self["IR_108"].info
+        self["CTH"].info['units'] = 'm'
+        self["CTH"].area       = self["IR_108"].area
+        self["CTH"].area_id    = self["IR_108"].area_id
+        self["CTH"].area_def   = self["IR_108"].area_def
+        self["CTH"].resolution = self["IR_108"].resolution
+        
+        return cth
+
+
+    def parallax_corr(self, fill="False", estimate_cth=False, cth_atm='best', replace=False):
+        """
+        perform the CTH parallax corretion for all loaded channels
+        """
+
+        loaded_channels = [chn.name for chn in self.loaded_channels()]
+        if len(loaded_channels) == 0:
+            return
+
+        # loop over channels and check, if one is a normal radiance channel 
+        # having the method to calculate the viewing geometry
+        for chn in self.loaded_channels():
+            if hasattr(chn, 'get_viewing_geometry'):
+                # calculate the viewing geometry of the SEVIRI sensor
+                print "... calculate viewing geometry using ", chn.name
+                (azi, ele) = chn.get_viewing_geometry(self.get_orbital(), self.time_slot)
+                break
+
+        # choose best way to get CTH for parallax correction
+        if not estimate_cth:
+            if "CTTH" in loaded_channels:
+                # make a copy of CTH, as it might get replace by its parallax corrected version
+                cth = copy.deepcopy(self["CTTH"].height)
+            else:
+                print "*** Error in parallax_corr (mpop.scene.py)"
+                print "    parallax correction needs some cloud top height information"
+                print "    please load the NWC-SAF CTTH product (recommended) or"
+                print "    activate the option data.parallax_corr( estimate_cth=True )"
+                quit()
+        else: 
+            if "IR_108" in loaded_channels:
+                # try to estimate CTH with IR_108
+                self.estimate_cth()
+                cth = self["CTH"].data
+            else:
+                print "*** Error in parallax_corr (mpop.scene.py)"
+                print "    parallax correction needs some cloud top height information"
+                print "    you specified the estimation of CTH with the IR_108, but "
+                print "    this channel is not loaded"
+                quit()
+
+        # perform parallax correction for each loaded channel
+        for chn in self.loaded_channels():
+            if hasattr(chn, 'parallax_corr'):
+                print "... perform parallax correction for ", chn.name
+                if replace:
+                    chn_name_PC = chn.name
+                    print "    replace channel ", chn_name_PC
+                else:
+                    chn_name_PC = chn.name+"_PC"
+                    print "    create channel ", chn_name_PC 
+                
+                # take care of the parallax correction 
+                self[chn_name_PC] = chn.parallax_corr(cth=cth, azi=azi, ele=ele, fill=fill)
+            else:
+                LOG.warning("Channel " + str(chn.name) + " has no attribute parallax_corr,"
+                            "thus parallax effect wont be corrected.")
+                print "Channel " + str(chn.name) + " has no attribute parallax_corr,"
+                print "thus parallax effect wont be corrected."
+                   
+        return self
 
     def project(self, dest_area, channels=None, precompute=False, mode=None,
                 radius=None, nprocs=1):
