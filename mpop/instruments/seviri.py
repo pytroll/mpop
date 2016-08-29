@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2011, 2013, 2014.
+# Copyright (c) 2010, 2011, 2013, 2014, 2016.
 
 # Author(s):
 
@@ -37,6 +37,7 @@ try:
     from pyorbital.astronomy import sun_zenith_angle as sza
 except ImportError:
     sza = None
+
 
 class SeviriCompositer(VisirCompositer):
 
@@ -138,7 +139,7 @@ class SeviriCompositer(VisirCompositer):
 
         r39 = self[3.9].get_reflectance(self[10.8].data,
                                         sun_zenith=None,
-                                        tb13_4=self[13.4].data,)
+                                        tb13_4=self[13.4].data)
 
         if r39 is None:
             raise RuntimeError("Couldn't derive 3.x reflectance. " +
