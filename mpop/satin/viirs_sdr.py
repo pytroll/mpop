@@ -31,16 +31,18 @@ Format documentation:
 http://npp.gsfc.nasa.gov/science/sciencedocuments/082012/474-00001-03_CDFCBVolIII_RevC.pdf
 
 """
+import hashlib
+import logging
 import os.path
 from ConfigParser import ConfigParser
 from datetime import datetime, timedelta
 
-import numpy as np
 import h5py
-import hashlib
-import logging
+import numpy as np
 
 from mpop import CONFIG_PATH
+# ------------------------------------------------------------------------------
+from mpop.plugin_base import Reader
 from mpop.utils import strftime
 
 NO_DATE = datetime(1958, 1, 1)
@@ -513,10 +515,6 @@ class ViirsBandData(object):
         logger.debug("Geo-files = " + str(geofilepaths))
         self.geolocation = ViirsGeolocationData(self.data.shape,
                                                 geofilepaths).read()
-
-
-# ------------------------------------------------------------------------------
-from mpop.plugin_base import Reader
 
 
 class ViirsSDRReader(Reader):
