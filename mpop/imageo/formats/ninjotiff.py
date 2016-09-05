@@ -450,6 +450,16 @@ def save(geo_image, filename, ninjo_product_name=None, **kwargs):
     kwargs['transparent_pix'] = fill_value
     kwargs['image_dt'] = time_slot
     kwargs['is_calibrated'] = True
+    if geo_image.mode == 'P' and 'cmap' not in kwargs:
+        r, g, b = zip(*geo_image.palette)
+        r = list((np.array(r) * 255).astype(np.uint8))
+        g = list((np.array(g) * 255).astype(np.uint8))
+        b = list((np.array(b) * 255).astype(np.uint8))
+        if len(r) < 256:
+            r += [0] * (256 - len(r))
+            g += [0] * (256 - len(g))
+            b += [0] * (256 - len(b))
+        kwargs['cmap'] = r, g, b
 
     write(data, filename, area_def, ninjo_product_name, **kwargs)
 
