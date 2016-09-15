@@ -31,12 +31,47 @@ import logging
 
 LOG = logging.getLogger(__name__)
 
-import os.path
-
 try:
     from pyorbital.astronomy import sun_zenith_angle as sza
 except ImportError:
     sza = None
+
+
+from mpop.imageo import palettes
+
+oca_palette_func = {'ll_ctp': palettes.get_ctp_legend,
+                    'ul_ctp': palettes.get_ctp_legend,
+                    'ul_cot': palettes.get_cot_legend,
+                    'll_cot': palettes.get_cot_legend,
+                    'reff': palettes.get_reff_legend,
+                    'scenetype': palettes.oca_get_scenetype_legend}
+
+
+def _arrange_log_data(arr, max_value, no_data_value):
+    """
+    Prepare logarithmic data for creating an image.
+
+    """
+    MAX_IM_VAL = 2**8 - 1
+
+    # Logarithmic data should never be negative
+    assert ((arr >= 0) + (arr == no_data_value)).all(), \
+        "Negative values encountered in cloud optical thickness"
+
+    # Confine image data values to the range [2, MAX_IM_VAL]
+    arr_log = np.log(arr + 1.)  # arr == 0 -> arr_log = 0
+    cot_im_data = arr_log * (MAX_IM_VAL - 3) / np.log(max_value + 1.) + 2.
+    cot_im_data[cot_im_data > MAX_IM_VAL] = MAX_IM_VAL
+
+    # Now that the data is adjusted, cast it to uint8 ([0, 2**8 - 1])
+    cot_im_data = cot_im_data.astype(np.uint8)
+
+    # Give no-data values a special color
+    cot_im_data[arr == no_data_value] = 0
+    # Give arr == 0 a special color
+    cot_im_data[arr == 0] = 1
+
+    return cot_im_data
 
 
 class SeviriCompositer(VisirCompositer):
@@ -337,7 +372,7 @@ class SeviriCompositer(VisirCompositer):
                                  self.area,
                                  self.time_slot,
                                  crange=crange,
-                                 fill_value=fill_value, mode="RGB") 
+                                 fill_value=fill_value, mode="RGB")
         if wintertime:
             img.gamma((1.0, 1.5, 1.0))
         else:
@@ -347,3 +382,34 @@ class SeviriCompositer(VisirCompositer):
 
     day_microphysics.prerequisites = refl39_chan.prerequisites | set(
         [0.8, 10.8])
+
+    def oca(self, fieldname):
+        """Make an OCA cloud parameter image"""
+
+        palette = oca_palette_func[fieldname]()
+        data = getattr(getattr(self['OCA'], fieldname), 'data')
+        if fieldname in ['ul_ctp', 'll_ctp']:
+            data = (22. - data / 5000.).astype('Int16')
+
+        elif fieldname in ['reff']:
+            data = (data * 1000000. + 0.5).astype('uint8')
+
+        elif fieldname in ['ul_cot', 'll_cot']:
+            import pdb
+            max_value = palettes.CPP_COLORS['cot'].breaks[-1][0]
+            no_data = -1000  # FIXME!
+            data = _arrange_log_data(data, max_value, no_data)
+            pdb.set_trace()
+
+        else:
+            raise NotImplementedError(
+                "No imagery for parameter %s implemented yet...", fieldname)
+
+        img = geo_image.GeoImage(data, self.area,
+                                 self.time_slot,
+                                 fill_value=(0),
+                                 mode="P",
+                                 palette=palette)
+        return img
+
+    oca.prerequisites = set(['OCA'])
