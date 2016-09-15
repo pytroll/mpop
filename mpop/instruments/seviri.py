@@ -388,18 +388,22 @@ class SeviriCompositer(VisirCompositer):
 
         palette = oca_palette_func[fieldname]()
         data = getattr(getattr(self['OCA'], fieldname), 'data')
-        if fieldname in ['ul_ctp', 'll_ctp']:
+        if fieldname in ['scenetype']:
+            data = data.astype('uint8')
+
+        elif fieldname in ['ul_ctp', 'll_ctp']:
             data = (22. - data / 5000.).astype('Int16')
 
         elif fieldname in ['reff']:
             data = (data * 1000000. + 0.5).astype('uint8')
+            data.fill_value = 255
 
         elif fieldname in ['ul_cot', 'll_cot']:
-            import pdb
+            data = np.ma.exp(data * np.ma.log(10))
             max_value = palettes.CPP_COLORS['cot'].breaks[-1][0]
-            no_data = -1000  # FIXME!
-            data = _arrange_log_data(data, max_value, no_data)
-            pdb.set_trace()
+            data.fill_value = 255
+            no_data = 255  # FIXME!
+            data = _arrange_log_data(data.filled(), max_value, no_data)
 
         else:
             raise NotImplementedError(

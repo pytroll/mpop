@@ -458,7 +458,9 @@ def get_cot_legend():
 def get_log_legend(product_name):
     # This is the same data as is used in logdata2image (when indata as for
     # the calls from cppimage)
-    return CPP_COLORS[product_name].palette()
+    legend = CPP_COLORS[product_name].palette()
+    palette = convert_palette(legend)
+    return palette
 
 
 def oca_get_scenetype_legend():
