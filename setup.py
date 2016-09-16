@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2009-2015.
+# Copyright (c) 2009-2016.
 
 # SMHI,
 # Folkborgsvägen 1,
@@ -69,7 +69,7 @@ setup(name=NAME,
                     os.path.join('etc', 'eps_avhrrl1b_6.5.xml')])],
       zip_safe=False,
       install_requires=requires,
-      test_requires=["mock"],
+      tests_require=["mock", 'pyorbital >= v0.2.3'],
       extras_require={'xRIT': ['mipp >= 0.6.0'],
                       'hdf_eos': ['pyhdf'],
                       'viirs': ['h5py'],

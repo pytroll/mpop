@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2012, 2013, 2014, 2015 SMHI
+# Copyright (c) 2012, 2013, 2014, 2015, 2016 SMHI
 
 # Author(s):
 
@@ -167,21 +167,21 @@ def load_avhrr(satscene, options):
         import h5py
         LOGGER.info("Reading external calibration coefficients.")
         try:
-            fid = h5py.File(os.path.join(CONFIG_PATH, satscene.satname + \
+            fid = h5py.File(os.path.join(CONFIG_PATH, satscene.satname +
                                          '_calibration_data.h5'), 'r')
             calib_coeffs = {}
             for key in fid.keys():
                 date_diffs = []
                 for dat in fid[key]['datetime']:
-                    date_diffs.append(np.abs(satscene.time_slot - \
+                    date_diffs.append(np.abs(satscene.time_slot -
                                              datetime.datetime(dat[0],
                                                                dat[1],
                                                                dat[2])))
                 idx = date_diffs.index(min(date_diffs))
                 date_diff = satscene.time_slot - \
-                            datetime.datetime(fid[key]['datetime'][idx][0],
-                                              fid[key]['datetime'][idx][1],
-                                              fid[key]['datetime'][idx][2])
+                    datetime.datetime(fid[key]['datetime'][idx][0],
+                                      fid[key]['datetime'][idx][1],
+                                      fid[key]['datetime'][idx][2])
                 if date_diff.days < 0:
                     older_or_newer = "newer"
                 else:
@@ -513,10 +513,10 @@ class AAPP1b(object):
                     coeffs = calib_coeffs['ch1']
                 else:
                     coeffs = None
-                channels['1'].append( _vis_calibrate(data, 0,
-                                                     calibrate,
-                                                     pre_launch_coeffs,
-                                                     coeffs))
+                channels['1'].append(_vis_calibrate(data, 0,
+                                                    calibrate,
+                                                    pre_launch_coeffs,
+                                                    coeffs))
                 self.units['1'] = '%'
                 if calibrate == 0:
                     self.units['1'] = ''
@@ -562,7 +562,7 @@ class AAPP1b(object):
                 ch3b = _ir_calibrate(self._header[i], data, 0, calibrate)
                 channels['3B'].append(
                     np.ma.masked_array(ch3b,
-                                       np.logical_or((is3b is False) * \
+                                       np.logical_or((is3b is False) *
                                                      ch3b,
                                                      ch3b < 0.1)))
                 if calibrate == 1:
@@ -599,7 +599,7 @@ class AAPP1b(object):
         # transfer channel data to class attributes
         for ch_ in channels:
             try:
-                self.channels[ch_] = np.vstack(channels[ch_])
+                self.channels[ch_] = np.ma.vstack(channels[ch_])
             except ValueError:
                 self.channels[ch_] = None
         if "3A" in chns or "3B" in chns:
@@ -607,7 +607,7 @@ class AAPP1b(object):
         if "3A" in chns:
             self.channels['3A'].mask = self._is3b * self.channels['3A']
         if "3B" in chns:
-            self.channels['3B'].mask = np.logical_or((self._is3b is False) * \
+            self.channels['3B'].mask = np.logical_or((self._is3b is False) *
                                                      self.channels['3B'],
                                                      self.channels['3B'] < 0.1)
 
@@ -755,12 +755,12 @@ def _ir_calibrate(header, data, irchn, calib_type):
 def show(data, negate=False):
     """Show the stetched data.
     """
-    import Image as pil
+    from PIL import Image
     data = np.array((data - data.min()) * 255.0 /
                     (data.max() - data.min()), np.uint8)
     if negate:
         data = 255 - data
-    img = pil.fromarray(data)
+    img = Image.fromarray(data)
     img.show()
 
 CASES = {
@@ -781,15 +781,15 @@ if __name__ == "__main__":
     starttime = datetime.datetime(SCENE._header[0][0]["startdatayr"],
                                   1, 1, 0, 0)
     starttime += \
-            datetime.timedelta(days=int(SCENE._header[0][0]["startdatady"]) - 1,
-                               seconds=SCENE._header[0][0]["startdatatime"] / \
-                               1000.0)
+        datetime.timedelta(days=int(SCENE._header[0][0]["startdatady"]) - 1,
+                           seconds=SCENE._header[0][0]["startdatatime"] /
+                           1000.0)
     print "starttime:", starttime
     endtime = datetime.datetime(SCENE._header[-1][0]["enddatayr"], 1, 1, 0, 0)
     endtime += \
-            datetime.timedelta(days=int(SCENE._header[-1][0]["enddatady"]) - 1,
-                               seconds=SCENE._header[-1][0]["enddatatime"] / \
-                               1000.0)
+        datetime.timedelta(days=int(SCENE._header[-1][0]["enddatady"]) - 1,
+                           seconds=SCENE._header[-1][0]["enddatatime"] /
+                           1000.0)
     print "endtime:", endtime
     # print SCENE._data['hrpt'].shape
     #show(SCENE._data['hrpt'][:, :, 4].astype(np.float))
@@ -798,7 +798,7 @@ if __name__ == "__main__":
     SCENE.navigate()
     for i__ in AVHRR_CHANNEL_NAMES:
         data_ = SCENE.channels[i__]
-        print >> sys.stderr, "%-3s" % i_, \
+        print >> sys.stderr, "%-3s" % i__, \
             "%6.2f%%" % (100. * (float(np.ma.count(data_)) / data_.size)), \
             "%6.2f, %6.2f, %6.2f" % (data_.min(), data_.mean(), data_.max())
     show(SCENE.channels['2'], negate=False)

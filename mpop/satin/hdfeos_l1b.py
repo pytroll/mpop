@@ -95,6 +95,45 @@ class ModisReader(Reader):
         self.data = None
         self.areas = {}
 
+    def get_sunsat_angles(self, resolution=1000):
+        """Get sun-satellite viewing geometry for the 1km resolution data
+        Optional arguments:
+            None
+        Return
+            sun-zenith, sun-azimuth, sat-zenith, sat-azimuth
+
+        """
+        logger.debug("generating sun-sat viewing angles at %d", resolution)
+        if self.geofile is not None:
+            coarse_resolution = 1000
+            filename = self.geofile
+        else:
+            coarse_resolution = 5000
+            logger.info("Using 5km Sun-Sat viewing geometry and interpolating")
+            filename = (self.datafiles.get(1000) or
+                        self.datafiles.get(500) or
+                        self.datafiles.get(250))
+            raise NotImplementedError("Not yet implemented...")
+
+        logger.debug("Loading sun-sat angles from file: " + str(filename)
+                     + " at resolution " + str(coarse_resolution))
+
+        eosdata = SD(str(filename))
+        hdf_names = ['SolarZenith', 'SolarAzimuth',
+                     'SensorZenith', 'SensorAzimuth']
+        local_names = ['sunz', 'sun_azi',
+                       'satz', 'sat_azi']
+        data = {}
+        for lname, dname in zip(local_names, hdf_names):
+            data[lname] = eosdata.select(dname)
+            fill_value = data[lname].attributes()["_FillValue"]
+            scale = data[lname].attributes()["scale_factor"]
+            data[lname] = np.ma.masked_equal(data[lname].get(), fill_value)
+            data[lname] = data[lname] * scale
+
+        return (data['sunz'], data['sun_azi'],
+                data['satz'], data['sat_azi'])
+
     def load(self, satscene, filename=None, *args, **kwargs):
         conf = ConfigParser()
         conf.read(os.path.join(CONFIG_PATH, satscene.fullname + ".cfg"))
@@ -175,7 +214,8 @@ class ModisReader(Reader):
             self.datafiles[resolution] = filename
         if not self.datafiles:
             # find files according to config
-            logger.debug("Didn't get any valid file as input, looking in defined places")
+            logger.debug(
+                "Didn't get any valid file as input, looking in defined places")
             resolution = int(options["resolution"]) or 1000
 
             for res in [250, 500, 1000]:

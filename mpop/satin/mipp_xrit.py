@@ -159,7 +159,11 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
             # lon0=0.0), that is, do not pass default_extent=area_extent
             else:
                 area_extent = area_def_names_to_extent(area_def_names,
-                                                       metadata.proj4_params)
+                                                       metadata.proj4_params,
+                                                       default_extent=None)
+                
+            if area_extent is None:
+                LOGGER.info('Could not derive area_extent from area_def_names')
 
             area_converted_to_extent = True
 
