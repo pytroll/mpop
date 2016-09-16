@@ -15,7 +15,7 @@ proj4_params = 'proj=geos lon_0=0.0 lat_0=0.00 a=6378169.00 b=6356583.80 h=35785
 [seviri-level2]
 #filename = h03_%Y%m%d_%H%M_rom.grb.nc4
 filename = h03_%Y%m%d_%H%M_rom.*
-format = 'read_hsaf_h03'
+format = 'hsaf_h03'
 #dir = /data/COALITION2/database/meteosat/HSAF/%Y/%m/%d
 dir = /data/cinesat/in/hsaf
 
