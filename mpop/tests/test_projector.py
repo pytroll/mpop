@@ -74,8 +74,9 @@ class TestProjector(unittest.TestCase):
 
         self.proj = Projector(in_area_id, out_area_id)
         self.assertEquals(utils.parse_area_file.call_count, 2)
-        utils.parse_area_file.assert_any_call('', in_area_id)
-        utils.parse_area_file.assert_any_call('', out_area_id)
+        area_file = mpop.projector.get_area_file()
+        utils.parse_area_file.assert_any_call(area_file, in_area_id)
+        utils.parse_area_file.assert_any_call(area_file, out_area_id)
 
 
 

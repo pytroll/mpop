@@ -53,173 +53,176 @@ def load(satscene, *args, **kwargs):
     files_to_load = []
     files_to_delete = []
 
-    filename = kwargs.get("filename")
-    logger.debug("reading %s", str(filename))
-    if filename is not None:
-        if isinstance(filename, (list, set, tuple)):
-            files = filename
-        else:
-            files = [filename]
-        files_to_load = []
-        for filename in files:
-            pathname, ext = os.path.splitext(filename)
-            if ext == ".bz2":
-                zipfile = bz2.BZ2File(filename)
-                newname = os.path.join("/tmp", os.path.basename(pathname))
-                if not os.path.exists(newname):
-                    with open(newname, "wb") as fp_:
-                        fp_.write(zipfile.read())
-                zipfile.close()
-                files_to_load.append(newname)
-                files_to_delete.append(newname)
-            else:
-                files_to_load.append(filename)
-    else:
-        time_start, time_end = kwargs.get("time_interval",
-                                          (satscene.time_slot, None))
-
-        conf = ConfigParser()
-        conf.read(os.path.join(CONFIG_PATH, satscene.fullname + ".cfg"))
-        options = {}
-        for option, value in conf.items(satscene.instrument_name + "-level2",
-                                        raw=True):
-            options[option] = value
-
-        template = os.path.join(options["dir"], options["filename"])
-
-        second = timedelta(seconds=1)
-        files_to_load = []
-
-        if time_end is not None:
-            time = time_start - second * 85
-            files_to_load = []
-            while time <= time_end:
-                fname = time.strftime(template)
-                flist = glob.glob(fname)
-                try:
-                    files_to_load.append(flist[0])
-                    time += second * 80
-                except IndexError:
-                    pass
-                time += second
-
-        else:
-            files_to_load = glob.glob(time_start.strftime(template))
-
-    chan_dict = {"M01": "M1",
-                 "M02": "M2",
-                 "M03": "M3",
-                 "M04": "M4",
-                 "M05": "M5",
-                 "M06": "M6",
-                 "M07": "M7",
-                 "M08": "M8",
-                 "M09": "M9",
-                 "M10": "M10",
-                 "M11": "M11",
-                 "M12": "M12",
-                 "M13": "M13",
-                 "M14": "M14",
-                 "M15": "M15",
-                 "M16": "M16",
-                 "DNB": "DNB"}
-
-    channels = [(chn, chan_dict[chn])
-                for chn in satscene.channels_to_load
-                if chn in chan_dict]
     try:
-        channels_to_load, chans = zip(*channels)
-    except ValueError:
-        return
-
-    m_chans = []
-    dnb_chan = []
-    for chn in chans:
-        if chn.startswith('M'):
-            m_chans.append(chn)
-        elif chn.startswith('DNB'):
-            dnb_chan.append(chn)
-        else:
-            raise ValueError("Reading of channel %s not implemented", chn)
-
-    m_datas = []
-    m_lonlats = []
-    dnb_datas = []
-    dnb_lonlats = []
-
-    for fname in files_to_load:
-        logger.debug("Reading %s", fname)
-        if 'SVDNBC' in fname:
-            if tables:
-                h5f = tables.open_file(fname, "r")
+        filename = kwargs.get("filename")
+        logger.debug("reading %s", str(filename))
+        if filename is not None:
+            if isinstance(filename, (list, set, tuple)):
+                files = filename
             else:
-                logger.warning("DNB data could not be read from %s, "
-                               "PyTables not available.", fname)
-                continue
+                files = [filename]
+            files_to_load = []
+            for filename in files:
+                pathname, ext = os.path.splitext(filename)
+                if ext == ".bz2":
+                    zipfile = bz2.BZ2File(filename)
+                    newname = os.path.join("/tmp", os.path.basename(pathname))
+                    if not os.path.exists(newname):
+                        with open(newname, "wb") as fp_:
+                            fp_.write(zipfile.read())
+                    zipfile.close()
+                    files_to_load.append(newname)
+                    files_to_delete.append(newname)
+                else:
+                    files_to_load.append(filename)
         else:
-            h5f = h5py.File(fname, "r")
-        if m_chans and "SVDNBC" not in os.path.split(fname)[-1]:
-            try:
-                arr, m_units = read_m(h5f, m_chans)
-                m_datas.append(arr)
-                m_lonlats.append(navigate_m(h5f, m_chans[0]))
-            except KeyError:
-                pass
-        if dnb_chan and "SVDNBC" in os.path.split(fname)[-1]:
-            try:
-                arr, dnb_units = read_dnb(h5f)
-                dnb_datas.append(arr)
-                dnb_lonlats.append(navigate_dnb(h5f))
-            except KeyError:
-                pass
-        h5f.close()
+            time_start, time_end = kwargs.get("time_interval",
+                                              (satscene.time_slot, None))
 
-    if m_lonlats:
-        m_lons = np.ma.vstack([lonlat[0] for lonlat in m_lonlats])
-        m_lats = np.ma.vstack([lonlat[1] for lonlat in m_lonlats])
-    if dnb_lonlats:
-        dnb_lons = np.ma.vstack([lonlat[0] for lonlat in dnb_lonlats])
-        dnb_lats = np.ma.vstack([lonlat[1] for lonlat in dnb_lonlats])
+            conf = ConfigParser()
+            conf.read(os.path.join(CONFIG_PATH, satscene.fullname + ".cfg"))
+            options = {}
+            for option, value in conf.items(satscene.instrument_name + "-level2",
+                                            raw=True):
+                options[option] = value
 
-    m_i = 0
-    dnb_i = 0
-    for chn in channels_to_load:
-        if m_datas and chn.startswith('M'):
-            m_data = np.ma.vstack([dat[m_i] for dat in m_datas])
-            satscene[chn] = m_data
-            satscene[chn].info["units"] = m_units[m_i]
-            m_i += 1
-        if dnb_datas and chn.startswith('DNB'):
-            dnb_data = np.ma.vstack([dat[dnb_i] for dat in dnb_datas])
-            satscene[chn] = dnb_data
-            satscene[chn].info["units"] = dnb_units[dnb_i]
-            dnb_i += 1
+            template = os.path.join(options["dir"], options["filename"])
 
-    if m_datas:
-        m_area_def = SwathDefinition(np.ma.masked_where(m_data.mask, m_lons),
-                                     np.ma.masked_where(m_data.mask, m_lats))
-    else:
-        logger.warning("No M channel data available.")
+            second = timedelta(seconds=1)
+            files_to_load = []
 
-    if dnb_datas:
-        dnb_area_def = SwathDefinition(np.ma.masked_where(dnb_data.mask,
-                                                          dnb_lons),
-                                       np.ma.masked_where(dnb_data.mask,
-                                                          dnb_lats))
-    else:
-        logger.warning("No DNB data available.")
+            if time_end is not None:
+                time = time_start - second * 85
+                files_to_load = []
+                while time <= time_end:
+                    fname = time.strftime(template)
+                    flist = glob.glob(fname)
+                    try:
+                        files_to_load.append(flist[0])
+                        time += second * 80
+                    except IndexError:
+                        pass
+                    time += second
 
-    for chn in channels_to_load:
-        if "DNB" not in chn and m_datas:
-            satscene[chn].area = m_area_def
+            else:
+                files_to_load = glob.glob(time_start.strftime(template))
 
-    if dnb_datas:
-        for chn in dnb_chan:
-            satscene[chn].area = dnb_area_def
+        chan_dict = {"M01": "M1",
+                     "M02": "M2",
+                     "M03": "M3",
+                     "M04": "M4",
+                     "M05": "M5",
+                     "M06": "M6",
+                     "M07": "M7",
+                     "M08": "M8",
+                     "M09": "M9",
+                     "M10": "M10",
+                     "M11": "M11",
+                     "M12": "M12",
+                     "M13": "M13",
+                     "M14": "M14",
+                     "M15": "M15",
+                     "M16": "M16",
+                     "DNB": "DNB"}
 
-    for fname in files_to_delete:
-        if os.path.exists(fname):
-            os.remove(fname)
+        channels = [(chn, chan_dict[chn])
+                    for chn in satscene.channels_to_load
+                    if chn in chan_dict]
+        try:
+            channels_to_load, chans = zip(*channels)
+        except ValueError:
+            return
+
+        m_chans = []
+        dnb_chan = []
+        for chn in chans:
+            if chn.startswith('M'):
+                m_chans.append(chn)
+            elif chn.startswith('DNB'):
+                dnb_chan.append(chn)
+            else:
+                raise ValueError("Reading of channel %s not implemented", chn)
+
+        m_datas = []
+        m_lonlats = []
+        dnb_datas = []
+        dnb_lonlats = []
+
+        for fname in files_to_load:
+            is_dnb = os.path.basename(fname).startswith('SVDNBC')
+            logger.debug("Reading %s", fname)
+            if is_dnb:
+                if tables:
+                    h5f = tables.open_file(fname, "r")
+                else:
+                    logger.warning("DNB data could not be read from %s, "
+                                   "PyTables not available.", fname)
+                    continue
+            else:
+                h5f = h5py.File(fname, "r")
+            if m_chans and not is_dnb:
+                try:
+                    arr, m_units = read_m(h5f, m_chans)
+                    m_datas.append(arr)
+                    m_lonlats.append(navigate_m(h5f, m_chans[0]))
+                except KeyError:
+                    pass
+            if dnb_chan and is_dnb and tables:
+                try:
+                    arr, dnb_units = read_dnb(h5f)
+                    dnb_datas.append(arr)
+                    dnb_lonlats.append(navigate_dnb(h5f))
+                except KeyError:
+                    pass
+            h5f.close()
+
+        if len(m_lonlats) > 0:
+            m_lons = np.ma.vstack([lonlat[0] for lonlat in m_lonlats])
+            m_lats = np.ma.vstack([lonlat[1] for lonlat in m_lonlats])
+        if len(dnb_lonlats) > 0:
+            dnb_lons = np.ma.vstack([lonlat[0] for lonlat in dnb_lonlats])
+            dnb_lats = np.ma.vstack([lonlat[1] for lonlat in dnb_lonlats])
+
+        m_i = 0
+        dnb_i = 0
+        for chn in channels_to_load:
+            if m_datas and chn.startswith('M'):
+                m_data = np.ma.vstack([dat[m_i] for dat in m_datas])
+                satscene[chn] = m_data
+                satscene[chn].info["units"] = m_units[m_i]
+                m_i += 1
+            if dnb_datas and chn.startswith('DNB'):
+                dnb_data = np.ma.vstack([dat[dnb_i] for dat in dnb_datas])
+                satscene[chn] = dnb_data
+                satscene[chn].info["units"] = dnb_units[dnb_i]
+                dnb_i += 1
+
+        if m_datas:
+            m_area_def = SwathDefinition(np.ma.masked_where(m_data.mask, m_lons),
+                                         np.ma.masked_where(m_data.mask, m_lats))
+        else:
+            logger.warning("No M channel data available.")
+
+        if dnb_datas:
+            dnb_area_def = SwathDefinition(np.ma.masked_where(dnb_data.mask,
+                                                              dnb_lons),
+                                           np.ma.masked_where(dnb_data.mask,
+                                                              dnb_lats))
+        else:
+            logger.warning("No DNB data available.")
+
+        for chn in channels_to_load:
+            if "DNB" not in chn and m_datas:
+                satscene[chn].area = m_area_def
+
+        if dnb_datas:
+            for chn in dnb_chan:
+                satscene[chn].area = dnb_area_def
+
+    finally:
+        for fname in files_to_delete:
+            if os.path.exists(fname):
+                os.remove(fname)
 
 
 def read_m(h5f, channels, calibrate=1):
@@ -231,17 +234,24 @@ def read_m(h5f, channels, calibrate=1):
     scans = h5f["All_Data"]["NumberOfScans"][0]
     res = []
     units = []
+    arr_mask = np.ma.nomask
 
     for channel in channels:
         rads = h5f["All_Data"][chan_dict[channel]]["Radiance"]
-        arr = np.ma.masked_greater(rads[:scans * 16, :].astype(np.float32),
-                                   65526)
+        if channel in ("M9",):
+            arr = rads[:scans * 16, :].astype(np.float32)
+            arr[arr > 65526] = np.nan
+            arr = np.ma.masked_array(arr, mask=arr_mask)
+        else:
+            arr = np.ma.masked_greater(rads[:scans * 16, :].astype(np.float32),
+                                       65526)
         try:
             arr = np.ma.where(arr <= rads.attrs['Threshold'],
                               arr * rads.attrs['RadianceScaleLow'] +
                               rads.attrs['RadianceOffsetLow'],
                               arr * rads.attrs['RadianceScaleHigh'] + \
                               rads.attrs['RadianceOffsetHigh'],)
+            arr_mask = arr.mask
         except KeyError:
             print "KeyError"
             pass

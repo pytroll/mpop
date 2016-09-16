@@ -35,11 +35,12 @@ Edited by Christian Kliche (Ernst Basler + Partner) to replace pylibtiff with
 a modified version of tifffile.py (created by Christoph Gohlke)
 """
 
-import os
-import logging
 import calendar
-from datetime import datetime
+import logging
+import os
 from copy import deepcopy
+from datetime import datetime
+
 import numpy as np
 
 from mpop.imageo.formats import tifffile
@@ -143,6 +144,7 @@ def get_product_config(product_name, force_read=False):
 
 
 class _Singleton(type):
+
     def __init__(cls, name_, bases_, dict_):
         super(_Singleton, cls).__init__(name_, bases_, dict_)
         cls.instance = None
@@ -178,7 +180,6 @@ class ProductConfigs(object):
                 return str(val)
 
         filename = self._find_a_config_file()
-        #print "Reading Ninjo config file: '%s'" % filename
         log.info("Reading Ninjo config file: '%s'" % filename)
 
         cfg = ConfigParser()
@@ -226,6 +227,8 @@ def _get_projection_name(area_def):
     proj_name = area_def.proj_dict['proj']
     if proj_name in ('eqc',):
         return 'PLAT'
+    elif proj_name in ('merc',):
+        return 'MERC'
     elif proj_name in ('stere',):
         lat_0 = area_def.proj_dict['lat_0']
         if lat_0 < 0:
@@ -236,7 +239,7 @@ def _get_projection_name(area_def):
 
 
 def _get_pixel_size(projection_name, area_def):
-    if projection_name == 'PLAT':
+    if projection_name in ['PLAT', 'MERC']:
         upper_left = area_def.get_lonlat(0, 0)
         lower_right = area_def.get_lonlat(area_def.shape[0] - 1, area_def.shape[1] - 1)
         pixel_size = abs(lower_right[0] - upper_left[0]) / (area_def.shape[1] - 1),\
@@ -263,7 +266,7 @@ def _get_satellite_altitude(filename):
     return None
 
 
-def _finalize(geo_image, dtype=np.uint8, value_range=None, value_range_measurement_unit=None):
+def _finalize(geo_image, dtype=np.uint8, value_range_measurement_unit=None, data_is_scaled_01=True):
     """Finalize a mpop GeoImage for Ninjo. Specialy take care of phycical scale
     and offset.
 
@@ -271,13 +274,11 @@ def _finalize(geo_image, dtype=np.uint8, value_range=None, value_range_measureme
         geo_image : mpop.imageo.geo_image.GeoImage
             See MPOP's documentation.
         dtype : bits per sample np.unit8 or np.unit16 (default: np.unit8)
-        value_range: list or tuple
+        value_range_measurement_unit: list or tuple
             Defining minimum and maximum value range. Data will be clipped into
             that range. Default is no clipping and auto scale.
-            Input data assumes to be in physical value range.
-        value_range_measurement_unit: list or tuple
-            Defining minimum and maximum value range.
-            Input data assumes to be in the [0.0, 1.0] range.
+        data_is_scaled_01: boolean
+            If true (default), input data is assumed to be in the [0.0, 1.0] range.
 
     :Returns:
         image : numpy.array
@@ -305,7 +306,7 @@ def _finalize(geo_image, dtype=np.uint8, value_range=None, value_range_measureme
             scale = 1
             offset = 0
         else:
-            if value_range_measurement_unit:
+            if value_range_measurement_unit and data_is_scaled_01:
                 # No additional scaling of the input data - assume that data is within [0.0, 1.0]
                 # and interpretate 0.0 as value_range_measurement_unit[0]
                 # and 1.0 as value_range_measurement_unit[1]
@@ -330,12 +331,12 @@ def _finalize(geo_image, dtype=np.uint8, value_range=None, value_range_measureme
                 scale /= scale_fill_value
 
             else:
-                if value_range:
-                    data.clip(value_range[0], value_range[1], data)
-                    chn_min = value_range[0]
-                    chn_max = value_range[1]
+                if value_range_measurement_unit:
+                    data.clip(value_range_measurement_unit[0], value_range_measurement_unit[1], data)
+                    chn_min = value_range_measurement_unit[0]
+                    chn_max = value_range_measurement_unit[1]
                     log.debug("Scaling, using value range %.2f - %.2f" %
-                              (value_range[0], value_range[1]))
+                              (value_range_measurement_unit[0], value_range_measurement_unit[1]))
                 else:
                     chn_max = data.max()
                     chn_min = data.min()
@@ -387,6 +388,15 @@ def _finalize(geo_image, dtype=np.uint8, value_range=None, value_range_measureme
                           channels[3].filled(fill_value[3])))
         return data, 1.0, 0.0, fill_value[0]
 
+    elif geo_image.mode == 'P':
+        fill_value = 0
+        data = geo_image.channels[0]
+        if isinstance(data, np.ma.core.MaskedArray):
+            data = data.filled(fill_value)
+        data = data.astype(dtype)
+        log.debug("Value range: %.2f, %.2f, %.2f" % (data.min(), data.mean(), data.max()))
+        return data, 1.0, 0.0, fill_value
+
     else:
         raise ValueError("Don't known how til handle image mode '%s'" %
                          str(geo_image.mode))
@@ -411,20 +421,14 @@ def save(geo_image, filename, ninjo_product_name=None, **kwargs):
         * 8 bits grayscale with a colormap (if specified, inverted for IR channels).
         * 16 bits grayscale with no colormap (if specified, MinIsWhite is set for IR).
         * min value will be reserved for transparent color.
-        * RGB images will use mpop.imageo.image's standard finalize.
+        * If possible mpop.imageo.image's standard finalize will be used.
     """
 
-    dtype = np.uint8  # @UndefinedVariable
+    dtype = np.uint8
     if 'nbits' in kwargs:
         nbits = int(kwargs['nbits'])
         if nbits == 16:
-            dtype = np.uint16  # @UndefinedVariable
-
-    try:
-        # TODO: don't force min and max to integers.
-        value_range = int(kwargs["ch_min"]), int(kwargs["ch_max"])
-    except KeyError:
-        value_range = None
+            dtype = np.uint16
 
     try:
         value_range_measurement_unit = (float(kwargs["ch_min_measurement_unit"]),
@@ -432,17 +436,31 @@ def save(geo_image, filename, ninjo_product_name=None, **kwargs):
     except KeyError:
         value_range_measurement_unit = None
 
-    data, scale, offset, fill_value = _finalize(geo_image, dtype=dtype, value_range=value_range,
-                                                value_range_measurement_unit=value_range_measurement_unit)
+    data_is_scaled_01 = bool(kwargs.get("data_is_scaled_01", True))
+
+    data, scale, offset, fill_value = _finalize(geo_image, dtype=dtype, data_is_scaled_01=data_is_scaled_01,
+                                                value_range_measurement_unit=value_range_measurement_unit,)
+
     area_def = geo_image.area
     time_slot = geo_image.time_slot
 
     # Some Ninjo tiff names
-    kwargs['image_dt'] = time_slot
-    kwargs['transparent_pix'] = fill_value
     kwargs['gradient'] = scale
     kwargs['axis_intercept'] = offset
+    kwargs['transparent_pix'] = fill_value
+    kwargs['image_dt'] = time_slot
     kwargs['is_calibrated'] = True
+    if geo_image.mode == 'P' and 'cmap' not in kwargs:
+        r, g, b = zip(*geo_image.palette)
+        r = list((np.array(r) * 255).astype(np.uint8))
+        g = list((np.array(g) * 255).astype(np.uint8))
+        b = list((np.array(b) * 255).astype(np.uint8))
+        if len(r) < 256:
+            r += [0] * (256 - len(r))
+            g += [0] * (256 - len(g))
+            b += [0] * (256 - len(b))
+        kwargs['cmap'] = r, g, b
+
     write(data, filename, area_def, ninjo_product_name, **kwargs)
 
 
@@ -469,20 +487,20 @@ def write(image_data, output_fn, area_def, product_name=None, **kwargs):
             See _write
     """
     upper_left = area_def.get_lonlat(0, 0)
-    lower_right = area_def.get_lonlat(area_def.shape[0]-1, area_def.shape[1]-1)
+    lower_right = area_def.get_lonlat(area_def.shape[0] - 1, area_def.shape[1] - 1)
 
     if len(image_data.shape) == 3:
         if image_data.shape[2] == 4:
             shape = (area_def.y_size, area_def.x_size, 4)
-            log.info("Will generate RGBA product '%s'" % product_name)
+            log.info("Will generate RGBA product")
         else:
             shape = (area_def.y_size, area_def.x_size, 3)
-            log.info("Will generate RGB product '%s'" % product_name)
+            log.info("Will generate RGB product")
         write_rgb = True
     else:
         shape = (area_def.y_size, area_def.x_size)
         write_rgb = False
-        log.info("Will generate product '%s'" % product_name)
+        log.info("Will generate single band product")
 
     if image_data.shape != shape:
         raise ValueError("Raster shape %s does not correspond to expected shape %s" % (
@@ -899,17 +917,17 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
         tifargs['bigtiff'] = True
 
     with tifffile.TiffWriter(output_fn, **tifargs) as tif:
-            tif.save(image_data, **args)
-            for _, scale in enumerate((2, 4, 8, 16)):
-                shape = (image_data.shape[0] / scale,
-                         image_data.shape[1] / scale)
-                if shape[0] > tile_width and shape[1] > tile_length:
-                    args = _create_args(image_data[::scale, ::scale],
-                                        pixel_xres * scale, pixel_yres * scale)
-                    for key in header_only_keys:
-                        if key in args:
-                            del args[key]
-                    tif.save(image_data[::scale, ::scale], **args)
+        tif.save(image_data, **args)
+        for _, scale in enumerate((2, 4, 8, 16)):
+            shape = (image_data.shape[0] / scale,
+                     image_data.shape[1] / scale)
+            if shape[0] > tile_width and shape[1] > tile_length:
+                args = _create_args(image_data[::scale, ::scale],
+                                    pixel_xres * scale, pixel_yres * scale)
+                for key in header_only_keys:
+                    if key in args:
+                        del args[key]
+                tif.save(image_data[::scale, ::scale], **args)
 
     log.info("Successfully created a NinJo tiff file: '%s'" % (output_fn,))
 

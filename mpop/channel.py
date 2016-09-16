@@ -378,6 +378,10 @@ class Channel(GenericChannel):
         also stored to the info dictionary of the originating channel.
         '''
 
+        if self.info.get('sun_zen_correction_applied'):
+            LOG.debug("Sun zenith correction already applied, skipping")
+            return self
+
         import mpop.tools
 
         try:
@@ -425,6 +429,7 @@ class Channel(GenericChannel):
             LOG.debug("cos_limit = %f", cos_limit)
             # Mask out data where the sun elevation is below a threshold:
             new_ch.data = np.ma.masked_where(cos_zen < cos_limit, new_ch.data, copy=False)
+            new_ch.info["sun_zen_correction_applied"] = True
         return new_ch
 
     def get_viewing_geometry(self, orbital, time_slot, altitude=None):
