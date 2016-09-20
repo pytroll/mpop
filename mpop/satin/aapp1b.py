@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2012, 2013, 2014, 2015 SMHI
+# Copyright (c) 2012, 2013, 2014, 2015, 2016 SMHI
 
 # Author(s):
 
@@ -755,12 +755,12 @@ def _ir_calibrate(header, data, irchn, calib_type):
 def show(data, negate=False):
     """Show the stetched data.
     """
-    import Image as pil
+    from PIL import Image
     data = np.array((data - data.min()) * 255.0 /
                     (data.max() - data.min()), np.uint8)
     if negate:
         data = 255 - data
-    img = pil.fromarray(data)
+    img = Image.fromarray(data)
     img.show()
 
 CASES = {
@@ -798,7 +798,7 @@ if __name__ == "__main__":
     SCENE.navigate()
     for i__ in AVHRR_CHANNEL_NAMES:
         data_ = SCENE.channels[i__]
-        print >> sys.stderr, "%-3s" % i_, \
+        print >> sys.stderr, "%-3s" % i__, \
             "%6.2f%%" % (100. * (float(np.ma.count(data_)) / data_.size)), \
             "%6.2f, %6.2f, %6.2f" % (data_.min(), data_.mean(), data_.max())
     show(SCENE.channels['2'], negate=False)
