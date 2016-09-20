@@ -300,9 +300,8 @@ class GeoImage(Image):
                     pass
                 try:
                     # Check for epsg code.
-                    srs.SetAuthority('PROJCS', 'EPSG',
-                                     int(area.proj_dict['init'].
-                                         split('epsg:')[1]))
+                    srs.ImportFromEPSG(int(area.proj_dict['init'].
+                                           lower().split('epsg:')[1]))
                 except (KeyError, IndexError):
                     pass
                 srs = srs.ExportToWkt()
