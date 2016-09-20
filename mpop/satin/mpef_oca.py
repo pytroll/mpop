@@ -243,7 +243,7 @@ class OCAReader(Reader):
         """
         lonlat_is_loaded = False
 
-        lritfiles = kwargs.get('filename')
+        lritfiles = kwargs.get('filenames')
 
         if "OCA" not in satscene.channels_to_load:
             LOG.warning("No OCA product requested. Nothing to be done...")
