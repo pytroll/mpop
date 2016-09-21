@@ -35,7 +35,7 @@ from mpop.plugin_base import Reader
 from trollsift import parser
 from glob import glob
 import pyresample as pr
-
+import numpy as np
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -45,16 +45,6 @@ AREA_DEF_FILE = os.path.join(CFG_DIR, "areas.def")
 if not os.path.exists(AREA_DEF_FILE):
     raise IOError('Config file %s does not exist!' % AREA_DEF_FILE)
 
-# SATELLITE = {'MSG3': 'Meteosat-10',
-#              'MSG2': 'Meteosat-09',
-#              'MSG1': 'Meteosat-08',
-#              'MSG4': 'Meteosat-11',
-#              }
-# SATELLITE = {'Meteosat-10': 'MSG3',
-#              'Meteosat-09': 'MSG2',
-#              'Meteosat-08': 'MSG1',
-#              'Meteosat-11': 'MSG4',
-#              }
 
 LRIT_PATTERN = "L-000-{platform_name:_<5s}_-MPEF________-OCAE_____-{segment:_<9s}-{nominal_time:%Y%m%d%H%M}-{compressed:_<2s}"
 
@@ -100,12 +90,13 @@ class OCAField(object):
 
     """One OCA data field with metadata"""
 
-    def __init__(self, units=None, longname='', shortname=''):
+    def __init__(self, units=None, long_name='', standard_name=''):
         self.units = units
         self.data = None
         self.error = None
-        self.longname = longname
-        self.shortname = shortname
+        self.long_name = long_name
+        self.standard_name = standard_name
+        self.info = {}
 
 
 class OCAData(mpop.channel.GenericChannel):
@@ -122,6 +113,8 @@ class OCAData(mpop.channel.GenericChannel):
         self._lritfiles = None
         self._gribfilename = None
         self._store_grib = False
+
+        self.resolution = 3000
 
         self.scenetype = OCAField()
         self.cost = OCAField()
@@ -143,7 +136,7 @@ class OCAData(mpop.channel.GenericChannel):
 
         oca = Grib(self._gribfilename)
         self.scenetype.data = oca.get('Pixel scene type')[::-1, ::-1]
-        self.scenetype.longname = OCA_FIELDS[0]['Pixel scene type']
+        self.scenetype.long_name = OCA_FIELDS[0]['Pixel scene type']
 
         for field in FIELDNAMES.keys():
 
@@ -153,8 +146,8 @@ class OCAData(mpop.channel.GenericChannel):
             if 'units' in param:
                 setattr(getattr(self, field), 'units', param['units'])
             if 'abbrev' in param:
-                setattr(getattr(self, field), 'shortname', param['abbrev'])
-            setattr(getattr(self, field), 'longname',
+                setattr(getattr(self, field), 'standard_name', param['abbrev'])
+            setattr(getattr(self, field), 'long_name',
                     param[FIELDNAMES[field][0]])
             param_name = FIELDNAMES[field][1]
             if param_name:
@@ -211,9 +204,16 @@ class OCAData(mpop.channel.GenericChannel):
 
     def project(self, coverage):
         """Project the data"""
-        LOG.debug("Projecting channel %s..." % (self.name))
+        LOG.debug("Projecting channel %s...", (self.name))
         import copy
         res = copy.copy(self)
+
+        res.name = self.name
+        res.resolution = self.resolution
+        res.filled = True
+        res.area = coverage.out_area
+        resolution_str_x = str(int(res.area.pixel_size_x)) + 'm'
+        resolution_str_y = str(int(res.area.pixel_size_y)) + 'm'
 
         # Project the data
         for var in self._projectables:
@@ -222,10 +222,19 @@ class OCAData(mpop.channel.GenericChannel):
             res.__dict__[var].data = coverage.project_array(
                 self.__dict__[var].data)
 
-        res.name = self.name
-        res.resolution = self.resolution
-        res.filled = True
-        res.area = coverage.out_area
+            res.__dict__[var].info['var_name'] = var
+            res.__dict__[var].info['var_data'] = res.__dict__[var].data
+            res.__dict__[var].info['var_dim_names'] = ('y' + resolution_str_y,
+                                                       'x' + resolution_str_x)
+            res.__dict__[var].info['long_name'] = res.__dict__[var].long_name
+            res.__dict__[var].info[
+                'standard_name'] = res.__dict__[var].standard_name
+            valid_min = np.min(res.__dict__[var].data)
+            valid_max = np.max(res.__dict__[var].data)
+            res.__dict__[var].info['valid_range'] = np.array(
+                [valid_min, valid_max])
+            # res.__dict__[var].info['resolution'] = res.resolution
+
         return res
 
     def is_loaded(self):
@@ -250,7 +259,7 @@ class OCAReader(Reader):
             return
 
         area_name = satscene.area_id or satscene.area.area_id
-        #platform_name = satscene.satname
+        # platform_name = satscene.satname
 
         conf = ConfigParser()
         conf.read(os.path.join(CONFIG_PATH, satscene.fullname + ".cfg"))
@@ -268,6 +277,28 @@ class OCAReader(Reader):
 
         chn = classes[product]()
         chn.read_from_lrit(lritfiles)
+
+        # Prepare info object for netCDF writer:
+        resolution_str = str(int(chn.resolution)) + 'm'
+        for field in chn._projectables:
+
+            getattr(chn, field).info['var_name'] = field
+            getattr(chn, field).info['var_data'] = getattr(chn, field).data
+            getattr(chn, field).info[
+                'var_dir_names'] = getattr(chn, field).data
+
+            getattr(chn, field).info['var_dim_names'] = ('y' + resolution_str,
+                                                         'x' + resolution_str)
+            getattr(chn, field).info['long_name'] = getattr(
+                chn, field).long_name
+            getattr(chn, field).info['standard_name'] = getattr(
+                chn, field).standard_name
+            valid_min = np.min(getattr(chn, field).data)
+            valid_max = np.max(getattr(chn, field).data)
+            getattr(chn, field).info['valid_range'] = np.array(
+                [valid_min, valid_max])
+            getattr(chn, field).info['resolution'] = chn.resolution
+
         satscene.channels.append(chn)
 
         LOG.info("Loading MPEF OCA cloud parameters done")
