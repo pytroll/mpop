@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2011, 2012, 2014.
+# Copyright (c) 2010, 2011, 2012, 2014, 2016.
 
 # Author(s):
 
@@ -59,9 +59,13 @@ class CFScene(object):
     with the *scene* to transform as argument.
     """
 
-    def __init__(self, scene, dtype=np.int16, band_axis=2):
+    def __init__(self, scene, dtype=np.int16, band_axis=2, time_dimension=False):
         if not issubclass(dtype, np.integer):
             raise TypeError('Only integer saving allowed for CF data')
+
+        time_axis = -1
+        if time_dimension:
+            time_axis = 0
 
         self.info = scene.info.copy()
         if "time" in self.info:
@@ -80,9 +84,14 @@ class CFScene(object):
         self.time = InfoObject()
         self.time.data = date2num(scene.time_slot,
                                   TIME_UNITS)
+        if time_dimension:
+            var_dim_names = ("time", )
+        else:
+            var_dim_names = ()
+
         self.time.info = {"var_name": "time",
                           "var_data": self.time.data,
-                          "var_dim_names": (),
+                          "var_dim_names": var_dim_names,
                           "long_name": "Nominal time of the image",
                           "standard_name": "time",
                           "units": TIME_UNITS}
@@ -132,7 +141,10 @@ class CFScene(object):
                 else:
                     data = ((chn.data - offset) / scale).astype(CF_DATA_TYPE)
 
-            data = np.ma.expand_dims(data, band_axis)
+            if time_dimension:
+                data = np.ma.expand_dims(data, time_axis)
+            else:
+                data = np.ma.expand_dims(data, band_axis)
 
             # it's a grid mapping
             try:
@@ -258,7 +270,7 @@ class CFScene(object):
                                        lons.info["var_name"])
                 xy_names = ["y" + str_arc, "x" + str_arc]
 
-            if (chn.area, chn.info['units']) in area_units:
+            if (chn.area, chn.info['units']) in area_units and not time_dimension:
                 str_cnt = str(area_units.index((chn.area, chn.info['units'])))
                 # area has been used before
                 band = getattr(self, "band" + str_cnt)
@@ -307,7 +319,11 @@ class CFScene(object):
                 band = InfoObject()
                 band.data = data
                 dim_names = xy_names
-                dim_names.insert(band_axis, 'band' + str_cnt)
+                if time_dimension:
+                    dim_names.insert(time_axis, 'time')
+                else:
+                    dim_names.insert(band_axis, 'band' + str_cnt)
+
                 band.info = {"var_name": "Image" + str_cnt,
                              "var_data": band.data,
                              'var_dim_names': dim_names,
@@ -359,6 +375,12 @@ class CFScene(object):
                     band.info["grid_mapping"] = area.info["var_name"]
                 else:
                     band.info["coordinates"] = coordinates
+
+                # Add other (custom) attributes:
+                # Only str type attributes! FIXME!
+                for key in chn.info.keys():
+                    if key not in band.info.keys() and type(chn.info[key]) == str:
+                        band.info[key] = chn.info[key]
 
                 setattr(self, "band" + str_cnt, band)
 
