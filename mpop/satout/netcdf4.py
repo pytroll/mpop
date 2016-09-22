@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2011, 2012, 2014.
+# Copyright (c) 2010, 2011, 2012, 2014, 2016.
 
 # Author(s):
 
@@ -29,22 +29,30 @@
 
 __revision__ = 0.1
 
+import pdb
+
 import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-def save(scene, filename, compression=True, dtype=np.int16, band_axis=2):
+def save(scene, filename, compression=True, dtype=np.int16, band_axis=2,
+         time_dimension=False):
     """Saves the scene as a NetCDF4 file, with CF conventions.
 
-    *band_axis* gives the which axis to use for the band dimension. For
+    *band_axis* gives which axis to use for the band dimension. For
      example, use band_axis=0 to get dimensions like (band, y, x).
+    *time_dimension* is a boolean and if True a time axis (dimension=1) is
+    added in front, like (time, y, x), and the band_axis is omitted. Thus each
+    data/band go in a separate dataset.
+
     """
     from mpop.satout.cfscene import CFScene
 
     scene.add_to_history("Saved as netcdf4/cf by pytroll/mpop.")
-    return netcdf_cf_writer(filename, CFScene(scene, dtype, band_axis),
+    return netcdf_cf_writer(filename,
+                            CFScene(scene, dtype, band_axis, time_dimension),
                             compression=compression)
 
 
@@ -228,6 +236,7 @@ def netcdf_cf_writer(filename, root_object, compression=True):
             # in the case of arrays containing strings:
             if str(vtype) == "object":
                 vtype = str
+
             nc_vars.append(rootgrp.createVariable(
                 name, vtype, dim_name,
                 zlib=compression,
