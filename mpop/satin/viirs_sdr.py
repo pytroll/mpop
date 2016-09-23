@@ -563,6 +563,8 @@ class ViirsSDRReader(Reader):
             logger.error("Band type %s not supported", bandtype)
             return None
 
+        geofilenames = sorted(geofilenames)
+
         data = {}
         mask = {}
         h5names = ['SolarZenithAngle', 'SolarAzimuthAngle',
