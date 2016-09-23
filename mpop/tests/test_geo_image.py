@@ -75,6 +75,14 @@ class TestGeoImage(unittest.TestCase):
         self.img.save("test.tif", compression=9, tags={"NBITS": 20})
         mock_save.assert_called_once_with("test.tif", 9, {"NBITS": 20},
                                           None, 256)
+        mock_save.reset_mock()
+        self.img.save("test.tif", writer_options={"compression":9})
+        mock_save.assert_called_once_with("test.tif", 9, {}, None, 256)
+        
+        mock_save.reset_mock()
+        self.img.save("test.tif", writer_options={"compression":9, "nbits":16})
+        mock_save.assert_called_once_with("test.tif", 9, {"NBITS": 16},
+                                          None, 256)
 
         with patch.object(geo_image.Image, 'save') as mock_isave:
             self.img.save("test.png")
