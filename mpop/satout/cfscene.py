@@ -273,8 +273,7 @@ class CFScene(object):
                         coordinates = (lats.info["var_name"] + " " +
                                        lons.info["var_name"])
                 xy_names = ["y" + str_arc, "x" + str_arc]
-
-            if (chn.area, chn.info['units']) in area_units and not time_dimension:
+            if not time_dimension and (chn.area, chn.info['units']) in area_units:
                 str_cnt = str(area_units.index((chn.area, chn.info['units'])))
                 # area has been used before
                 band = getattr(self, "band" + str_cnt)
