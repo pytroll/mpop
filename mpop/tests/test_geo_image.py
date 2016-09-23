@@ -62,13 +62,13 @@ class TestGeoImage(unittest.TestCase):
         """
         
         self.img.save("test.tif", compression=0)
-        mock_save.assert_called_once_with("test.tif", 0, None, None, 256)
+        mock_save.assert_called_once_with("test.tif", 0, {}, None, 256)
         mock_save.reset_mock()
         self.img.save("test.tif", compression=9)
-        mock_save.assert_called_once_with("test.tif", 9, None, None, 256)
+        mock_save.assert_called_once_with("test.tif", 9, {}, None, 256)
         mock_save.reset_mock()
         self.img.save("test.tif", compression=9, floating_point=True)
-        mock_save.assert_called_once_with("test.tif", 9, None, None, 256,
+        mock_save.assert_called_once_with("test.tif", 9, {}, None, 256,
                                           floating_point=True)
 
         mock_save.reset_mock()
