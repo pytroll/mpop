@@ -215,22 +215,28 @@ class OCAData(mpop.channel.GenericChannel):
         resolution_str_x = str(int(res.area.pixel_size_x)) + 'm'
         resolution_str_y = str(int(res.area.pixel_size_y)) + 'm'
 
+        time_axis = 0
+
         # Project the data
         for var in self._projectables:
             LOG.info("Projecting " + str(var))
             res.__dict__[var] = copy.copy(self.__dict__[var])
-            res.__dict__[var].data = coverage.project_array(
-                self.__dict__[var].data)
+            data = coverage.project_array(self.__dict__[var].data)
+            valid_min = np.min(data)
+            valid_max = np.max(data)
 
+            res.__dict__[var].data = data
             res.__dict__[var].info['var_name'] = var
-            res.__dict__[var].info['var_data'] = res.__dict__[var].data
-            res.__dict__[var].info['var_dim_names'] = ('y' + resolution_str_y,
-                                                       'x' + resolution_str_x)
+            res.__dict__[var].info[
+                'var_data'] = np.ma.expand_dims(data, time_axis)
+
+            dim_names = ['y' + resolution_str_y,
+                         'x' + resolution_str_x]
+            dim_names.insert(0, 'time')
+            res.__dict__[var].info['var_dim_names'] = dim_names
             res.__dict__[var].info['long_name'] = res.__dict__[var].long_name
             res.__dict__[var].info[
                 'standard_name'] = res.__dict__[var].standard_name
-            valid_min = np.min(res.__dict__[var].data)
-            valid_max = np.max(res.__dict__[var].data)
             res.__dict__[var].info['valid_range'] = np.array(
                 [valid_min, valid_max])
             # res.__dict__[var].info['resolution'] = res.resolution
