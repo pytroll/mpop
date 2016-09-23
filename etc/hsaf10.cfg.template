@@ -1,0 +1,26 @@
+[satellite]
+satname = 'hsaf'
+projection = 'geos(0.0)'
+number = '10'
+instruments = ('seviri',)
+proj4_params = 'proj=geos lon_0=0.0 lat_0=0.00 a=6378169.00 b=6356583.80 h=35785831.00'
+
+#[seviri-level1]
+##filename = h03_%Y%m%d_%H%M_rom.grb.nc4
+#filename = h03_%Y%m%d_%H%M_rom.*
+#format = 'read_h03'
+##dir = /data/COALITION2/database/meteosat/HSAF/%Y/%m/%d
+#dir = /data/cinesat/in/hsaf
+
+[seviri-level2]
+#filename = h03_%Y%m%d_%H%M_rom.grb.nc4
+filename = h03_%Y%m%d_%H%M_rom.*
+format = 'hsaf_h03'
+#dir = /data/COALITION2/database/meteosat/HSAF/%Y/%m/%d
+dir = /data/cinesat/in/hsaf
+
+[seviri-1]
+frequency = (0.00, 0.00, 0.00)
+resolution = 3000.403165817
+name = 'h03'
+size = (1900, 900)
