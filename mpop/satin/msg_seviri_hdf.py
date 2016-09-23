@@ -79,10 +79,10 @@ def load(satscene, calibrate=True, area_extent=None, **kwargs):
             dt_end = 12
     else:
         from my_msg_module import check_RSS
-        RSS = check_RSS(satscene.number, satscene.time_slot)
+        RSS = check_RSS(satscene.sat_nr(), satscene.time_slot)
         if RSS == None:
             print "*** Error in mpop/satin/msg_seviri_hdf.py"
-            print "    satellite MSG", satscene.number ," is not active yet"
+            print "    satellite MSG", satscene.sat_nr() ," is not active yet"
             quit()
         else:
             if RSS:
@@ -206,7 +206,7 @@ def load(satscene, calibrate=True, area_extent=None, **kwargs):
 
         # satellite ID number 
         hdr["SatelliteDefinition"] = dict()
-        hdr["SatelliteDefinition"]["SatelliteId"] = SatelliteIds[satscene.number]
+        hdr["SatelliteDefinition"]["SatelliteId"] = SatelliteIds[str(satscene.sat_nr())]
         
         # processing 
         hdr["Level 1_5 ImageProduction"] = dict()

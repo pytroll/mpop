@@ -1,0 +1,25 @@
+[satellite]
+satname = 'odyssey'
+variant =
+number = 
+instruments = ('radar',)
+
+[radar-level2]
+dir = /data/cinesat/in/radar
+format = odyssey_radar
+projection = odyssey
+
+[RATE]
+#filename = T_PAAH21_C_EUOC_%Y%m%d%H%M??.hdf
+filename = meteoswiss.radar.euoc_rain_rate.%Y%m%d%H%M.hdf5
+name = 'RATE'
+
+[DBZH]
+#filename = T_PABH21_C_EUOC_%Y%m%d%H%M??.hdf
+filename = meteoswiss.radar.euoc_maximum_reflectivit.%Y%m%d%H%M.hdf5
+name = 'DBZH'
+
+[ACRR]
+#filename = T_PASH21_C_EUOC_%Y%m%d%H%M??.hdf
+filename = meteoswiss.radar.euoc_1h_accumulation.%Y%m%d%H%M.hdf5
+name = 'ACRR'
