@@ -403,7 +403,8 @@ def _finalize(geo_image, dtype=np.uint8, value_range_measurement_unit=None, data
                          str(geo_image.mode))
 
 
-def save(geo_image, filename, writer_options=None, ninjo_product_name=None, **kwargs):
+def save(geo_image, filename, ninjo_product_name=None, writer_options=None,
+         **kwargs):
     """MPOP's interface to Ninjo TIFF writer.
 
     :Parameters:

@@ -131,7 +131,9 @@ class GeoImage(Image):
             except ImportError:
                 raise  UnknownImageFormat(
                     "Unknown image format '%s'" % fformat)
-            saver.save(self, filename, writer_options, **kwargs)
+            kwargs = kwargs or {}
+            kwargs['writer_options'] = writer_options
+            saver.save(self, filename, **kwargs)
 
     def _gdal_write_channels(self, dst_ds, channels, opacity, fill_value):
         """Write *channels* in a gdal raster structure *dts_ds*, using
