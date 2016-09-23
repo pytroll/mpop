@@ -59,7 +59,9 @@ class CFScene(object):
     with the *scene* to transform as argument.
     """
 
-    def __init__(self, scene, dtype=np.int16, band_axis=2, time_dimension=False):
+    def __init__(self, scene, dtype=np.int16, band_axis=2,
+                 area_aggregation=True,
+                 time_dimension=False):
         if not issubclass(dtype, np.integer):
             raise TypeError('Only integer saving allowed for CF data')
 
@@ -143,7 +145,7 @@ class CFScene(object):
 
             if time_dimension:
                 data = np.ma.expand_dims(data, time_axis)
-            else:
+            elif area_aggregation:
                 data = np.ma.expand_dims(data, band_axis)
 
             # it's a grid mapping
@@ -273,7 +275,10 @@ class CFScene(object):
                         coordinates = (lats.info["var_name"] + " " +
                                        lons.info["var_name"])
                 xy_names = ["y" + str_arc, "x" + str_arc]
-            if not time_dimension and (chn.area, chn.info['units']) in area_units:
+
+            if (area_aggregation and not time_dimension and
+                    (chn.area, chn.info['units']) in area_units):
+
                 str_cnt = str(area_units.index((chn.area, chn.info['units'])))
                 # area has been used before
                 band = getattr(self, "band" + str_cnt)
@@ -324,7 +329,7 @@ class CFScene(object):
                 dim_names = xy_names
                 if time_dimension:
                     dim_names.insert(time_axis, 'time')
-                else:
+                elif area_aggregation:
                     dim_names.insert(band_axis, 'band' + str_cnt)
 
                 band.info = {"var_name": "Image" + str_cnt,
@@ -337,11 +342,12 @@ class CFScene(object):
 
                 # bandname
 
+                var_dim_names = ("band" + str_cnt,)
                 bandname = InfoObject()
                 bandname.data = np.array([chn.name], 'O')
                 bandname.info = {"var_name": "band" + str_cnt,
                                  "var_data": bandname.data,
-                                 "var_dim_names": ("band" + str_cnt,),
+                                 "var_dim_names": var_dim_names,
                                  "standard_name": "band_name"}
                 setattr(self, "bandname" + str_cnt, bandname)
 
@@ -391,7 +397,8 @@ class CFScene(object):
             # compute data reduction
             fill_value = np.iinfo(CF_DATA_TYPE).min
             band = getattr(self, "band" + str(i))
-            # band.info["valid_range"] = np.array([valid_min, valid_max]),
+            valid_min, valid_max = band.data.min(), band.data.max()
+            band.info["valid_range"] = np.array([valid_min, valid_max]),
 
     def save(self, filename, *args, **kwargs):
         return netcdf_cf_writer(filename, self, kwargs.get("compression", True))
