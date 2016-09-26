@@ -118,8 +118,11 @@ class GeoImage(Image):
             writer_options[write_opts.WR_OPT_NBITS] = tags.get('NBITS')
 
         if fformat.lower() in ('tif', 'tiff'):
+            kwargs = kwargs or {}
+            kwargs['writer_options'] = writer_options
             return self.geotiff_save(filename, compression, tags,
-                                     gdal_options, blocksize, **kwargs)
+                                     gdal_options, blocksize,
+                                     **kwargs)
         try:
             # Let image.pil_save it ?
             Image.save(self, filename, compression, fformat=fformat)
@@ -162,7 +165,8 @@ class GeoImage(Image):
     def geotiff_save(self, filename, compression=6,
                      tags=None, gdal_options=None,
                      blocksize=0, geotransform=None,
-                     spatialref=None, floating_point=False):
+                     spatialref=None, floating_point=False,
+                     writer_options=None):
         """Save the image to the given *filename* in geotiff_ format, with the
         *compression* level in [0, 9]. 0 means not compressed. The *tags*
         argument is a dict of tags to include in the image (as metadata).  By
@@ -170,6 +174,9 @@ class GeoImage(Image):
         spatialref information, this can be overwritten by the arguments
         *geotransform* and *spatialref*. *floating_point* allows the saving of
         'L' mode images in floating point format if set to True.
+        When argument *writer_options* is not none and entry 'fill_value_subst'
+        is included, its numeric value will be used to substitute image data
+        that would be equal to the fill_value (used to replace masked data).
 
         .. _geotiff: http://trac.osgeo.org/geotiff/
         """
@@ -178,6 +185,7 @@ class GeoImage(Image):
         raster = gdal.GetDriverByName("GTiff")
 
         tags = tags or {}
+        writer_options = writer_options or {}
 
         if floating_point:
             if self.mode != "L":
@@ -204,6 +212,12 @@ class GeoImage(Image):
                 gformat = gdal.GDT_Byte
             opacity = np.iinfo(dtype).max
             channels, fill_value = self._finalize(dtype)
+
+            fill_value_subst = writer_options.get(
+                write_opts.WR_OPT_FILL_VALUE_SUBST, None)
+            if fill_value is not None and fill_value_subst is not None:
+                for i, chan in enumerate(channels):
+                    np.place(chan, chan == fill_value[i], int(fill_value_subst))
 
         logger.debug("Saving to GeoTiff.")
 

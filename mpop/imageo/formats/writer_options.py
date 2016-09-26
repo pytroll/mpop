@@ -26,3 +26,4 @@ Module for writer option constants
 WR_OPT_NBITS = 'nbits'
 WR_OPT_COMPRESSION = 'compression'
 WR_OPT_BLOCKSIZE = 'blocksize'
+WR_OPT_FILL_VALUE_SUBST = 'fill_value_subst'
