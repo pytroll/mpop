@@ -76,7 +76,8 @@ class CFScene(object):
 
         # Other global attributes
         self.info["Conventions"] = "CF-1.5"
-        self.info["platform"] = scene.satname + "-" + str(scene.number)
+        #self.info["platform"] = scene.satname + "-" + str(scene.number)
+        self.info["platform"] = scene.fullname
         self.info["instrument"] = scene.instrument_name
         if scene.variant:
             self.info["service"] = scene.variant
