@@ -386,10 +386,12 @@ class CFScene(object):
                     band.info["coordinates"] = coordinates
 
                 # Add other (custom) attributes:
-                # Only str type attributes! FIXME!
+                # Only scalar attributes!
                 for key in chn.info.keys():
-                    if key not in band.info.keys() and type(chn.info[key]) == str:
-                        band.info[key] = chn.info[key]
+                    if key not in band.info.keys():
+                        if (type(chn.info[key]) == str or type(chn.info[key]) == int or
+                                type(chn.info[key]) == float):
+                            band.info[key] = chn.info[key]
 
                 setattr(self, "band" + str_cnt, band)
 
