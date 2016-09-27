@@ -44,6 +44,7 @@ from datetime import datetime
 import numpy as np
 
 from mpop.imageo.formats import tifffile
+import mpop.imageo.formats.writer_options as write_opts
 
 log = logging.getLogger(__name__)
 
@@ -402,7 +403,8 @@ def _finalize(geo_image, dtype=np.uint8, value_range_measurement_unit=None, data
                          str(geo_image.mode))
 
 
-def save(geo_image, filename, ninjo_product_name=None, **kwargs):
+def save(geo_image, filename, ninjo_product_name=None, writer_options=None,
+         **kwargs):
     """MPOP's interface to Ninjo TIFF writer.
 
     :Parameters:
@@ -413,6 +415,9 @@ def save(geo_image, filename, ninjo_product_name=None, **kwargs):
     :Keywords:
         ninjo_product_name : str
             Optional index to Ninjo configuration file.
+        writer_options : dict
+            options dictionary as defined in MPOP interface 
+            See _write
         kwargs : dict
             See _write
 
@@ -423,6 +428,12 @@ def save(geo_image, filename, ninjo_product_name=None, **kwargs):
         * min value will be reserved for transparent color.
         * If possible mpop.imageo.image's standard finalize will be used.
     """
+
+    if writer_options:
+        # add writer_options
+        kwargs.update(writer_options)
+        if 'ninjo_product_name' in writer_options:
+            ninjo_product_name = writer_options['ninjo_product_name']
 
     dtype = np.uint8
     if 'nbits' in kwargs:

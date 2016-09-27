@@ -45,6 +45,7 @@ except ImportError:
 from mpop import CONFIG_PATH
 import logging
 from mpop.utils import ensure_dir
+import mpop.imageo.formats.writer_options as write_opts
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,7 @@ class GeoImage(Image):
 
     def save(self, filename, compression=6,
              tags=None, gdal_options=None,
-             fformat=None, blocksize=256, **kwargs):
+             fformat=None, blocksize=256, writer_options=None, **kwargs):
         """Save the image to the given *filename*. If the extension is "tif",
         the image is saved to geotiff_ format, in which case the *compression*
         level can be given ([0, 9], 0 meaning off). See also
@@ -84,14 +85,37 @@ class GeoImage(Image):
         options for the gdal saving driver. A *blocksize* other than 0 will
         result in a tiled image (if possible), with tiles of size equal to
         *blocksize*.
-
         If the specified format *fformat* is not know to MPOP (and PIL), we
         will try to import module *fformat* and call the method `fformat.save`.
 
+        Use *writer_options* to define parameters that should be forwarded to
+        custom writers. Dictionary keys listed in
+        mpop.imageo.formats.writer_options will be interpreted by this
+        function instead of *compression*, *blocksize* and nbits in
+        *tags* dict.
 
         .. _geotiff: http://trac.osgeo.org/geotiff/
         """
         fformat = fformat or os.path.splitext(filename)[1][1:]
+
+        # prefer parameters in writer_options dict
+        # fill dict if parameters are missing
+        writer_options = writer_options or {}
+        tags = tags or {}
+        if writer_options.get(write_opts.WR_OPT_COMPRESSION, None):
+            compression = writer_options[write_opts.WR_OPT_COMPRESSION]
+        elif compression is not None:
+            writer_options[write_opts.WR_OPT_COMPRESSION] = compression
+
+        if writer_options.get(write_opts.WR_OPT_BLOCKSIZE, None):
+            blocksize = writer_options[write_opts.WR_OPT_BLOCKSIZE]
+        elif blocksize is not None:
+            writer_options[write_opts.WR_OPT_BLOCKSIZE] = blocksize
+
+        if writer_options.get(write_opts.WR_OPT_NBITS, None):
+            tags['NBITS'] = writer_options[write_opts.WR_OPT_NBITS]
+        elif tags.get('NBITS') is not None:
+            writer_options[write_opts.WR_OPT_NBITS] = tags.get('NBITS')
 
         if fformat.lower() in ('tif', 'tiff'):
             return self.geotiff_save(filename, compression, tags,
@@ -107,6 +131,8 @@ class GeoImage(Image):
             except ImportError:
                 raise  UnknownImageFormat(
                     "Unknown image format '%s'" % fformat)
+            kwargs = kwargs or {}
+            kwargs['writer_options'] = writer_options
             saver.save(self, filename, **kwargs)
 
     def _gdal_write_channels(self, dst_ds, channels, opacity, fill_value):
