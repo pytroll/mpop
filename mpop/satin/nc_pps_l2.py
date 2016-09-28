@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2014, 2015 Adam.Dybbroe
+# Copyright (c) 2014, 2015, 2016 Adam.Dybbroe
 
 # Author(s):
 
@@ -126,6 +126,7 @@ class PpsGeolocationData(object):
                              dtype=np.bool)
 
         swath_index = 0
+
         for idx, filename in enumerate(self.filenames):
 
             y0_ = swath_index
@@ -1117,19 +1118,38 @@ def get_lonlat_into(filename, out_lons, out_lats, out_mask):
     # FIXME: this is to mask out the npp bowtie deleted pixels...
     if "NPP" in h5f.attrs['platform']:
 
-        new_mask = np.zeros((16, 3200), dtype=bool)
-        new_mask[0, :1008] = True
-        new_mask[1, :640] = True
-        new_mask[14, :640] = True
-        new_mask[15, :1008] = True
-        new_mask[14, 2560:] = True
-        new_mask[1, 2560:] = True
-        new_mask[0, 2192:] = True
-        new_mask[15, 2192:] = True
-        new_mask = np.tile(new_mask, (out_lons.shape[0] / 16, 1))
+        if shape[1] == 3200:  # M-bands:
+            new_mask = np.zeros((16, 3200), dtype=bool)
+            new_mask[0, :1008] = True
+            new_mask[1, :640] = True
+            new_mask[14, :640] = True
+            new_mask[15, :1008] = True
+            new_mask[14, 2560:] = True
+            new_mask[1, 2560:] = True
+            new_mask[0, 2192:] = True
+            new_mask[15, 2192:] = True
+            new_mask = np.tile(new_mask, (out_lons.shape[0] / 16, 1))
+        elif shape[1] == 6400:  # I-bands:
+            LOG.info(
+                "PPS on I-band resolution. Mask out bow-tie deletion pixels")
+            LOG.warning("Not yet supported...")
+            new_mask = np.zeros((32, 6400), dtype=bool)
+            new_mask[0:2, :2016] = True
+            new_mask[0:2, 4384:] = True
+            new_mask[2:4, :1280] = True
+            new_mask[2:4, 5120:] = True
+            new_mask[28:30, :1280] = True
+            new_mask[28:30, 5120:] = True
+            new_mask[30:32, :2016] = True
+            new_mask[30:32, 4384:] = True
+            new_mask = np.tile(new_mask, (out_lons.shape[0] / 32, 1))
+        else:
+            LOG.error("VIIRS shape not supported. " +
+                      "No handling of bow-tie deletion pixels: shape = ", str(shape))
 
     out_mask[:] = np.logical_or(
-        new_mask, np.logical_and(out_lats <= fillvalue, out_lons <= fillvalue))
+        new_mask, np.logical_and(out_lats == fillvalue, out_lons == fillvalue))
+    # new_mask, np.logical_and(out_lats <= fillvalue, out_lons <= fillvalue))
 
     h5f.close()
     if unzipped:
