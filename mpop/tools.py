@@ -186,3 +186,37 @@ def estimate_cth(IR_108, cth_atm="standard"):
     return height
 
 
+def viewzen_corr(data, view_zen):
+    """Apply atmospheric correction on the given *data* using the
+    specified satellite zenith angles (*view_zen*). Both input data
+    are given as 2-dimensional Numpy (masked) arrays, and they should
+    have equal shapes.
+    The *data* array will be changed in place and has to be copied before.
+    """
+    def ratio(value, v_null, v_ref):
+        return (value - v_null) / (v_ref - v_null)
+
+    def tau0(t):
+        T_0 = 210.0
+        T_REF = 320.0
+        TAU_REF = 9.85
+        return (1 + TAU_REF)**ratio(t, T_0, T_REF) - 1
+
+    def tau(t):
+        T_0 = 170.0
+        T_REF = 295.0
+        TAU_REF = 1.0
+        M = 4
+        return TAU_REF * ratio(t, T_0, T_REF)**M
+
+    def delta(z):
+        Z_0 = 0.0
+        Z_REF = 70.0
+        DELTA_REF = 6.2
+        return (1 + DELTA_REF)**ratio(z, Z_0, Z_REF) - 1
+
+    y0, x0 = np.ma.where(view_zen == 0)
+    data[y0, x0] += tau0(data[y0, x0])
+
+    y, x = np.ma.where((view_zen > 0) & (view_zen < 90) & (~data.mask))
+    data[y, x] += tau(data[y, x]) * delta(view_zen[y, x])
