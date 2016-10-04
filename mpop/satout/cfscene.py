@@ -117,6 +117,7 @@ class CFScene(object):
                 continue
 
             fill_value = np.iinfo(CF_DATA_TYPE).min
+
             if ma.count_masked(chn.data) == chn.data.size:
                 # All data is masked
                 data = np.ones(chn.data.shape, dtype=CF_DATA_TYPE) * fill_value
@@ -242,12 +243,11 @@ class CFScene(object):
                     except AttributeError:
                         lons.data = scene.area.lons[:]
 
-                    fill_value = lons.data.fill_value
                     lons.info = {"var_name": "lon" + str_arc,
                                  "var_data": lons.data,
                                  "var_dim_names": ("y" + str_arc,
                                                    "x" + str_arc),
-                                 "_FillValue": fill_value,
+                                 "_FillValue": lons.data.fill_value,
                                  "units": "degrees east",
                                  "long_name": "longitude coordinate",
                                  "standard_name": "longitude"}
@@ -260,12 +260,11 @@ class CFScene(object):
                     except AttributeError:
                         lats.data = scene.area.lats[:]
 
-                    fill_value = lats.data.fill_value
                     lats.info = {"var_name": "lat" + str_arc,
                                  "var_data": lats.data,
                                  "var_dim_names": ("y" + str_arc,
                                                    "x" + str_arc),
-                                 "_FillValue": fill_value,
+                                 "_FillValue": lats.data.fill_value,
                                  "units": "degrees north",
                                  "long_name": "latitude coordinate",
                                  "standard_name": "latitude"}
