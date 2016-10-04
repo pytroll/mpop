@@ -41,6 +41,8 @@ sys.modules['osgeo'] = MagicMock()
 sys.modules['pyresample'] = MagicMock()
 
 import mpop.imageo.geo_image as geo_image
+import mpop.imageo.formats.writer_options as writer_opts
+
 
 class TestGeoImage(unittest.TestCase):
     """Class for testing pp.geo_image.
@@ -62,27 +64,49 @@ class TestGeoImage(unittest.TestCase):
         """
         
         self.img.save("test.tif", compression=0)
-        mock_save.assert_called_once_with("test.tif", 0, {}, None, 256)
+        mock_save.assert_called_once_with("test.tif", 0, {}, None, 256,
+                                          writer_options={'blocksize': 256,
+                                                          'compression': 0})
         mock_save.reset_mock()
         self.img.save("test.tif", compression=9)
-        mock_save.assert_called_once_with("test.tif", 9, {}, None, 256)
+        mock_save.assert_called_once_with("test.tif", 9, {}, None, 256,
+                                          writer_options={'blocksize': 256,
+                                                          'compression': 9})
         mock_save.reset_mock()
         self.img.save("test.tif", compression=9, floating_point=True)
         mock_save.assert_called_once_with("test.tif", 9, {}, None, 256,
-                                          floating_point=True)
+                                          floating_point=True,
+                                          writer_options={'blocksize': 256,
+                                                          'compression': 9})
 
         mock_save.reset_mock()
         self.img.save("test.tif", compression=9, tags={"NBITS": 20})
         mock_save.assert_called_once_with("test.tif", 9, {"NBITS": 20},
-                                          None, 256)
+                                          None, 256,
+                                          writer_options={'blocksize': 256,
+                                                          'nbits': 20,
+                                                          'compression': 9})
         mock_save.reset_mock()
         self.img.save("test.tif", writer_options={"compression":9})
-        mock_save.assert_called_once_with("test.tif", 9, {}, None, 256)
-        
+        mock_save.assert_called_once_with("test.tif", 9, {}, None, 256,
+                                          writer_options={'blocksize': 256,
+                                                          'compression': 9})
+
         mock_save.reset_mock()
         self.img.save("test.tif", writer_options={"compression":9, "nbits":16})
         mock_save.assert_called_once_with("test.tif", 9, {"NBITS": 16},
-                                          None, 256)
+                                          None, 256,
+                                          writer_options={'blocksize': 256,
+                                                          'nbits': 16,
+                                                          'compression': 9})
+
+        mock_save.reset_mock()
+        self.img.save("test.tif", writer_options={"fill_value_subst": 1})
+        mock_save.assert_called_once_with("test.tif", 6, {}, None, 256,
+                                          writer_options={'blocksize': 256,
+                                                          'compression': 6,
+                                                          'fill_value_subst': 1})
+
 
         with patch.object(geo_image.Image, 'save') as mock_isave:
             self.img.save("test.png")
@@ -438,6 +462,108 @@ class TestGeoImage(unittest.TestCase):
         time_tag = {"TIFFTAG_DATETIME":
                     self.img.time_slot.strftime("%Y:%m:%d %H:%M:%S")}
         dst_ds.SetMetadata.assert_called_once_with(time_tag, '')
+
+
+    @patch('osgeo.osr.SpatialReference')
+    @patch('mpop.projector.get_area_def')
+    @patch('osgeo.gdal.GDT_Float64')
+    @patch('osgeo.gdal.GDT_Byte')
+    @patch('osgeo.gdal.GDT_UInt16')
+    @patch('osgeo.gdal.GDT_UInt32')
+    @patch('osgeo.gdal.GetDriverByName')
+    @patch.object(geo_image.GeoImage, '_gdal_write_channels')
+    def test_save_geotiff_fill_value(self, mock_write_channels, gtbn, gui32, gui16, gby, gf, gad, spaceref):
+        """Save to geotiff format.
+        """
+        
+        # source image data, masked data but only zeros
+        self.data = np.ma.zeros((512, 512), dtype=np.uint8)
+        self.data.mask = np.zeros(self.data .shape, dtype=bool)
+        self.data.mask[0,0] = True
+
+        self.img = geo_image.GeoImage(self.data,
+                                      area="euro",
+                                      time_slot=self.time_slot)
+        self.img.fill_value = [0]
+
+        raster = gtbn.return_value
+        
+        self.img.geotiff_save("test.tif", 0, None, {"BLA": "09"}, 256)
+        gtbn.assert_called_once_with("GTiff")
+
+        raster.Create.assert_called_once_with("test.tif",
+                                              self.data.shape[0],
+                                              self.data.shape[1],
+                                              1,
+                                              gby,
+                                              ["BLA=09",
+                                               'TILED=YES',
+                                               'BLOCKXSIZE=256',
+                                               'BLOCKYSIZE=256'])
+        dst_ds = raster.Create.return_value
+
+        self.assertEquals(mock_write_channels.call_count, 1)
+        self.assertEquals(mock_write_channels.call_args[0][0], dst_ds)
+        self.assertEquals(mock_write_channels.call_args[0][2], 255)
+        self.assertTrue(mock_write_channels.call_args[0][3], self.img.fill_value)
+        self.assertTrue(np.all(mock_write_channels.call_args[0][1]
+                               == self.data))
+
+
+    @patch('osgeo.osr.SpatialReference')
+    @patch('mpop.projector.get_area_def')
+    @patch('osgeo.gdal.GDT_Float64')
+    @patch('osgeo.gdal.GDT_Byte')
+    @patch('osgeo.gdal.GDT_UInt16')
+    @patch('osgeo.gdal.GDT_UInt32')
+    @patch('osgeo.gdal.GetDriverByName')
+    @patch.object(geo_image.GeoImage, '_gdal_write_channels')
+    def test_save_geotiff_fill_value_subst(self, mock_write_channels, gtbn, gui32, gui16, gby, gf, gad, spaceref):
+        """Save to geotiff format.
+        """
+
+        # source image data, masked data but only zeros
+        self.data = np.ma.zeros((512, 512), dtype=np.uint8)
+        self.data.mask = np.zeros(self.data .shape, dtype=bool)
+        self.data.mask[0,0] = True
+
+        self.img = geo_image.GeoImage(self.data,
+                                      area="euro",
+                                      time_slot=self.time_slot)
+        self.img.fill_value = [0]
+        
+        # not masked zeros should be replaced by ones
+        fill_value_substitution = 1
+        
+        data_with_subst = np.ma.copy(self.data)
+        np.place(data_with_subst, self.data == self.img.fill_value[0], 1)
+
+        raster = gtbn.return_value
+
+        self.img.geotiff_save("test.tif", 0, None, {"BLA": "09"}, 256,
+                              writer_options={writer_opts.WR_OPT_FILL_VALUE_SUBST: fill_value_substitution})
+
+        gtbn.assert_called_once_with("GTiff")
+
+        raster.Create.assert_called_once_with("test.tif",
+                                              self.data.shape[0],
+                                              self.data.shape[1],
+                                              1,
+                                              gby,
+                                              ["BLA=09",
+                                               'TILED=YES',
+                                               'BLOCKXSIZE=256',
+                                               'BLOCKYSIZE=256'])
+        dst_ds = raster.Create.return_value
+
+        self.assertEquals(mock_write_channels.call_count, 1)
+        self.assertEquals(mock_write_channels.call_args[0][0], dst_ds)
+        self.assertEquals(mock_write_channels.call_args[0][2], 255)
+        self.assertTrue(mock_write_channels.call_args[0][3], self.img.fill_value)
+        
+        # all zeros  should be replaced by ones
+        self.assertTrue(np.all(mock_write_channels.call_args[0][1]
+                               == data_with_subst))
 
 
 def suite():

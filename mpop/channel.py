@@ -41,6 +41,7 @@ try:
 except ImportError:
     sza = None
 
+from mpop.tools import viewzen_corr as vz_corr
 
 class GeolocationIncompleteError(Exception):
 
@@ -745,6 +746,33 @@ class Channel(GenericChannel):
 
         return new_ch
 
+    def viewzen_corr(self, view_zen_angle_data):
+        """Apply atmospheric correction on a copy of this channel data
+        using the given satellite zenith angle data of the same shape.
+        Returns a new channel containing the corrected data.
+        The name of the new channel will be *original_chan.name+'_VZC'*,
+        eg. "IR108_VZC".  This name is also stored to the info dictionary of
+        the originating channel.
+        """
+
+        # copy channel data which will be corrected in place
+        chn_data = self.data.copy()
+        CHUNK_SZ = 500
+        for start in xrange(0, chn_data.shape[1], CHUNK_SZ):
+            # apply correction on channel data
+            vz_corr(chn_data[:, start:start + CHUNK_SZ],
+                    view_zen_angle_data[:, start:start + CHUNK_SZ])
+
+        new_ch = Channel(name=self.name + "_VZC",
+                         resolution=self.resolution,
+                         wavelength_range=self.wavelength_range,
+                         data=chn_data,
+                         calibration_unit=self.unit)
+
+        # Add information about the corrected version to original channel
+        self.info["view_zen_corrected"] = self.name + '_VZC'
+
+        return new_ch
 
     # Arithmetic operations on channels.
 
