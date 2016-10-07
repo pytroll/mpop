@@ -133,7 +133,7 @@ class ViirsCompositer(VisirCompositer):
 
     hr_overview.prerequisites = set(['I01', 'I02', 'I05'])
 
-    def truecolor(self):
+    def truecolor(self, stretch='linear', gamma=2.0):
         """Make a True Color RGB image composite from
         M-bands only.
         """
@@ -149,8 +149,10 @@ class ViirsCompositer(VisirCompositer):
                                  fill_value=None,
                                  mode="RGB")
 
-        img.enhance(stretch="linear")
-        img.enhance(gamma=2.0)
+        if stretch:
+            img.enhance(stretch=stretch)
+        if gamma:
+            img.enhance(gamma=gamma)
 
         return img
 
