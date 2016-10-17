@@ -31,15 +31,15 @@
 """Interface to Eumetcast level 1.5 HRIT/LRIT format. Uses the MIPP reader.
 """
 import ConfigParser
+import fnmatch
+import logging
 import os
+
 from pyproj import Proj
 
-from mipp import xrit
-from mipp import CalibrationError, ReaderError
-
+from mipp import CalibrationError, ReaderError, xrit
 from mpop import CONFIG_PATH
-import logging
-
+from mpop.plugin_base import Reader
 from mpop.satin.helper_functions import area_def_names_to_extent
 
 LOGGER = logging.getLogger(__name__)
@@ -53,8 +53,6 @@ try:
     IS_PYRESAMPLE_LOADED = True
 except ImportError:
     LOGGER.warning("pyresample missing. Can only work in satellite projection")
-
-from mpop.plugin_base import Reader
 
 
 class XritReader(Reader):
@@ -73,8 +71,8 @@ def load(satscene, calibrate=True, area_extent=None, area_def_names=None,
     argument is passed to mipp (should be 0 for off, 1 for default, and 2 for
     radiances only).
     """
-    del kwargs
-    conf = ConfigParser.ConfigParser()
+
+    conf = ConfigParser.RawConfigParser()
     conf.read(os.path.join(CONFIG_PATH, satscene.fullname + ".cfg"))
     options = {}
     for option, value in conf.items(satscene.instrument_name + "-level2"):
@@ -83,22 +81,24 @@ def load(satscene, calibrate=True, area_extent=None, area_def_names=None,
     for section in conf.sections():
         if(section.startswith(satscene.instrument_name) and
            not (section == "satellite") and
-           not section[:-1].endswith("-level") and
+           # not section[:-1].endswith("-level") and
            not section.endswith("-granules")):
-            options[section] = conf.items(section)
+            options[section] = dict(conf.items(section))
+
+    filenames = kwargs.get('filename')
 
     CASES.get(satscene.instrument_name, load_generic)(satscene,
                                                       options,
                                                       calibrate,
                                                       area_extent,
-                                                      area_def_names)
+                                                      area_def_names,
+                                                      filenames)
 
 
 def load_generic(satscene, options, calibrate=True, area_extent=None,
-                 area_def_names=None):
+                 area_def_names=None, filenames=None):
     """Read imager data from file and load it into *satscene*.
     """
-    del options
 
     os.environ["PPP_CONFIG_DIR"] = CONFIG_PATH
 
@@ -126,10 +126,52 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
     area_converted_to_extent = False
 
     for chn in satscene.channels_to_load:
+
+        # Sort out filenames
+        if filenames is not None:
+            for section in options.keys():
+                if section.endswith('-level1'):
+                    break
+            pattern_pro = eval(options[section].get('filename_pro'))
+            pattern_epi = eval(options[section].get('filename_epi'))
+            pattern = eval(options[section].get('filename'))
+
+            epilogue = None
+            prologue = None
+            image_files = []
+
+            if pattern_epi is not None:
+                glob_epi = satscene.time_slot.strftime(
+                    pattern_epi) % ({'segment': "EPI".ljust(9, '_')})
+
+            if pattern_pro is not None:
+                glob_pro = satscene.time_slot.strftime(
+                    pattern_pro) % ({'segment': "PRO".ljust(9, '_')})
+
+            glob_img = satscene.time_slot.strftime(
+                pattern) % ({'segment': "*", 'channel': chn + '*'})
+
+            for filename in filenames:
+                if fnmatch.fnmatch(os.path.basename(filename), glob_img):
+                    image_files.append(filename)
+                elif fnmatch.fnmatch(os.path.basename(filename), glob_pro):
+                    prologue = filename
+                elif fnmatch.fnmatch(os.path.basename(filename), glob_epi):
+                    epilogue = filename
+
         if from_area:
             try:
-                metadata = xrit.sat.load(satscene.fullname, satscene.time_slot,
-                                         chn, only_metadata=True)
+                if filenames is not None:
+                    metadata = xrit.sat.load_files(prologue,
+                                                   image_files,
+                                                   epilogue,
+                                                   platform_name=satscene.fullname,
+                                                   only_metadata=True)
+                else:
+                    metadata = xrit.sat.load(satscene.fullname,
+                                             satscene.time_slot,
+                                             chn,
+                                             only_metadata=True)
                 if(satscene.area_def.proj_dict["proj"] != "geos" or
                    float(satscene.area_def.proj_dict["lon_0"]) !=
                    metadata.sublon):
@@ -144,8 +186,17 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
         # Convert area definitions to maximal area_extent
         if not area_converted_to_extent and area_def_names is not None:
             try:
-                metadata = xrit.sat.load(satscene.fullname, satscene.time_slot,
-                                         chn, only_metadata=True)
+                if filenames is not None:
+                    metadata = xrit.sat.load_files(prologue,
+                                                   image_files,
+                                                   epilogue,
+                                                   platform_name=satscene.fullname,
+                                                   only_metadata=True)
+                else:
+                    metadata = xrit.sat.load(satscene.fullname,
+                                             satscene.time_slot,
+                                             chn,
+                                             only_metadata=True)
             except ReaderError as err:
                 LOGGER.warning(str(err))
                 continue
@@ -161,18 +212,26 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
                 area_extent = area_def_names_to_extent(area_def_names,
                                                        metadata.proj4_params,
                                                        default_extent=None)
-                
+
             if area_extent is None:
                 LOGGER.info('Could not derive area_extent from area_def_names')
 
             area_converted_to_extent = True
 
         try:
-            image = xrit.sat.load(satscene.fullname,
-                                  satscene.time_slot,
-                                  chn,
-                                  mask=True,
-                                  calibrate=calibrate)
+            if filenames is not None:
+                image = xrit.sat.load_files(prologue,
+                                            image_files,
+                                            epilogue,
+                                            platform_name=satscene.fullname,
+                                            mask=True,
+                                            calibrate=calibrate)
+            else:
+                image = xrit.sat.load(satscene.fullname,
+                                      satscene.time_slot,
+                                      chn,
+                                      mask=True,
+                                      calibrate=calibrate)
             if area_extent:
                 metadata, data = image(area_extent)
             else:
@@ -180,11 +239,19 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
         except CalibrationError:
             LOGGER.warning(
                 "Loading non calibrated data since calibration failed.")
-            image = xrit.sat.load(satscene.fullname,
-                                  satscene.time_slot,
-                                  chn,
-                                  mask=True,
-                                  calibrate=False)
+            if filenames is not None:
+                image = xrit.sat.load_files(prologue,
+                                            image_files,
+                                            epilogue,
+                                            platform_name=satscene.fullname,
+                                            mask=True,
+                                            calibrate=False)
+            else:
+                image = xrit.sat.load(satscene.fullname,
+                                      satscene.time_slot,
+                                      chn,
+                                      mask=True,
+                                      calibrate=False)
             if area_extent:
                 metadata, data = image(area_extent)
             else:
