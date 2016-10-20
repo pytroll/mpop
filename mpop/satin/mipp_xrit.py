@@ -131,7 +131,7 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
     area_converted_to_extent = False
 
     for chn in satscene.channels_to_load:
-
+        use_filenames = False
         # Sort out filenames
         if filenames is not None:
             for section in options.keys():
@@ -163,10 +163,14 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
                     prologue = filename
                 elif fnmatch.fnmatch(os.path.basename(filename), glob_epi):
                     epilogue = filename
+            if len(image_files) == 0 and prologue is None and epilogue is None:
+                use_filenames = False
+            else:
+                use_filenames = True
 
         if from_area:
             try:
-                if filenames is not None:
+                if use_filenames:
                     metadata = xrit.sat.load_files(prologue,
                                                    image_files,
                                                    epilogue,
@@ -191,7 +195,7 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
         # Convert area definitions to maximal area_extent
         if not area_converted_to_extent and area_def_names is not None:
             try:
-                if filenames is not None:
+                if use_filenames:
                     metadata = xrit.sat.load_files(prologue,
                                                    image_files,
                                                    epilogue,
@@ -224,7 +228,7 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
             area_converted_to_extent = True
 
         try:
-            if filenames is not None:
+            if use_filenames:
                 image = xrit.sat.load_files(prologue,
                                             image_files,
                                             epilogue,
@@ -244,7 +248,7 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
         except CalibrationError:
             LOGGER.warning(
                 "Loading non calibrated data since calibration failed.")
-            if filenames is not None:
+            if use_filenames:
                 image = xrit.sat.load_files(prologue,
                                             image_files,
                                             epilogue,
