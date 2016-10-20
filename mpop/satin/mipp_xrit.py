@@ -117,6 +117,11 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
 
     from_area = False
 
+    if satscene.end_time is not None:
+        time_slot = satscene.time_slot, satscene.end_time
+    else:
+        time_slot = satscene.time_slot
+
     if area_extent is None and satscene.area is not None:
         if not satscene.area_def:
             satscene.area = get_area_def(satscene.area_id)
@@ -169,7 +174,7 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
                                                    only_metadata=True)
                 else:
                     metadata = xrit.sat.load(satscene.fullname,
-                                             satscene.time_slot,
+                                             time_slot,
                                              chn,
                                              only_metadata=True)
                 if(satscene.area_def.proj_dict["proj"] != "geos" or
@@ -194,7 +199,7 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
                                                    only_metadata=True)
                 else:
                     metadata = xrit.sat.load(satscene.fullname,
-                                             satscene.time_slot,
+                                             time_slot,
                                              chn,
                                              only_metadata=True)
             except ReaderError as err:
@@ -228,7 +233,7 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
                                             calibrate=calibrate)
             else:
                 image = xrit.sat.load(satscene.fullname,
-                                      satscene.time_slot,
+                                      time_slot,
                                       chn,
                                       mask=True,
                                       calibrate=calibrate)
@@ -248,7 +253,7 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
                                             calibrate=False)
             else:
                 image = xrit.sat.load(satscene.fullname,
-                                      satscene.time_slot,
+                                      time_slot,
                                       chn,
                                       mask=True,
                                       calibrate=False)
