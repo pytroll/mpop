@@ -48,11 +48,11 @@ import mpop.imageo.formats.writer_options as write_opts
 
 log = logging.getLogger(__name__)
 
-#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------
 #
 # Ninjo tiff tags from DWD
 #
-#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------
 # Geotiff tags.
 GTF_ModelPixelScale = 33550
 GTF_ModelTiepoint = 33922
@@ -116,14 +116,15 @@ NINJO_TAGS_INV = dict((v, k) for k, v in NINJO_TAGS.items())
 # model_pixel_scale_tag_count ? ...
 # Sometimes DWD product defines an array of length 2 (instead of 3 (as in geotiff)).
 #
-MODEL_PIXEL_SCALE_COUNT = int(os.environ.get("GEOTIFF_MODEL_PIXEL_SCALE_COUNT", 3))
+MODEL_PIXEL_SCALE_COUNT = int(os.environ.get(
+    "GEOTIFF_MODEL_PIXEL_SCALE_COUNT", 3))
 
 
-#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------
 #
 # Read Ninjo products config file.
 #
-#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------
 def get_product_config(product_name, force_read=False):
     """Read Ninjo configuration entry for a given product name.
 
@@ -204,11 +205,11 @@ class ProductConfigs(object):
         raise ValueError("Could not find a Ninjo tiff config file")
 
 
-#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------
 #
 # Write Ninjo Products
 #
-#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------
 def _get_physic_value(physic_unit):
     # return Ninjo's physics unit and value.
     if physic_unit.upper() in ('K', 'KELVIN'):
@@ -242,7 +243,8 @@ def _get_projection_name(area_def):
 def _get_pixel_size(projection_name, area_def):
     if projection_name in ['PLAT', 'MERC']:
         upper_left = area_def.get_lonlat(0, 0)
-        lower_right = area_def.get_lonlat(area_def.shape[0] - 1, area_def.shape[1] - 1)
+        lower_right = area_def.get_lonlat(
+            area_def.shape[0] - 1, area_def.shape[1] - 1)
         pixel_size = abs(lower_right[0] - upper_left[0]) / (area_def.shape[1] - 1),\
             abs(upper_left[1] - lower_right[1]) / (area_def.shape[0] - 1)
     elif projection_name in ('NPOL', 'SPOL'):
@@ -300,7 +302,8 @@ def _finalize(geo_image, dtype=np.uint8, value_range_measurement_unit=None, data
         data = geo_image.channels[0]
         fill_value = np.iinfo(dtype).min
         log.debug("Transparent pixel are forced to be %d" % fill_value)
-        log.debug("Before scaling: %.2f, %.2f, %.2f" % (data.min(), data.mean(), data.max()))
+        log.debug("Before scaling: %.2f, %.2f, %.2f" %
+                  (data.min(), data.mean(), data.max()))
         if np.ma.count_masked(data) == data.size:
             # All data is masked
             data = np.ones(data.shape, dtype=dtype) * fill_value
@@ -325,7 +328,8 @@ def _finalize(geo_image, dtype=np.uint8, value_range_measurement_unit=None, data
                 mask = data.mask
 
                 # Make room for transparent pixel.
-                scale_fill_value = ((np.iinfo(dtype).max - 1.0) / np.iinfo(dtype).max)
+                scale_fill_value = (
+                    (np.iinfo(dtype).max - 1.0) / np.iinfo(dtype).max)
                 data = 1 + (data.data * scale_fill_value).astype(dtype)
 
                 offset -= scale
@@ -333,7 +337,8 @@ def _finalize(geo_image, dtype=np.uint8, value_range_measurement_unit=None, data
 
             else:
                 if value_range_measurement_unit:
-                    data.clip(value_range_measurement_unit[0], value_range_measurement_unit[1], data)
+                    data.clip(value_range_measurement_unit[
+                              0], value_range_measurement_unit[1], data)
                     chn_min = value_range_measurement_unit[0]
                     chn_max = value_range_measurement_unit[1]
                     log.debug("Scaling, using value range %.2f - %.2f" %
@@ -351,7 +356,8 @@ def _finalize(geo_image, dtype=np.uint8, value_range_measurement_unit=None, data
                 scale = scale or 1
                 offset = chn_min
 
-                # Scale data to dtype, and adjust for transparent pixel forced to be minimum.
+                # Scale data to dtype, and adjust for transparent pixel forced
+                # to be minimum.
                 mask = data.mask
                 data = 1 + ((data.data - offset) / scale).astype(dtype)
                 offset -= scale
@@ -395,7 +401,8 @@ def _finalize(geo_image, dtype=np.uint8, value_range_measurement_unit=None, data
         if isinstance(data, np.ma.core.MaskedArray):
             data = data.filled(fill_value)
         data = data.astype(dtype)
-        log.debug("Value range: %.2f, %.2f, %.2f" % (data.min(), data.mean(), data.max()))
+        log.debug("Value range: %.2f, %.2f, %.2f" %
+                  (data.min(), data.mean(), data.max()))
         return data, 1.0, 0.0, fill_value
 
     else:
@@ -449,7 +456,9 @@ def save(geo_image, filename, ninjo_product_name=None, writer_options=None,
 
     data_is_scaled_01 = bool(kwargs.get("data_is_scaled_01", True))
 
-    data, scale, offset, fill_value = _finalize(geo_image, dtype=dtype, data_is_scaled_01=data_is_scaled_01,
+    data, scale, offset, fill_value = _finalize(geo_image,
+                                                dtype=dtype,
+                                                data_is_scaled_01=data_is_scaled_01,
                                                 value_range_measurement_unit=value_range_measurement_unit,)
 
     area_def = geo_image.area
@@ -498,7 +507,8 @@ def write(image_data, output_fn, area_def, product_name=None, **kwargs):
             See _write
     """
     upper_left = area_def.get_lonlat(0, 0)
-    lower_right = area_def.get_lonlat(area_def.shape[0] - 1, area_def.shape[1] - 1)
+    lower_right = area_def.get_lonlat(
+        area_def.shape[0] - 1, area_def.shape[1] - 1)
 
     if len(image_data.shape) == 3:
         if image_data.shape[2] == 4:
@@ -768,7 +778,8 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
             # Always generate colormap for 8 bit gray scale.
             cmap = _default_colormap(reverse)
         elif reverse:
-            # No colormap for 16 bit gray scale, but for IR, specify white is minimum.
+            # No colormap for 16 bit gray scale, but for IR, specify white is
+            # minimum.
             min_is_white = True
 
     if cmap and len(cmap) != 3:
@@ -824,7 +835,8 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
             else:
                 args["photometric"] = 'minisblack'
 
-        # planarconfig, samples_per_pixel, orientation, sample_format set by tifffile.py
+        # planarconfig, samples_per_pixel, orientation, sample_format set by
+        # tifffile.py
 
         args["tile_width"] = tile_width
         args["tile_length"] = tile_length
@@ -837,7 +849,8 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
 
         # NinJo specific tags
         if description is not None:
-            extra_tags.append((NINJO_TAGS["NTD_Description"], 's', 0, description, True))
+            extra_tags.append(
+                (NINJO_TAGS["NTD_Description"], 's', 0, description, True))
 
         # Geo tiff tags
         if MODEL_PIXEL_SCALE_COUNT == 3:
@@ -849,19 +862,24 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
         extra_tags.append((GTF_ModelTiepoint,
                            'd', 6, [0.0, 0.0, 0.0, origin_lon, origin_lat, 0.0], True))
         extra_tags.append((NINJO_TAGS["NTD_Magic"], 's', 0, "NINJO", True))
-        extra_tags.append((NINJO_TAGS["NTD_SatelliteNameID"], 'I', 1, sat_id, True))
-        extra_tags.append((NINJO_TAGS["NTD_DateID"], 'I', 1, image_epoch, True))
-        extra_tags.append((NINJO_TAGS["NTD_CreationDateID"], 'I', 1, file_epoch, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_SatelliteNameID"], 'I', 1, sat_id, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_DateID"], 'I', 1, image_epoch, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_CreationDateID"], 'I', 1, file_epoch, True))
         extra_tags.append((NINJO_TAGS["NTD_ChannelID"], 'I', 1, chan_id, True))
         extra_tags.append((NINJO_TAGS["NTD_HeaderVersion"], 'i', 1, 2, True))
         if omit_filename_path:
             extra_tags.append((NINJO_TAGS["NTD_FileName"], 's', 0,
                                os.path.basename(output_fn), True))
         else:
-            extra_tags.append((NINJO_TAGS["NTD_FileName"], 's', 0, output_fn, True))
+            extra_tags.append(
+                (NINJO_TAGS["NTD_FileName"], 's', 0, output_fn, True))
         extra_tags.append((NINJO_TAGS["NTD_DataType"], 's', 0, data_cat, True))
         # Hardcoded to 0
-        extra_tags.append((NINJO_TAGS["NTD_SatelliteNumber"], 's', 0, "\x00", True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_SatelliteNumber"], 's', 0, "\x00", True))
 
         if write_rgb:
             extra_tags.append((NINJO_TAGS["NTD_ColorDepth"], 'i', 1, 24, True))
@@ -870,14 +888,20 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
         else:
             extra_tags.append((NINJO_TAGS["NTD_ColorDepth"], 'i', 1, 8, True))
 
-        extra_tags.append((NINJO_TAGS["NTD_DataSource"], 's', 0, data_source, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_DataSource"], 's', 0, data_source, True))
         extra_tags.append((NINJO_TAGS["NTD_XMinimum"], 'i', 1, 1, True))
-        extra_tags.append((NINJO_TAGS["NTD_XMaximum"], 'i', 1, image_data.shape[1], True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_XMaximum"], 'i', 1, image_data.shape[1], True))
         extra_tags.append((NINJO_TAGS["NTD_YMinimum"], 'i', 1, 1, True))
-        extra_tags.append((NINJO_TAGS["NTD_YMaximum"], 'i', 1, image_data.shape[0], True))
-        extra_tags.append((NINJO_TAGS["NTD_Projection"], 's', 0, projection, True))
-        extra_tags.append((NINJO_TAGS["NTD_MeridianWest"], 'f', 1, meridian_west, True))
-        extra_tags.append((NINJO_TAGS["NTD_MeridianEast"], 'f', 1, meridian_east, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_YMaximum"], 'i', 1, image_data.shape[0], True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_Projection"], 's', 0, projection, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_MeridianWest"], 'f', 1, meridian_west, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_MeridianEast"], 'f', 1, meridian_east, True))
 
         if radius_a is not None:
             extra_tags.append((NINJO_TAGS["NTD_EarthRadiusLarge"],
@@ -885,28 +909,39 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
         if radius_b is not None:
             extra_tags.append((NINJO_TAGS["NTD_EarthRadiusSmall"],
                                'f', 1, float(radius_b), True))
-        # extra_tags.append((NINJO_TAGS["NTD_GeodeticDate"], 's', 0, "\x00", True)) # ---?
+        # extra_tags.append((NINJO_TAGS["NTD_GeodeticDate"], 's', 0, "\x00",
+        # True)) # ---?
         if ref_lat1 is not None:
-            extra_tags.append((NINJO_TAGS["NTD_ReferenceLatitude1"], 'f', 1, ref_lat1, True))
+            extra_tags.append(
+                (NINJO_TAGS["NTD_ReferenceLatitude1"], 'f', 1, ref_lat1, True))
         if ref_lat2 is not None:
-            extra_tags.append((NINJO_TAGS["NTD_ReferenceLatitude2"], 'f', 1, ref_lat2, True))
+            extra_tags.append(
+                (NINJO_TAGS["NTD_ReferenceLatitude2"], 'f', 1, ref_lat2, True))
         if central_meridian is not None:
             extra_tags.append((NINJO_TAGS["NTD_CentralMeridian"],
                                'f', 1, central_meridian, True))
-        extra_tags.append((NINJO_TAGS["NTD_PhysicValue"], 's', 0, physic_value, True))
-        extra_tags.append((NINJO_TAGS["NTD_PhysicUnit"], 's', 0, physic_unit, True))
-        extra_tags.append((NINJO_TAGS["NTD_MinGrayValue"], 'i', 1, min_gray_val, True))
-        extra_tags.append((NINJO_TAGS["NTD_MaxGrayValue"], 'i', 1, max_gray_val, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_PhysicValue"], 's', 0, physic_value, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_PhysicUnit"], 's', 0, physic_unit, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_MinGrayValue"], 'i', 1, min_gray_val, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_MaxGrayValue"], 'i', 1, max_gray_val, True))
         extra_tags.append((NINJO_TAGS["NTD_Gradient"], 'f', 1, gradient, True))
-        extra_tags.append((NINJO_TAGS["NTD_AxisIntercept"], 'f', 1, axis_intercept, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_AxisIntercept"], 'f', 1, axis_intercept, True))
         if altitude is not None:
-            extra_tags.append((NINJO_TAGS["NTD_Altitude"], 'f', 1, altitude, True))
+            extra_tags.append(
+                (NINJO_TAGS["NTD_Altitude"], 'f', 1, altitude, True))
         extra_tags.append((NINJO_TAGS["NTD_IsBlackLineCorrection"],
                            'i', 1, is_blac_corrected, True))
         extra_tags.append((NINJO_TAGS["NTD_IsAtmosphereCorrected"],
                            'i', 1, is_atmo_corrected, True))
-        extra_tags.append((NINJO_TAGS["NTD_IsCalibrated"], 'i', 1, is_calibrated, True))
-        extra_tags.append((NINJO_TAGS["NTD_IsNormalized"], 'i', 1, is_normalized, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_IsCalibrated"], 'i', 1, is_calibrated, True))
+        extra_tags.append(
+            (NINJO_TAGS["NTD_IsNormalized"], 'i', 1, is_normalized, True))
         extra_tags.append((NINJO_TAGS["NTD_TransparentPixel"],
                            'i', 1, transparent_pix, True))
 

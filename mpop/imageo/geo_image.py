@@ -32,9 +32,13 @@
 
 """Module for geographic images.
 """
+import logging
 import os
 
 import numpy as np
+
+from mpop import CONFIG_PATH
+from mpop.utils import ensure_dir
 
 try:
     from trollimage.image import Image, UnknownImageFormat
@@ -42,12 +46,10 @@ except ImportError:
     from mpop.imageo.image import Image, UnknownImageFormat
 
 
-from mpop import CONFIG_PATH
-import logging
-from mpop.utils import ensure_dir
 import mpop.imageo.formats.writer_options as write_opts
 
 logger = logging.getLogger(__name__)
+
 
 class GeoImage(Image):
     """This class defines geographic images. As such, it contains not only data
@@ -132,7 +134,7 @@ class GeoImage(Image):
             try:
                 saver = __import__(fformat, globals(), locals(), ['save'])
             except ImportError:
-                raise  UnknownImageFormat(
+                raise UnknownImageFormat(
                     "Unknown image format '%s'" % fformat)
             kwargs = kwargs or {}
             kwargs['writer_options'] = writer_options
@@ -304,9 +306,7 @@ class GeoImage(Image):
                                       fill_value)
         else:
             raise NotImplementedError("Saving to GeoTIFF using image mode"
-                                      " %s is not implemented."%self.mode)
-
-
+                                      " %s is not implemented." % self.mode)
 
         # Create raster GeoTransform based on upper left corner and pixel
         # resolution ... if not overwritten by argument geotransform.
@@ -324,7 +324,6 @@ class GeoImage(Image):
                 area = get_area_def(self.area)
             except (utils.AreaNotFound, AttributeError):
                 area = self.area
-
 
             try:
                 adfgeotransform = [area.area_extent[0], area.pixel_size_x, 0,
@@ -358,7 +357,6 @@ class GeoImage(Image):
 
         dst_ds = None
 
-
     def add_overlay(self, color=(0, 0, 0), width=0.5, resolution=None):
         """Add coastline and political borders to image, using *color* (tuple
         of integers between 0 and 255).
@@ -373,8 +371,6 @@ class GeoImage(Image):
         | 'c' | Crude resolution        | 25  km  |
         +-----+-------------------------+---------+
         """
-
-
 
         img = self.pil_image()
 
@@ -433,12 +429,10 @@ class GeoImage(Image):
             for idx in range(len(self.channels)):
                 self.channels[idx] = np.ma.array(arr[:, :, idx] / 255.0)
 
-
     def add_overlay_config(self, config_file):
         """Add overlay to image parsing a configuration file.
-           
-        """
 
+        """
 
         import ConfigParser
         conf = ConfigParser.ConfigParser()
@@ -456,7 +450,6 @@ class GeoImage(Image):
             logger.warning("AGGdraw lib not installed...width and opacity properties are not available for overlays.")
             from pycoast import ContourWriter
             cw_ = ContourWriter(coast_dir)
-            
 
         logger.debug("Getting area for overlay: " + str(self.area))
 
@@ -468,15 +461,14 @@ class GeoImage(Image):
 
         img = self.pil_image()
 
-
         from mpop.projector import get_area_def
         if isinstance(self.area, str):
             self.area = get_area_def(self.area)
         logger.info("Add overlays to image.")
         logger.debug("Area = " + str(self.area.area_id))
 
-        foreground=cw_.add_overlay_from_config(config_file, self.area)
-        img.paste(foreground,mask=foreground.split()[-1])
+        foreground = cw_.add_overlay_from_config(config_file, self.area)
+        img.paste(foreground, mask=foreground.split()[-1])
 
         arr = np.array(img)
 
@@ -485,4 +477,3 @@ class GeoImage(Image):
         else:
             for idx in range(len(self.channels)):
                 self.channels[idx] = np.ma.array(arr[:, :, idx] / 255.0)
-
