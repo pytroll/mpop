@@ -43,8 +43,8 @@ from datetime import datetime
 
 import numpy as np
 
-from mpop.imageo.formats import tifffile
 import mpop.imageo.formats.writer_options as write_opts
+from mpop.imageo.formats import tifffile
 
 log = logging.getLogger(__name__)
 
@@ -276,7 +276,7 @@ def _finalize(geo_image, dtype=np.uint8, value_range_measurement_unit=None, data
     :Parameters:
         geo_image : mpop.imageo.geo_image.GeoImage
             See MPOP's documentation.
-        dtype : bits per sample np.unit8 or np.unit16 (default: np.unit8)
+        dtype : bits per sample np.uint8 or np.uint16 (default: np.uint8)
         value_range_measurement_unit: list or tuple
             Defining minimum and maximum value range. Data will be clipped into
             that range. Default is no clipping and auto scale.
@@ -380,10 +380,16 @@ def _finalize(geo_image, dtype=np.uint8, value_range_measurement_unit=None, data
 
     elif geo_image.mode == 'RGB':
         channels, fill_value = geo_image._finalize(dtype)
-        fill_value = fill_value or (0, 0, 0)
-        data = np.dstack((channels[0].filled(fill_value[0]),
-                          channels[1].filled(fill_value[1]),
-                          channels[2].filled(fill_value[2])))
+        if fill_value is None:
+            mask = (np.ma.getmaskarray(channels[0]) &
+                    np.ma.getmaskarray(channels[1]) &
+                    np.ma.getmaskarray(channels[2]))
+            channels.append((np.ma.logical_not(mask) *
+                             np.iinfo(channels[0].dtype).max).astype(channels[0].dtype))
+            fill_value = (0, 0, 0, 0)
+
+        data = np.dstack([channel.filled(fill_v)
+                          for channel, fill_v in zip(channels, fill_value)])
         return data, 1.0, 0.0, fill_value[0]
 
     elif geo_image.mode == 'RGBA':
@@ -423,7 +429,7 @@ def save(geo_image, filename, ninjo_product_name=None, writer_options=None,
         ninjo_product_name : str
             Optional index to Ninjo configuration file.
         writer_options : dict
-            options dictionary as defined in MPOP interface 
+            options dictionary as defined in MPOP interface
             See _write
         kwargs : dict
             See _write
