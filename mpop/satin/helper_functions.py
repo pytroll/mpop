@@ -54,7 +54,10 @@ def area_def_names_to_extent(area_def_names, proj4_str,
     for name in area_def_names:
 
         try:
-            boundaries = get_area_def(name).get_boundary_lonlats()
+            adef = get_area_def(name)
+            if "proj=geos" in adef.proj4_string:
+                return adef.area_extent
+            boundaries = adef.get_boundary_lonlats()
         except pyresample.utils.AreaNotFound:
             LOGGER.warning('Area definition not found ' + name)
             continue
@@ -109,7 +112,7 @@ def boundaries_to_extent(proj4_str, maximum_extent, default_extent,
     # replace invalid values with NaN
     x_dir[np.abs(x_dir) > 1e20] = np.nan
     y_dir[np.abs(y_dir) > 1e20] = np.nan
-    
+
     # return None when no default specified
     if not default_extent:
         if any(np.isnan(x_dir)) or any(np.isnan(x_dir)):
