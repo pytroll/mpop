@@ -1,6 +1,31 @@
 Changelog
 =========
 
+v1.3.1 (2016-12-12)
+-------------------
+
+- Update changelog. [Martin Raspaud]
+
+- Bump version: 1.3.0 → 1.3.1. [Martin Raspaud]
+
+- Update maximum_extent instead of just returning the first "geos"
+  extent. [Panu Lahtinen]
+
+- Return the area extent from the area definition, if the projection is
+  "geos" [Panu Lahtinen]
+
+- Fix 'sun_zen_correction_applied' not being set to true. [Martin
+  Raspaud]
+
+- Merge pull request #39 from mraspaud/pre-master. [Martin Raspaud]
+
+  Turn RGB ninjotiff image into RGBA when fill_value is None
+
+- Turn RGB ninjotiff image into RGBA when fill_value is None. [Martin
+  Raspaud]
+
+  This patch allows to replicate the behaviour when saving pil images.
+
 v1.3.0 (2016-10-27)
 -------------------
 
