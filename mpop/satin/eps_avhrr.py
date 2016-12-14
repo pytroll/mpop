@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2012, 2014.
+# Copyright (c) 2010, 2012, 2014, 2016
 
 # SMHI,
 # Folkborgsvägen 1,
@@ -10,6 +10,8 @@
 # Author(s):
 
 #   Martin Raspaud <martin.raspaud@smhi.se>
+#   Jukka Kujanpää <jukka.kujanpaa@fmi.fi>
+#   Panu Lahtinen <panu.lahtinen@fmi.fi>
 
 # This file is part of mpop.
 
@@ -52,11 +54,11 @@ INSTRUMENT_GROUP = ["GENERIC", "AMSU-A", "ASCAT", "ATOVS", "AVHRR/3", "GOME",
                     "GRAS", "HIRS/4", "IASA", "MHS", "SEM", "ADCS", "SBUV",
                     "DUMMY", "ARCHIVE", "IASI_L2"]
 
-MPHR = [100, 100, 100, 100, 100, 37, 36, 36, 35, 36, 48, 48, 48, 48, 37, 38, 38,
-        38, 38, 48, 48, 34, 34, 36, 48, 48, 38, 38, 44, 51, 44, 44, 44, 44, 44,
-        44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44,
-        35, 48, 39, 39, 39, 39, 39, 39, 39, 39, 39, 39, 39, 39, 39, 41, 41, 41,
-        34]
+MPHR = [100, 100, 100, 100, 100, 37, 36, 36, 35, 36, 48, 48, 48, 48,
+        37, 38, 38, 38, 38, 48, 48, 34, 34, 36, 48, 48, 38, 38, 44,
+        51, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44, 44,
+        44, 44, 44, 44, 44, 44, 44, 44, 44, 35, 48, 39, 39, 39, 39,
+        39, 39, 39, 39, 39, 39, 39, 39, 39, 41, 41, 41, 34]
 
 SPHR = [38, 36]
 
@@ -464,9 +466,9 @@ def read_mdr_1b(fdes, grh, metadata):
     mdr["EARTH_VIEWS_PER_SCANLINE"] = read_bytes(fdes, 2)
     scanlength = mdr["EARTH_VIEWS_PER_SCANLINE"]
     array = (np.fromfile(file=fdes, dtype=">i2", count=scanlength * 5) *
-             10 ** -2)
+             .01)
     array = array.reshape(5, scanlength)
-    array[2, :] *= 10 ** -2
+    array[2, :] *= .01
     mdr["SCENE_RADIANCES"] = array
 
     # Channels 1, 2, 3a in units of W/(m^2.sr).
@@ -475,25 +477,35 @@ def read_mdr_1b(fdes, grh, metadata):
     # Channels 3a or 3b with scale factor = 4.
 
     mdr["TIME_ATTITUDE"] = read_u_bytes(fdes, 4)
-    mdr["EULER_ANGLE"] = (read_bytes(fdes, 2), read_bytes(fdes, 2),
+    mdr["EULER_ANGLE"] = (read_bytes(fdes, 2),
+                          read_bytes(fdes, 2),
                           read_bytes(fdes, 2))
     mdr["NAVIGATION_STATUS"] = read_bitstring(fdes, 4)
     mdr["SPACECRAFT_ALTITUDE"] = read_u_bytes(fdes, 4)
-    mdr["ANGULAR_RELATIONS_FIRST"] = (read_bytes(fdes, 2), read_bytes(fdes, 2),
-                                      read_bytes(fdes, 2), read_bytes(fdes, 2))
-    mdr["ANGULAR_RELATIONS_LAST"] = (read_bytes(fdes, 2), read_bytes(fdes, 2),
-                                     read_bytes(fdes, 2), read_bytes(fdes, 2))
+    mdr["ANGULAR_RELATIONS_FIRST"] = np.array((read_bytes(fdes, 2),
+                                               read_bytes(fdes, 2),
+                                               read_bytes(fdes, 2),
+                                               read_bytes(fdes, 2))) * .01
+    mdr["ANGULAR_RELATIONS_LAST"] = np.array((read_bytes(fdes, 2),
+                                              read_bytes(fdes, 2),
+                                              read_bytes(fdes, 2),
+                                              read_bytes(fdes, 2))) * .01
     mdr["EARTH_LOCATION_FIRST"] = np.array((read_bytes(fdes, 4, -4),
                                             read_bytes(fdes, 4, -4)))
     mdr["EARTH_LOCATION_LAST"] = np.array((read_bytes(fdes, 4, -4),
                                            read_bytes(fdes, 4, -4)))
 
     mdr["NUM_NAVIGATION_POINTS"] = read_bytes(fdes, 2)
+    nav_samples = metadata['NAV_SAMPLES']
     mdr["ANGULAR_RELATIONS"] = np.fromfile(file=fdes, dtype=">i2",
-                                           count=412) * 10 ** -2
+                                           count=nav_samples * 4) * .01
+#    mdr["ANGULAR_RELATIONS"] = np.fromfile(file = fdes, dtype = ">i2",
+#                                           count = 412) * 10 ** -2
 
     mdr["EARTH_LOCATIONS"] = np.fromfile(file=fdes, dtype=">i4",
-                                         count=206) * 10 ** -4
+                                         count=nav_samples * 2) * .0001
+#    mdr["EARTH_LOCATIONS"] = np.fromfile(file = fdes, dtype = ">i4",
+#                                         count = 206) * 10 ** -4
 
     mdr["QUALITY_INDICATOR"] = read_bitstring(fdes, 4)
     mdr["SCAN_LINE_QUALITY"] = read_bitstring(fdes, 4)
@@ -672,6 +684,9 @@ def read(fdes):
     geo_samples = 0
     scanlength = 0
 
+    starttimes = []
+    stoptimes = []
+
     g3a = False
     g3b = False
 
@@ -691,16 +706,29 @@ def read(fdes):
             scanlength = metadata["EARTH_VIEWS_PER_SCANLINE"]
             llats = np.zeros((MAX_SCAN_LINES, scanlength))
             llons = np.zeros((MAX_SCAN_LINES, scanlength))
+            lszas = np.zeros((MAX_SCAN_LINES, scanlength))
+            lvzas = np.zeros((MAX_SCAN_LINES, scanlength))
+            lsazs = np.zeros((MAX_SCAN_LINES, scanlength))
+            lvazs = np.zeros((MAX_SCAN_LINES, scanlength))
 
-            channels = np.ma.ones((6, MAX_SCAN_LINES, scanlength),
+            # NOTE: "+4" is for the four angle fields, in this order:
+            # szas, vzas, sazs, vazs
+            channels = np.ma.ones((6 + 4, MAX_SCAN_LINES, scanlength),
                                   dtype=np.float) * np.infty
-            geo_samples = np.round(
-                scanlength / metadata["NAV_SAMPLE_RATE"]) + 3
+            nav_sample_rate = metadata["NAV_SAMPLE_RATE"]
+            nav_samples = int((scanlength - 5) / nav_sample_rate) + 1
+            metadata['NAV_SAMPLES'] = nav_samples
+            geo_samples = nav_samples + 2
             samples = np.zeros(geo_samples, dtype=np.intp)
-            samples[1:-1] = np.arange(geo_samples - 2) * 20 + 5 - 1
+            samples[1:-1] = \
+                np.arange(geo_samples - 2) * nav_sample_rate + 5 - 1
             samples[-1] = scanlength - 1
             lats = np.zeros((MAX_SCAN_LINES, geo_samples))
             lons = np.zeros((MAX_SCAN_LINES, geo_samples))
+            szas = np.zeros((MAX_SCAN_LINES, geo_samples))
+            vzas = np.zeros((MAX_SCAN_LINES, geo_samples))
+            sazs = np.zeros((MAX_SCAN_LINES, geo_samples))
+            vazs = np.zeros((MAX_SCAN_LINES, geo_samples))
 
         if record_class == "GIADR" and grh["RECORD_SUBCLASS"] == 1:
             info_giadr = res
@@ -709,7 +737,7 @@ def read(fdes):
             three_a = get_bit(res["FRAME_INDICATOR"][0], 0)
             if three_a:
                 channels[0:3, cnt, :] = res["SCENE_RADIANCES"][0:3]
-                channels[4:, cnt, :] = res["SCENE_RADIANCES"][3:]
+                channels[4:6, cnt, :] = res["SCENE_RADIANCES"][3:]
                 g3a = True
             else:
                 channels[0:2, cnt, :] = res["SCENE_RADIANCES"][0:2]
@@ -727,11 +755,42 @@ def read(fdes):
             # unwraping datum shift line
             lons[cnt, :] = np.rad2deg(np.unwrap(np.deg2rad(lons[cnt, :])))
 
+            # angles
+            szas[cnt, 1:-1] = res["ANGULAR_RELATIONS"]\
+                [np.arange(geo_samples - 2) * 4]
+            szas[cnt, 0] = res["ANGULAR_RELATIONS_FIRST"][0]
+            szas[cnt, -1] = res["ANGULAR_RELATIONS_LAST"][0]
+
+            vzas[cnt, 1:-1] = res["ANGULAR_RELATIONS"]\
+                [np.arange(geo_samples - 2) * 4 + 1]
+            vzas[cnt, 0] = res["ANGULAR_RELATIONS_FIRST"][1]
+            vzas[cnt, -1] = res["ANGULAR_RELATIONS_LAST"][1]
+
+            sazs[cnt, 1:-1] = res["ANGULAR_RELATIONS"]\
+                [np.arange(geo_samples - 2) * 4 + 2]
+            sazs[cnt, 0] = res["ANGULAR_RELATIONS_FIRST"][2]
+            sazs[cnt, -1] = res["ANGULAR_RELATIONS_LAST"][2]
+
+            vazs[cnt, 1:-1] = res["ANGULAR_RELATIONS"]\
+                [np.arange(geo_samples - 2) * 4 + 3]
+            vazs[cnt, 0] = res["ANGULAR_RELATIONS_FIRST"][3]
+            vazs[cnt, -1] = res["ANGULAR_RELATIONS_LAST"][3]
+
             xnew = np.arange(scanlength)
             tck = interpolate.splrep(samples, lats[cnt, :], s=0)
             llats[cnt, :] = interpolate.splev(xnew, tck, der=0)
             tck = interpolate.splrep(samples, lons[cnt, :], s=0)
             llons[cnt, :] = interpolate.splev(xnew, tck, der=0)
+            tck = interpolate.splrep(samples, szas[cnt, :], s=0)
+            lszas[cnt, :] = interpolate.splev(xnew, tck, der=0)
+            tck = interpolate.splrep(samples, vzas[cnt, :], s=0)
+            lvzas[cnt, :] = interpolate.splev(xnew, tck, der=0)
+            tck = interpolate.splrep(samples, sazs[cnt, :], s=0)
+            lsazs[cnt, :] = interpolate.splev(xnew, tck, der=0)
+            tck = interpolate.splrep(samples, vazs[cnt, :], s=0)
+            lvazs[cnt, :] = interpolate.splev(xnew, tck, der=0)
+            starttimes.append(grh["RECORD_START_TIME"])
+            stoptimes.append(grh["RECORD_STOP_TIME"])
 
             cnt += 1
 
@@ -741,8 +800,14 @@ def read(fdes):
     llons[llons > 180] -= 360
     llons[llons < -180] += 360
 
+    channels[6, :, :] = lszas[:cnt, :]
+    channels[7, :, :] = lvzas[:cnt, :]
+    channels[8, :, :] = lsazs[:cnt, :]
+    channels[9, :, :] = lvazs[:cnt, :]
+
     calibrate(channels, info_giadr)
-    return channels, llats, llons, g3a, g3b, metadata["ORBIT_START"]
+    return (channels, llats, llons, g3a, g3b, metadata["ORBIT_START"],
+            starttimes, stoptimes)
 
 
 CASES = {"MPHR": read_mphr,
@@ -781,7 +846,7 @@ def load_avhrr(satscene, options):
     filename = os.path.join(
         options["dir"],
         (satscene.time_slot.strftime(options["filename"]) % values))
-    LOG.debug("Looking for file %s" % satscene.time_slot.strftime(filename))
+    LOG.debug("Looking for file %s", satscene.time_slot.strftime(filename))
     file_list = glob.glob(satscene.time_slot.strftime(filename))
 
     if len(file_list) > 1:
@@ -791,7 +856,8 @@ def load_avhrr(satscene, options):
 
     try:
         fdes = open(file_list[0])
-        channels, lats, lons, g3a, g3b, orbit = read(fdes)
+        (channels, lats, lons, g3a, g3b, orbit,
+         starttimes, stoptimes) = read(fdes)
 
     finally:
         fdes.close()
@@ -807,9 +873,16 @@ def load_avhrr(satscene, options):
     if g3b:
         satscene["3B"] = channels[3, :, :]
 
-    print "Inside eps_avhrr.load_avhrr: orbit = ", orbit
-    #satscene.orbit = str(int(orbit) + 1)
+    # satscene.orbit = str(int(orbit) + 1)
     satscene.orbit = str(int(orbit))
+
+    # Add viewing angles as channels
+    satscene.szas = channels[6, :, :]
+    satscene.vzas = channels[7, :, :]
+    satscene.sazs = channels[8, :, :]
+    satscene.vazs = channels[9, :, :]
+    satscene.starttimes = starttimes
+    satscene.stoptimes = stoptimes
 
     try:
         from pyresample import geometry
@@ -850,11 +923,13 @@ def get_lat_lon_avhrr(satscene, options):
 
 
 LAT_LON_CASES = {
-    "avhrr": get_lat_lon_avhrr
+    "avhrr": get_lat_lon_avhrr,
+    "avhrr/3": get_lat_lon_avhrr
 }
 
 LOAD_CASES = {
-    "avhrr": load_avhrr
+    "avhrr": load_avhrr,
+    "avhrr/3": load_avhrr
 }
 
 
