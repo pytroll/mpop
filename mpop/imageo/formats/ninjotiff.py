@@ -311,34 +311,40 @@ def _finalize(geo_image, dtype=np.uint8, value_range_measurement_unit=None, data
             offset = 0
         else:
             if value_range_measurement_unit and data_is_scaled_01:
-                # No additional scaling of the input data - assume that data is within [0.0, 1.0]
-                # and interpretate 0.0 as value_range_measurement_unit[0]
-                # and 1.0 as value_range_measurement_unit[1]
+                # No additional scaling of the input data - assume that data is
+                # within [0.0, 1.0] and interpret 0.0 as
+                # value_range_measurement_unit[0] and 1.0 as
+                # value_range_measurement_unit[1]
+
+                # Make room for transparent pixel.
+                scale_fill_value = (
+                    (np.iinfo(dtype).max) / (np.iinfo(dtype).max + 1.0))
+                geo_image = deepcopy(geo_image)
+                geo_image.channels[0] *= scale_fill_value
+
+                geo_image.channels[0] += 1 / (np.iinfo(dtype).max + 1.0)
+
                 channels, fill_value = geo_image._finalize(dtype)
-                fill_value = fill_value or (0,)
                 data = channels[0]
 
-                scale = ((value_range_measurement_unit[1] - value_range_measurement_unit[0]) /
-                         (np.iinfo(dtype).max - 1.0))
-
+                scale = ((value_range_measurement_unit[1] -
+                          value_range_measurement_unit[0]) /
+                         (np.iinfo(dtype).max))
                 # Handle the case where all data has the same value.
                 scale = scale or 1
                 offset = value_range_measurement_unit[0]
 
                 mask = data.mask
 
-                # Make room for transparent pixel.
-                scale_fill_value = (
-                    (np.iinfo(dtype).max - 1.0) / np.iinfo(dtype).max)
-                data = 1 + (data.data * scale_fill_value).astype(dtype)
-
                 offset -= scale
-                scale /= scale_fill_value
+
+                if fill_value is None:
+                    fill_value = 0
 
             else:
                 if value_range_measurement_unit:
-                    data.clip(value_range_measurement_unit[
-                              0], value_range_measurement_unit[1], data)
+                    data.clip(value_range_measurement_unit[0],
+                              value_range_measurement_unit[1], data)
                     chn_min = value_range_measurement_unit[0]
                     chn_max = value_range_measurement_unit[1]
                     log.debug("Scaling, using value range %.2f - %.2f" %
