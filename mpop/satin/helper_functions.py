@@ -87,6 +87,7 @@ def area_def_names_to_extent(area_def_names, proj4_str,
         if not maximum_extent:
             return None
 
+    maximum_extent = list(maximum_extent)
     maximum_extent[0] -= 10000
     maximum_extent[1] -= 10000
     maximum_extent[2] += 10000
