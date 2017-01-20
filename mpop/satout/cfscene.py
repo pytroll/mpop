@@ -76,8 +76,9 @@ class CFScene(object):
 
         # Other global attributes
         self.info["Conventions"] = "CF-1.5"
-        #self.info["platform"] = scene.satname + "-" + str(scene.number)
-        self.info["platform"] = scene.fullname
+        # MPOP's nc_reader, expect a '-' to split name and number.
+        self.info["platform"] = scene.satname + "-" + str(scene.number)
+        #self.info["platform"] = scene.fullname
         self.info["instrument"] = scene.instrument_name
         if scene.variant:
             self.info["service"] = scene.variant
@@ -247,7 +248,7 @@ class CFScene(object):
                                  "var_data": lons.data,
                                  "var_dim_names": ("y" + str_arc,
                                                    "x" + str_arc),
-                                 "_FillValue": lons.data.fill_value,
+                                 "_FillValue": fill_value,
                                  "units": "degrees east",
                                  "long_name": "longitude coordinate",
                                  "standard_name": "longitude"}
@@ -264,7 +265,7 @@ class CFScene(object):
                                  "var_data": lats.data,
                                  "var_dim_names": ("y" + str_arc,
                                                    "x" + str_arc),
-                                 "_FillValue": lats.data.fill_value,
+                                 "_FillValue": fill_value,
                                  "units": "degrees north",
                                  "long_name": "latitude coordinate",
                                  "standard_name": "latitude"}
