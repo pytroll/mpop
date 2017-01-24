@@ -221,6 +221,7 @@ class Projector(object):
                 from pyresample.ewa import ll2cr
                 swath_points_in_grid, cols, rows = ll2cr(self.in_area,
                                                          self.out_area)
+                self._cache = {}
                 # self._cache['ewa_swath_points_in_grid'] = \
                 #     swath_points_in_grid
                 self._cache['ewa_cols'] = cols
