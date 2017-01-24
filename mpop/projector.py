@@ -105,8 +105,9 @@ class Projector(object):
                  radius=10000, nprocs=1):
 
         if (mode is not None and
-                mode not in ["quick", "nearest"]):
-            raise ValueError("Projector mode must be 'nearest' or 'quick'")
+                mode not in ["quick", "nearest", "ewa"]):
+            raise ValueError(
+                "Projector mode must be 'nearest', 'quick' or 'ewa'")
 
         self.area_file = get_area_file()
 
@@ -160,7 +161,7 @@ class Projector(object):
                                          self.area_file + " or "
                                          "be an area object.")
 
-        #if self.in_area == self.out_area:
+        # if self.in_area == self.out_area:
         #    return
 
         # choosing the right mode if necessary
@@ -216,6 +217,15 @@ class Projector(object):
                 self._cache['row_idx'] = ridx
                 self._cache['col_idx'] = cidx
 
+            elif self.mode == "ewa":
+                from pyresample.ewa import ll2cr
+                swath_points_in_grid, cols, rows = ll2cr(self.in_area,
+                                                         self.out_area)
+                # self._cache['ewa_swath_points_in_grid'] = \
+                #     swath_points_in_grid
+                self._cache['ewa_cols'] = cols
+                self._cache['ewa_rows'] = rows
+
     def save(self, resave=False):
         """Save the precomputation to disk, and overwrite existing file in case
         *resave* is true.
@@ -257,5 +267,18 @@ class Projector(object):
             img = image.ImageContainer(data, self.in_area, fill_value=None)
             res = np.ma.array(img.get_array_from_linesample(row_idx, col_idx),
                               dtype=data.dtype)
+
+        elif self.mode == "ewa":
+            from pyresample.ewa import fornav
+            # TODO: should be user configurable?
+            rows_per_scan = None
+
+            if 'ewa_cols' not in self._cache:
+                self._cache['ewa_cols'] = self._file_cache['ewa_cols']
+                self._cache['ewa_rows'] = self._file_cache['ewa_rows']
+            num_valid_points, res = fornav(self._cache['ewa_cols'],
+                                           self._cache['ewa_rows'],
+                                           self.out_area, data,
+                                           rows_per_scan=rows_per_scan)
 
         return res
