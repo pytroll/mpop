@@ -233,7 +233,7 @@ class Projector(object):
                 bilinear_t, bilinear_s, input_idxs, idx_arr = \
                     calc_params(self.in_area, self.out_area,
                                 self.radius, neighbours=32,
-                                nprocs=nprocs)
+                                nprocs=nprocs, masked=False)
 
                 self._cache = {}
                 self._cache['bilinear_s'] = bilinear_s
