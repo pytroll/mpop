@@ -105,9 +105,9 @@ class Projector(object):
                  radius=10000, nprocs=1):
 
         if (mode is not None and
-                mode not in ["quick", "nearest", "ewa"]):
-            raise ValueError(
-                "Projector mode must be 'nearest', 'quick' or 'ewa'")
+                mode not in ["quick", "nearest", "ewa", "bilinear"]):
+            raise ValueError("Projector mode must be one of 'nearest', "
+                             "'quick', 'ewa', 'bilinear'")
 
         self.area_file = get_area_file()
 
@@ -227,6 +227,20 @@ class Projector(object):
                 self._cache['ewa_cols'] = cols
                 self._cache['ewa_rows'] = rows
 
+            elif self.mode == "bilinear":
+                from pyresample.bilinear import calc_params
+
+                bilinear_t, bilinear_s, input_idxs, idx_arr = \
+                    calc_params(self.in_area, self.out_area,
+                                self.radius, neighbours=32,
+                                nprocs=nprocs)
+
+                self._cache = {}
+                self._cache['bilinear_s'] = bilinear_s
+                self._cache['bilinear_t'] = bilinear_t
+                self._cache['input_idxs'] = input_idxs
+                self._cache['idx_arr'] = idx_arr
+
     def save(self, resave=False):
         """Save the precomputation to disk, and overwrite existing file in case
         *resave* is true.
@@ -281,5 +295,20 @@ class Projector(object):
                                            self._cache['ewa_rows'],
                                            self.out_area, data,
                                            rows_per_scan=rows_per_scan)
+
+        elif self.mode == "bilinear":
+            from pyresample.bilinear import resample_bilinear
+
+            if not 'bilinear_t' in self._cache:
+                self._cache['bilinear_t'] = self._file_cache['bilinear_t']
+                self._cache['bilinear_s'] = self._file_cache['bilinear_s']
+                self._cache['input_idxs'] = self._file_cache['input_idxs']
+                self._cache['idx_arr'] = self._file_cache['idx_arr']
+
+            res = resample_bilinear(data, self._cache['bilinear_t'],
+                                    self._cache['bilinear_s'],
+                                    self._cache['input_idxs'],
+                                    self._cache['idx_arr'],
+                                    self.out_area.shape)
 
         return res
