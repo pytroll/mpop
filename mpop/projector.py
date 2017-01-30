@@ -228,12 +228,12 @@ class Projector(object):
                 self._cache['ewa_rows'] = rows
 
             elif self.mode == "bilinear":
-                from pyresample.bilinear import calc_params
+                from pyresample.bilinear import get_bil_info
 
                 bilinear_t, bilinear_s, input_idxs, idx_arr = \
-                    calc_params(self.in_area, self.out_area,
-                                self.radius, neighbours=32,
-                                nprocs=nprocs, masked=False)
+                    get_bil_info(self.in_area, self.out_area,
+                                 self.radius, neighbours=32,
+                                 nprocs=nprocs, masked=False)
 
                 self._cache = {}
                 self._cache['bilinear_s'] = bilinear_s
@@ -297,7 +297,7 @@ class Projector(object):
                                            rows_per_scan=rows_per_scan)
 
         elif self.mode == "bilinear":
-            from pyresample.bilinear import resample_bilinear
+            from pyresample.bilinear import get_sample_from_bil_info
 
             if not 'bilinear_t' in self._cache:
                 self._cache['bilinear_t'] = self._file_cache['bilinear_t']
@@ -305,10 +305,11 @@ class Projector(object):
                 self._cache['input_idxs'] = self._file_cache['input_idxs']
                 self._cache['idx_arr'] = self._file_cache['idx_arr']
 
-            res = resample_bilinear(data, self._cache['bilinear_t'],
-                                    self._cache['bilinear_s'],
-                                    self._cache['input_idxs'],
-                                    self._cache['idx_arr'],
-                                    self.out_area.shape)
+            res = get_sample_from_bil_info(data.ravel(),
+                                           self._cache['bilinear_t'],
+                                           self._cache['bilinear_s'],
+                                           self._cache['input_idxs'],
+                                           self._cache['idx_arr'],
+                                           output_shape=self.out_area.shape)
 
         return res
