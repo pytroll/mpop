@@ -311,5 +311,6 @@ class Projector(object):
                                            self._cache['input_idxs'],
                                            self._cache['idx_arr'],
                                            output_shape=self.out_area.shape)
+            res = np.ma.masked_invalid(res)
 
         return res
