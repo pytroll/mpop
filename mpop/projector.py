@@ -95,11 +95,15 @@ class Projector(object):
     generated projectors can be saved to disk for later reuse. Use the
     :meth:`save` method for this.
 
-    To define a projector object, on has to specify *in_area* and *out_area*,
-    and can also input the *in_lonlats* or the *mode* ('quick' which works only
-    if both in- and out-areas are AreaDefinitions, or 'nearest'). *radius*
-    defines the radius of influence for nearest neighbour search in 'nearest'
-    mode.
+    To define a projector object, on has to specify *in_area* and
+    *out_area*, and can also input the *in_lonlats* or the *mode*.
+    Available modes area:
+    - 'quick' (works only if both in- and out-areas are AreaDefinitions)
+    - 'bilinear' (out-area needs to be AreaDefinition with proj4_string)
+    - 'ewa'
+    - 'nearest'.
+    *radius* defines the radius of influence for nearest neighbour
+    search in 'nearest' mode.
     """
 
     def __init__(self, in_area, out_area,
@@ -136,6 +140,7 @@ class Projector(object):
                 self.in_area = in_area
             except AttributeError:
                 try:
+                    # TODO: Note that latlons are in order (lons, lats)
                     self.in_area = geometry.SwathDefinition(lons=in_latlons[0],
                                                             lats=in_latlons[1])
                     in_id = in_area
