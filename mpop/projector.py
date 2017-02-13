@@ -39,6 +39,8 @@ import logging
 
 import numpy as np
 from pyresample import image, utils, geometry, kd_tree
+from pyresample.bilinear import get_sample_from_bil_info, get_bil_info
+
 from mpop import CONFIG_PATH
 
 logger = logging.getLogger(__name__)
@@ -228,7 +230,6 @@ class Projector(object):
                 self._cache['ewa_rows'] = rows
 
             elif self.mode == "bilinear":
-                from pyresample.bilinear import get_bil_info
 
                 bilinear_t, bilinear_s, input_idxs, idx_arr = \
                     get_bil_info(self.in_area, self.out_area,
@@ -297,9 +298,8 @@ class Projector(object):
                                            rows_per_scan=rows_per_scan)
 
         elif self.mode == "bilinear":
-            from pyresample.bilinear import get_sample_from_bil_info
 
-            if not 'bilinear_t' in self._cache:
+            if 'bilinear_t' not in self._cache:
                 self._cache['bilinear_t'] = self._file_cache['bilinear_t']
                 self._cache['bilinear_s'] = self._file_cache['bilinear_s']
                 self._cache['input_idxs'] = self._file_cache['input_idxs']
