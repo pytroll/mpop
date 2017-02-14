@@ -52,10 +52,11 @@ class TestProjector(unittest.TestCase):
 
     proj = None
 
+    @patch('mpop.projector.get_bil_info')
     @patch.object(utils, 'generate_quick_linesample_arrays')
     @patch.object(mpop.projector.kd_tree, 'get_neighbour_info')
     @patch.object(mpop.projector, '_get_area_hash')
-    def test_init(self, gah, gni, gqla):
+    def test_init(self, gah, gni, gqla, bil_info):
         """Creation of coverage.
         """
 
@@ -147,12 +148,25 @@ class TestProjector(unittest.TestCase):
         self.assertTrue(cache['col_idx'] is not None)
 
         # nearest mode cache
-
         self.proj = Projector(in_area_id, out_area_id, mode="nearest")
         cache = getattr(self.proj, "_cache")
         self.assertTrue(cache['valid_index'] is not None)
         self.assertTrue(cache['valid_output_index'] is not None)
         self.assertTrue(cache['index_array'] is not None)
+
+        # bilinear mode cache
+        bil_info.return_value = (1, 2, 3, 4)
+
+        def spam(val):
+            return 'adef'
+
+        with patch.object(mpop.projector, 'get_area_def', spam):
+            self.proj = Projector(in_area_id, out_area_id, mode="bilinear")
+        cache = getattr(self.proj, "_cache")
+        self.assertTrue(cache['bilinear_t'] is not None)
+        self.assertTrue(cache['bilinear_s'] is not None)
+        self.assertTrue(cache['input_idxs'] is not None)
+        self.assertTrue(cache['idx_arr'] is not None)
 
     @patch.object(np.ma, "array")
     @patch.object(mpop.projector.kd_tree, 'get_sample_from_neighbour_info')
@@ -182,8 +196,8 @@ class TestProjector(unittest.TestCase):
         # test nearest
         in_area = MagicMock()
         out_area = MagicMock()
-        utils.parse_area_file.return_value.__getitem__.side_effect = \
-            [in_area, out_area]
+        utils.parse_area_file.return_value.__getitem__.side_effect = [
+            in_area, out_area]
         self.proj = Projector(in_area_id, out_area_id, mode="nearest")
         self.proj.project_array(data)
         mpop.projector.kd_tree.get_sample_from_neighbour_info.\
