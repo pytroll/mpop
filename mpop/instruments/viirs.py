@@ -137,11 +137,13 @@ class ViirsCompositer(VisirCompositer):
         """Make a True Color RGB image composite from
         M-bands only.
         """
-        self.check_channels('M02', 'M04', 'M05')
+        #elf.check_channels('M02', 'M04', 'M05')
+        self.check_channels('M03', 'M04', 'M05')
 
         ch1 = self['M05'].check_range()
         ch2 = self['M04'].check_range()
-        ch3 = self['M02'].check_range()
+        #h3 = self['M02'].check_range()
+        ch3 = self['M03'].check_range()
 
         img = geo_image.GeoImage((ch1, ch2, ch3),
                                  self.area,
@@ -156,7 +158,8 @@ class ViirsCompositer(VisirCompositer):
 
         return img
 
-    truecolor.prerequisites = set(['M02', 'M04', 'M05'])
+    truecolor.prerequisites = set(['M03', 'M04', 'M05'])
+#   truecolor.prerequisites = set(['M02', 'M04', 'M05'])
 
     def natural(self):
         """Make a Natural Colors RGB image composite from

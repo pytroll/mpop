@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2011, 2012, 2013, 2014, 2015, 2016.
+# Copyright (c) 2011, 2012, 2013, 2014, 2015, 2016, 2017.
 
 # Author(s):
 
@@ -258,6 +258,7 @@ class ViirsGeolocationData(object):
         self.longitudes = None
         self.shape = shape
         self.latitudes = None
+        self.elevation = None
         self.mask = None
 
     def read(self):
@@ -271,6 +272,8 @@ class ViirsGeolocationData(object):
         self.longitudes = np.empty(self.shape,
                                    dtype=np.float32)
         self.latitudes = np.empty(self.shape,
+                                  dtype=np.float32)
+        self.elevation = np.empty(self.shape,
                                   dtype=np.float32)
         self.mask = np.zeros(self.shape,
                              dtype=np.bool)
@@ -286,11 +289,15 @@ class ViirsGeolocationData(object):
             get_lonlat_into(filename,
                             self.longitudes[y0_:y1_, :],
                             self.latitudes[y0_:y1_, :],
+                            self.elevation[y0_:y1_, :],
                             self.mask[y0_:y1_, :])
         self.longitudes = np.ma.array(self.longitudes,
                                       mask=self.mask,
                                       copy=False)
         self.latitudes = np.ma.array(self.latitudes,
+                                     mask=self.mask,
+                                     copy=False)
+        self.elevation = np.ma.array(self.elevation,
                                      mask=self.mask,
                                      copy=False)
         logger.debug("Geolocation read in for... " + str(self))
@@ -596,6 +603,66 @@ class ViirsSDRReader(Reader):
         return (data['sunz'], data['sun_azi'],
                 data['satz'], data['sat_azi'])
 
+    def get_elevation(self, **kwargs):
+        """Get elevation/topography for a given band type (M, I, or
+        DNB)
+        Optional arguments:
+            bandtype = 'M', 'I', or 'DNB'
+        Return
+            elevation
+
+        """
+
+        if 'bandtype' in kwargs:
+            bandtype = kwargs['bandtype']
+        else:
+            bandtype = 'M'
+
+        if bandtype.startswith('M'):
+            geofilenames = [geofile for geofile in self.geofiles
+                            if os.path.basename(geofile).startswith('GMTCO')]
+            if len(geofilenames) == 0:
+                # Try the geoid instead:
+                geofilenames = [geofile for geofile in self.geofiles
+                                if os.path.basename(geofile).startswith('GMODO')]
+        elif bandtype.startswith('I'):
+            geofilenames = [geofile for geofile in self.geofiles
+                            if os.path.basename(geofile).startswith('GITCO')]
+            if len(geofilenames) == 0:
+                # Try the geoid instead:
+                geofilenames = [geofile for geofile in self.geofiles
+                                if os.path.basename(geofile).startswith('GIMGO')]
+        elif bandtype.startswith('DNB'):
+            geofilenames = [geofile for geofile in self.geofiles
+                            if os.path.basename(geofile).startswith('GDNBO')]
+
+        else:
+            logger.error("Band type %s not supported", bandtype)
+            return None
+
+        geofilenames = sorted(geofilenames)
+
+        hdata = np.empty(self.shape,
+                         dtype=np.float32)
+        hmask = np.zeros(self.shape,
+                         dtype=np.bool)
+
+        granule_length = self.shape[0] / len(geofilenames)
+
+        for index, filename in enumerate(geofilenames):
+
+            swath_index = index * granule_length
+            y0_ = swath_index
+            y1_ = swath_index + granule_length
+
+            get_elevation_into(filename,
+                               hdata[y0_:y1_, :],
+                               hmask[y0_:y1_, :])
+
+        hdata = np.ma.array(hdata, mask=hmask, copy=False)
+
+        return hdata
+
     def load(self, satscene, calibrate=1, time_interval=None,
              area=None, filename=None, **kwargs):
         """Read viirs SDR reflectances and Tbs from file and load it into
@@ -830,6 +897,10 @@ class ViirsSDRReader(Reader):
                 lats=np.ma.masked_where(band.data.mask,
                                         band.geolocation.latitudes,
                                         copy=False))
+            height = np.ma.masked_where(band.data.mask,
+                                        band.geolocation.elevation,
+                                        copy=False)
+
             area_name = ("swath_" + satscene.fullname + "_" +
                          str(satscene.time_slot) + "_"
                          + str(satscene[chn].data.shape) + "_" +
@@ -878,7 +949,7 @@ class ViirsSDRReader(Reader):
                                          if chn.is_loaded()])
 
 
-def get_lonlat_into(filename, out_lons, out_lats, out_mask):
+def get_lonlat_into(filename, out_lons, out_lats, out_height, out_mask):
     """Read lon,lat from hdf5 file"""
     logger.debug("Geo File = " + filename)
 
@@ -891,6 +962,22 @@ def get_lonlat_into(filename, out_lons, out_lats, out_mask):
             out_mask[:] = out_lats < -999
         if key.endswith("Longitude"):
             h5f[key].read_direct(out_lons)
+        if key.endswith("Height"):
+            h5f[key].read_direct(out_height)
+    h5f.close()
+
+
+def get_elevation_into(filename, out_height, out_mask):
+    """Read elevation/height from hdf5 file"""
+    logger.debug("Geo File = " + filename)
+
+    md = HDF5MetaData(filename).read()
+
+    h5f = h5py.File(filename, 'r')
+    for key in md.get_data_keys():
+        if key.endswith("Height"):
+            h5f[key].read_direct(out_height)
+            out_mask[:] = out_height < -999
     h5f.close()
 
 
