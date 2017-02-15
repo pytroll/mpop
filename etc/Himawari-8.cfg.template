@@ -69,13 +69,13 @@ resolution = 2000.0
 size = (5500, 5500)
 
 [ahi-8]
-name = 'B08'
+name = 'IR3'
 frequency = (6.06, 6.25, 6.43)
 resolution = 2000.0
 size = (5500, 5500)
 
 [ahi-9]
-name = 'IR3'
+name = 'B09'
 frequency = (6.89, 6.95, 7.01)
 resolution = 2000.0
 size = (5500, 5500)
@@ -121,4 +121,3 @@ name = 'B16'
 frequency = (13.2, 13.3, 13.4)
 resolution = 2000.0
 size = (5500, 5500)
-

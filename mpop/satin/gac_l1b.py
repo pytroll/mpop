@@ -22,7 +22,6 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 """Read a gac file.
 Reads L1b GAC data from KLM series of satellites (NOAA-15 and later) and does most of the computations.
 Format specification can be found here:
@@ -30,22 +29,23 @@ http://www.ncdc.noaa.gov/oa/pod-guide/ncdc/docs/klm/html/c8/sec83142-1.htm
 
 """
 
-import os
 import glob
-from ConfigParser import ConfigParser
 import logging
+import os
+from ConfigParser import ConfigParser
 
 import numpy as np
+
+from mpop import CONFIG_PATH
 from pygac.gac_klm import KLMReader
 from pygac.gac_pod import PODReader
-from mpop import CONFIG_PATH
 
 LOGGER = logging.getLogger(__name__)
 
 
 def load(satscene, *args, **kwargs):
     """Read data from file and load it into *satscene*.
-    A possible *calibrate* keyword argument is passed to the AAPP reader. 
+    A possible *calibrate* keyword argument is passed to the AAPP reader.
     Should be 0 for off (counts), 1 for default (brightness temperatures and
     reflectances), and 2 for radiances only.
     """
@@ -78,20 +78,18 @@ def load_avhrr(satscene, options):
     if "filename" not in options:
         raise IOError("No filename given, cannot load.")
 
-    values = {"orbit":      satscene.orbit,
-              "satname":    satscene.satname,
-              "number":     satscene.number,
+    values = {"orbit": satscene.orbit,
+              "satname": satscene.satname,
+              "number": satscene.number,
               "instrument": satscene.instrument_name,
-              "satellite":  satscene.fullname
-              }
+              "satellite": satscene.fullname}
 
     if options["dir"] is None:
         filename = options["filename"]
     else:
-        filename = os.path.join(satscene.time_slot.strftime(options["dir"]) % values,
-                                satscene.time_slot.strftime(
-                                    options["filename"])
-                                % values)
+        filename = os.path.join(
+            satscene.time_slot.strftime(options["dir"]) % values,
+            satscene.time_slot.strftime(options["filename"]) % values)
 
         file_list = glob.glob(filename)
 
@@ -112,7 +110,6 @@ def load_avhrr(satscene, options):
     else:
         reader = PODReader
         chn_dict = AVHRR_CHANNEL_NAMES
-
 
     chns = satscene.channels_to_load & set(chn_dict.keys())
     LOGGER.info("Loading channels " + str(sorted(list(chns))))
@@ -139,8 +136,7 @@ def load_avhrr(satscene, options):
         satscene.area = geometry.SwathDefinition(lons=scene.lons,
                                                  lats=scene.lats)
         area_name = ("swath_" + satscene.fullname + "_" +
-                     str(satscene.time_slot) + "_"
-                     + str(scene.lats.shape))
+                     str(satscene.time_slot) + "_" + str(scene.lats.shape))
         satscene.area.area_id = area_name
         satscene.area.name = "Satellite projection"
         satscene.area_id = area_name
@@ -155,9 +151,4 @@ def load_avhrr(satscene, options):
 AVHRR3_CHANNEL_NAMES = {"1": 0, "2": 1, "3A": 2, "3B": 3, "4": 4, "5": 5}
 AVHRR_CHANNEL_NAMES = {"1": 0, "2": 1, "3": 2, "4": 3, "5": 4}
 
-CASES = {
-    "avhrr/1": load_avhrr,
-    "avhrr/2": load_avhrr,
-    "avhrr/3": load_avhrr,
-}
-
+CASES = {"avhrr/1": load_avhrr, "avhrr/2": load_avhrr, "avhrr/3": load_avhrr, }

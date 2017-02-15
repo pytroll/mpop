@@ -30,19 +30,19 @@ also for a given area.
 import ConfigParser
 import copy
 import datetime
+import imp
+import logging
 import os.path
+import sys
 import types
 import weakref
-import sys
-import logging
-import imp
 
 import numpy as np
 
+import mpop.satin
 from mpop import CONFIG_PATH
 from mpop.channel import Channel, NotLoadedError
 from mpop.utils import OrderedConfigParser
-import mpop.satin
 
 LOG = logging.getLogger(__name__)
 
@@ -211,6 +211,10 @@ class SatelliteInstrumentScene(SatelliteScene):
             self.instrument_name = None
 
         self.channels = []
+
+        self.end_time = None
+        if isinstance(self.time_slot, (tuple, list)):
+            self.time_slot, self.end_time = self.time_slot
 
         try:
             conf = OrderedConfigParser()
@@ -595,7 +599,7 @@ class SatelliteInstrumentScene(SatelliteScene):
                        possible choices are (see estimate_cth in mpop/tools.py):
                        "standard", "tropics", "midlatitude summer", "midlatitude winter", "subarctic summer", "subarctic winter"
                        this will choose the corresponding atmospheric AFGL temperature profile
-                     * new choice: "best" -> choose according to central (lon,lat) and time from:  
+                     * new choice: "best" -> choose according to central (lon,lat) and time from:
                        "tropics", "midlatitude summer", "midlatitude winter", "subarctic summer", "subarctic winter"
           time_slot  current observation time as (datetime.datetime() object)
                      time_slot option can be omitted, the function tries to use self.time_slot

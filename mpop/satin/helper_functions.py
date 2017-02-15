@@ -54,7 +54,12 @@ def area_def_names_to_extent(area_def_names, proj4_str,
     for name in area_def_names:
 
         try:
-            boundaries = get_area_def(name).get_boundary_lonlats()
+            adef = get_area_def(name)
+            if "proj=geos" in adef.proj4_string:
+                maximum_extent = update_max_extent(maximum_extent,
+                                                   adef.area_extent)
+                continue
+            boundaries = adef.get_boundary_lonlats()
         except pyresample.utils.AreaNotFound:
             LOGGER.warning('Area definition not found ' + name)
             continue
@@ -82,6 +87,7 @@ def area_def_names_to_extent(area_def_names, proj4_str,
         if not maximum_extent:
             return None
 
+    maximum_extent = list(maximum_extent)
     maximum_extent[0] -= 10000
     maximum_extent[1] -= 10000
     maximum_extent[2] += 10000
@@ -109,7 +115,7 @@ def boundaries_to_extent(proj4_str, maximum_extent, default_extent,
     # replace invalid values with NaN
     x_dir[np.abs(x_dir) > 1e20] = np.nan
     y_dir[np.abs(y_dir) > 1e20] = np.nan
-    
+
     # return None when no default specified
     if not default_extent:
         if any(np.isnan(x_dir)) or any(np.isnan(x_dir)):
@@ -126,6 +132,18 @@ def boundaries_to_extent(proj4_str, maximum_extent, default_extent,
         if extent[i] is np.nan:
             extent[i] = default_extent[i]
 
+    maximum_extent = update_max_extent(maximum_extent, extent)
+
+    # Replace "infinity" values with default extent
+    for i in range(4):
+        if not np.isfinite(maximum_extent[i]):
+            maximum_extent[i] = default_extent[i]
+
+    return maximum_extent
+
+
+def update_max_extent(maximum_extent, extent):
+    """Update the *maximum_extent* to cover also *extent*"""
     # update maximum extent
     if maximum_extent is None:
         maximum_extent = extent
@@ -138,10 +156,5 @@ def boundaries_to_extent(proj4_str, maximum_extent, default_extent,
             maximum_extent[2] = extent[2]
         if maximum_extent[3] < extent[3]:
             maximum_extent[3] = extent[3]
-
-    # Replace "infinity" values with default extent
-    for i in range(4):
-        if not np.isfinite(maximum_extent[i]):
-            maximum_extent[i] = default_extent[i]
 
     return maximum_extent

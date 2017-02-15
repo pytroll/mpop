@@ -1,6 +1,474 @@
 Changelog
 =========
 
+v1.3.1 (2016-12-12)
+-------------------
+
+- Update changelog. [Martin Raspaud]
+
+- Bump version: 1.3.0 → 1.3.1. [Martin Raspaud]
+
+- Update maximum_extent instead of just returning the first "geos"
+  extent. [Panu Lahtinen]
+
+- Return the area extent from the area definition, if the projection is
+  "geos" [Panu Lahtinen]
+
+- Fix 'sun_zen_correction_applied' not being set to true. [Martin
+  Raspaud]
+
+- Merge pull request #39 from mraspaud/pre-master. [Martin Raspaud]
+
+  Turn RGB ninjotiff image into RGBA when fill_value is None
+
+- Turn RGB ninjotiff image into RGBA when fill_value is None. [Martin
+  Raspaud]
+
+  This patch allows to replicate the behaviour when saving pil images.
+
+v1.3.0 (2016-10-27)
+-------------------
+
+- Update changelog. [Martin Raspaud]
+
+- Bump version: 1.2.1 → 1.3.0. [Martin Raspaud]
+
+- Add bump and gitchangelog configs. [Martin Raspaud]
+
+- Fix pep8 compliance. [Martin Raspaud]
+
+- Use filenames for mipp only if the files are relevant. [Martin
+  Raspaud]
+
+- Handle time_slot tuples better by splitting them. [Martin Raspaud]
+
+  This allows mpop to be backwards compatible for non mipp-based readers.
+
+
+- Allow providing filenames to the mipp xrit reader. [Martin Raspaud]
+
+  This allows mpop to use filenames as provided by trollduction.
+
+- Make it possible to specify custom stretching of truecolor imagery.
+  [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Merge pull request #36 from khunger/feature-fill-value-substitution.
+  [Martin Raspaud]
+
+  New option fill_value_subst
+
+- New option fill_value_subst. [Christian Kliche]
+
+  This option can be used in conjunction with GeoImage.fill_value. Any occurrences of
+  fill_value within the image data will be replaced with fill_value_subst before storing
+  to image file.
+
+  Example trollduction configuration to use this feature:
+
+  <file>test.tif
+  	<format_params>
+  		<fill_value_subst>1</fill_value_subst>
+  	</format_params>
+  </file>
+
+
+- Merge pull request #37 from khunger/feature-xrit-sublon-metadata.
+  [Martin Raspaud]
+
+  Atmospheric correction and xrit metadata "sublon" in sat scene info
+
+- Algorithm for atmosheric correction. [Christian Kliche]
+
+  Added new algorithm to Channel class to apply atmospheric correction
+  on a copy of channel data using given satellite zenith angle data.
+  Creates a new channel containing the corrected data.
+
+
+- Added xrit metadata "sublon" to sat scene info. [Christian Kliche]
+
+- Bugfix fill_value in cf-output. [Adam.Dybbroe]
+
+- Support PPS on I-band resolution. [Adam.Dybbroe]
+
+- Bugfix platform naming. [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Merge pull request #35 from khunger/feature-writer-options. [Martin
+  Raspaud]
+
+  Feature writer options
+
+- Added tests for save with writer_options. [Christian Kliche]
+
+- Fixed unit tests. [Christian Kliche]
+
+- Changed parameter order for backwards compatibility. [Christian
+  Kliche]
+
+- GeoImage.save extended by writer_options dict. [Christian Kliche]
+
+  Some dict keys for options  used by GeoImage.save
+  are defined in writer_options.py.
+  All options within this dict will be forwarded to custom writers
+  like NinJoTiff writer module.
+
+
+- GeoImage.save extended by writer_options dict. [Christian Kliche]
+
+  Some dict keys for options  used by GeoImage.save
+  are defined in writer_options.py.
+  All options within this dict will be forwarded to custom writers
+  like NinJoTiff writer module.
+
+
+- Allow adding int, float and str attributes to the main info object.
+  [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Merge pull request #33 from meteoswiss-mdr/pre-master. [Martin
+  Raspaud]
+
+  H-SAF and Odyssey reader
+
+- Add odyssey reader. [hau]
+
+- Renamed hsaf reader. [hau]
+
+- Merge branch 'pre-master' of https://github.com/meteoswiss-mdr/mpop
+  into pre-master. [hau]
+
+- Merge branch 'pre-master' of https://github.com/pytroll/mpop into pre-
+  master. [hau]
+
+- Add config file for reading hsaf data. [hau]
+
+- Add new reader for HSAF h03 product. [hau]
+
+- Small bugfix for hdf5 SEVIRI reader. [hau]
+
+- Add option area_aggregation. [Adam.Dybbroe]
+
+  Default is True for backward compatibility. If False, the band_axis p
+  arameter is obsolete and all  bands are separated in 2d arrays. W
+  riting goes faster this way.
+
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Merge pull request #34 from ninahakansson/pre-master. [Martin Raspaud]
+
+  Faster writing in cfscene.py for pps
+
+- Merge branch 'pre-master' of https://github.com/pytroll/mpop into pre-
+  master. [Nina.Hakansson]
+
+- Faster writing with time_dimension by checking the fastest condition
+  first. [Nina.Hakansson]
+
+  The condition "(chn.area, chn.info['units']) in area_units"
+  takes several seconds to check for a npp scene combined of
+  some granules.
+
+
+- Pep8 editorials. [Adam.Dybbroe]
+
+- Adapt writing to new cfscene. [Adam.Dybbroe]
+
+- Bugfix sun-sat angles: Sort geofiles before. [Adam.Dybbroe]
+
+- Make writer able to have time dimension and falt band structure.
+  [Adam.Dybbroe]
+
+  Use time_dimension=True to use this way of storing data
+
+- Bugfix viirs geolocation. [Adam.Dybbroe]
+
+  When geolocation granule files are not ordered in time,
+  geolocation got wrong when calling the loader with a list of files
+
+- Add time_dimension option in CFScene writer. [Adam.Dybbroe]
+
+  Time dimension is used in Diana (visualisation system at SMHI) and in PPS
+
+- Fix netcdf file output. [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Ensure proper handling of lower and uppercase epsg/EPSG init strings.
+  [Panu Lahtinen]
+
+- Merge branch 'pre-master' of https://github.com/pytroll/mpop into pre-
+  master. [Panu Lahtinen]
+
+- Get proper srs when using init=EPSG:<int> in projection definition.
+  [Panu Lahtinen]
+
+- Change keyword argument to filenames. [Adam.Dybbroe]
+
+- Adapt to pillow. [Adam.Dybbroe]
+
+- Fix palettes normalised to 0-1 for mpop. [Adam.Dybbroe]
+
+- Add imagery capability for OCA cloud parameters. [Adam.Dybbroe]
+
+  Only the cloud top pressure (ctp) parameters is okay so far.
+  Need to check effective radius and COT
+
+
+- Add the FY3 MERSI-I reader. [Adam.Dybbroe]
+
+- Add mpef oca reader. [Adam.Dybbroe]
+
+- Add the embeded palette to ninjotiff generation if not overriden.
+  [Martin Raspaud]
+
+- Merge pull request #30 from khunger/fix-read-area-calculation. [Martin
+  Raspaud]
+
+  More conservative approach to handle errors in area_def_names_to_extent()
+
+- Use readers def area_extent if calculation fails. [Christian Kliche]
+
+- Merge pull request #32 from meteoswiss-mdr/pre-master. [Martin
+  Raspaud]
+
+  parallax correction and high resolution winds
+
+- Make use of sat_nr function in nwcsaf_msg.py. [hau]
+
+- Option for estimating cth for parallax correction. [hau]
+
+  introduced a optional argument if cth should be estimated or not.
+  Additionally introduced a small function to extract the satellite number.
+
+
+- User choice of background color for day_mircophysics. [hau]
+
+- Added functionality for parallax correction. [hau]
+
+  added new functions:
+     mpop/tools.py   -> estimate_cth
+     mpop/scene.py   -> get_orbital
+                        parallax_corr
+     mpop/channel.py -> get_viewing_geometry
+                        parallax_corr
+                        vinc_vect
+
+  estimate_cth
+    simple estimation of cloud top height comparing 10.8 micron temperature with temperature profile
+
+  get_orbital
+    small wrapper to get the satellite orbital from pyorbital
+
+  parallax_corr (scene.py)
+    performs parallax correction for all loaded channels
+
+  get_viewing_geometry
+    small function returning viewing azimuth and elevation angle for current channel
+
+  parallax_corr (channel.py)
+    performs parallax correction for a single channel
+
+  vinc_vect
+    parallized version of the vinc function
+
+
+- Copy the information of the palette for NWCSAF products. [hau]
+
+  ... when reprojecting
+
+
+- Add other satellite number definition to reader. [hau]
+
+  add 8 and 9 entry for meteosat 8 and 9
+  before only 08 and 09 were possible
+
+
+- Updated the _Calibrator call msg_seviri_hdf.py. [hau]
+
+  Updated initialization of the _Calibrator function
+  in mpop/satin/msg_seviri_hdf.py
+
+  msg_seviri_hdf.py uses the _Calibrator function in
+  mipp/xrit/MSG.py that was updated by
+  Martin and now takes another number of input arguments:
+
+  before Martin s change
+  class _Calibrator(object):
+      def __init__(self, hdr, channel_name):
+
+  after Martin s change
+  class _Calibrator(object):
+      def __init__(self, hdr, channel_name, bits_per_pixel):
+
+  so now the argument bits_per_pixel is set to 10.
+
+
+- Merge branch 'test' into pre-master. [hau]
+
+- Add file to read high resolution wind data from NWCSAF. [hau]
+
+- Add code to process TRT. [hau]
+
+  TRT is an MeteoSwiss tool to detect
+  thunderstorm cells.
+  The data can be processed with this file.
+
+
+- Add a code file to process HRW data from NWC-SAF. [hau]
+
+- Add reader for geo-hdf format EUMETSAT archive. [hau]
+
+  geo-hdf is a possible data format that you can order
+  from the EUMETSAT data archive
+  It enables to specify smaller regions.
+
+
+- New reader nwcsaf and modified scene.py. [hau]
+
+  a new file for reading NWCSAF data is submitted
+  it can read CTTH, CMa, CT, CCR, CRPh, PC, SPhR
+
+  added a small option to scene.py
+  in order to specify which level specifies the desired format
+  of the input file
+
+
+- Add cloud phase palette and palette2colormap function. [hau]
+
+- Test commit for submodule. [hau]
+
+- Merge pull request #31 from elfsprite/pre-master. [Martin Raspaud]
+
+  Added S2A reader files to fork
+
+- Tile definition is now downloaded and converted automatically. [Matias
+  Takala]
+
+- Added S2A reader files to fork. [Matias Takala]
+
+- Fix typo. [Adam.Dybbroe]
+
+- Make it possible to specify fill-value in overview_sun. [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Fix bug of setting shape to viirs reader using foreign band name.
+  [Martin Raspaud]
+
+- Reorganize imports. [Martin Raspaud]
+
+- Add mercator to the supported ninjo projections. [Martin Raspaud]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Lars Orum Rasmussen]
+
+- Added a config template for sentinel-1b. [Lars Orum Rasmussen]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Ninjotiff.save now supports palette ('P') mode. [ras]
+
+- New option to handle if data is scaled between 0 and 1. [ras]
+
+- Set fill values as a kw arg. [Martin Raspaud]
+
+- Use readers def area_extent if calculation fails. [Christian Kliche]
+
+- Keep mask when stacking segments in aapp1b. [Martin Raspaud]
+
+- Get sun-sat angles for modise reading. [Adam.Dybbroe]
+
+- Bugfix getting satellite zenith and azimuth and document
+  get_sunsat_angles method. [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Keep track of sun corrected channels for eg ears viirs. [Martin
+  Raspaud]
+
+- Fix viirs_compact to remove files even when crashing. [Martin Raspaud]
+
+- Add method to retriev the sun-satellite viewing geometry.
+  [Adam.Dybbroe]
+
+- Pep8. [Adam.Dybbroe]
+
+- Fix the snow_age composite to right luminosity. [Martin Raspaud]
+
+- Add MF's copyright notice for the luts. [Martin Raspaud]
+
+- Use original luts for the snow_age composite. [Martin Raspaud]
+
+- Fix projector test. [Martin Raspaud]
+
+- Work around the problem coming at night when M9-channel would mask all
+  the data away. [Panu Lahtinen]
+
+- Add Snow Age RGB composite. [Panu Lahtinen]
+
+- Handle cases where DNB and/or M channel data are requested but no such
+  files are present. [Panu Lahtinen]
+
+- Bugfix hdfeos. [Martin Raspaud]
+
+  Checkfile was using an undefined variable
+
+- Finish integrating trollsift into hdfeos reader. [Martin Raspaud]
+
+  Some parts were left unfinished. Shoud we fixed now.
+
+- Fix new hdfeos reader to look for data on invalid input. [Martin
+  Raspaud]
+
+  the hdfeos reader would fail looking for data in standard places when an
+  iterable of invalid files would be provided.
+
+- Fix hdfeos reader to look for data on invalid input. [Martin Raspaud]
+
+  the hdfeos reader would fail looking for data in standard places when an
+  iterable of invalid files would be provided.
+
+- Merge branch 'pre-master' of https://github.com/pytroll/mpop into pre-
+  master. [Panu Lahtinen]
+
+- Update config templates for MODIS to match recent updates in EOS
+  reader. [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Run travis tests in a container. [Martin Raspaud]
+
+- Fix bug related to modis DR. [Adam.Dybbroe]
+
+- Mask out dubious lon/lat values. [Adam.Dybbroe]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Added contributions from Christian (DWD) to ninjotiff. It support
+  input data in the [0.0, 1.0] range. [Lars Orum Rasmussen]
+
+- Print more debug info concerning calibration. [Adam.Dybbroe]
+
+- Fix formattin character in log message. [Panu Lahtinen]
+
 v1.2.1 (2015-12-14)
 -------------------
 
