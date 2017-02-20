@@ -1,6 +1,58 @@
 Changelog
 =========
 
+v1.4.0 (2017-02-20)
+-------------------
+
+- Update changelog. [Martin Raspaud]
+
+- Bump version: 1.3.1 → 1.4.0. [Martin Raspaud]
+
+- Merge pull request #44 from pytroll/feature_bilinear. [Martin Raspaud]
+
+  Feature bilinear
+
+- Clarify docstring - radius is also used with bilinear mode. [Panu
+  Lahtinen]
+
+- Test that bilinear interpolation is called. [Panu Lahtinen]
+
+- Mock pyresample.bilinear, autopep8 the file. [Panu Lahtinen]
+
+- Update docstring. [Panu Lahtinen]
+
+- Move imports to top of the file. [Panu Lahtinen]
+
+- Remove Python 2.6 from the tested versions. [Panu Lahtinen]
+
+- Require Pillow version < 4.0.0 for Python 2.6. [Panu Lahtinen]
+
+- Add mask to bilinear resampled data. [Panu Lahtinen]
+
+- Fix naming. [Panu Lahtinen]
+
+- Add implicit flag to receive un-masked parameters for bilinear
+  interpolation. [Panu Lahtinen]
+
+- Add bilinear interpolation. [Panu Lahtinen]
+
+- Merge branch 'pre-master' of github.com:pytroll/mpop into pre-master.
+  [Adam.Dybbroe]
+
+- Clear cache before inserting EWA parameters. [Panu Lahtinen]
+
+- Add EWA resampling. [Panu Lahtinen]
+
+- Convert maximum extent to list before modification. [Martin Raspaud]
+
+- Do the scaling before finalization in ninjotiff's finalize. [Martin
+  Raspaud]
+
+- Fix H8 template file's band names. [Martin Raspaud]
+
+- Extract elevation from viirs-sdr + Fix viirs true color.
+  [Adam.Dybbroe]
+
 v1.3.1 (2016-12-12)
 -------------------
 
