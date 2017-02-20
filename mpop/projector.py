@@ -39,6 +39,8 @@ import logging
 
 import numpy as np
 from pyresample import image, utils, geometry, kd_tree
+from pyresample.bilinear import get_sample_from_bil_info, get_bil_info
+
 from mpop import CONFIG_PATH
 
 logger = logging.getLogger(__name__)
@@ -93,11 +95,15 @@ class Projector(object):
     generated projectors can be saved to disk for later reuse. Use the
     :meth:`save` method for this.
 
-    To define a projector object, on has to specify *in_area* and *out_area*,
-    and can also input the *in_lonlats* or the *mode* ('quick' which works only
-    if both in- and out-areas are AreaDefinitions, or 'nearest'). *radius*
-    defines the radius of influence for nearest neighbour search in 'nearest'
-    mode.
+    To define a projector object, on has to specify *in_area* and
+    *out_area*, and can also input the *in_lonlats* or the *mode*.
+    Available modes area:
+    - 'quick' (works only if both in- and out-areas are AreaDefinitions)
+    - 'bilinear' (out-area needs to be AreaDefinition with proj4_string)
+    - 'ewa'
+    - 'nearest'.
+    *radius* defines the radius of influence for nearest neighbour
+    search in 'nearest' and 'bilinear' modes.
     """
 
     def __init__(self, in_area, out_area,
@@ -105,9 +111,9 @@ class Projector(object):
                  radius=10000, nprocs=1):
 
         if (mode is not None and
-                mode not in ["quick", "nearest", "ewa"]):
-            raise ValueError(
-                "Projector mode must be 'nearest', 'quick' or 'ewa'")
+                mode not in ["quick", "nearest", "ewa", "bilinear"]):
+            raise ValueError("Projector mode must be one of 'nearest', "
+                             "'quick', 'ewa', 'bilinear'")
 
         self.area_file = get_area_file()
 
@@ -134,6 +140,7 @@ class Projector(object):
                 self.in_area = in_area
             except AttributeError:
                 try:
+                    # TODO: Note that latlons are in order (lons, lats)
                     self.in_area = geometry.SwathDefinition(lons=in_latlons[0],
                                                             lats=in_latlons[1])
                     in_id = in_area
@@ -227,6 +234,19 @@ class Projector(object):
                 self._cache['ewa_cols'] = cols
                 self._cache['ewa_rows'] = rows
 
+            elif self.mode == "bilinear":
+
+                bilinear_t, bilinear_s, input_idxs, idx_arr = \
+                    get_bil_info(self.in_area, self.out_area,
+                                 self.radius, neighbours=32,
+                                 nprocs=nprocs, masked=False)
+
+                self._cache = {}
+                self._cache['bilinear_s'] = bilinear_s
+                self._cache['bilinear_t'] = bilinear_t
+                self._cache['input_idxs'] = input_idxs
+                self._cache['idx_arr'] = idx_arr
+
     def save(self, resave=False):
         """Save the precomputation to disk, and overwrite existing file in case
         *resave* is true.
@@ -281,5 +301,21 @@ class Projector(object):
                                            self._cache['ewa_rows'],
                                            self.out_area, data,
                                            rows_per_scan=rows_per_scan)
+
+        elif self.mode == "bilinear":
+
+            if 'bilinear_t' not in self._cache:
+                self._cache['bilinear_t'] = self._file_cache['bilinear_t']
+                self._cache['bilinear_s'] = self._file_cache['bilinear_s']
+                self._cache['input_idxs'] = self._file_cache['input_idxs']
+                self._cache['idx_arr'] = self._file_cache['idx_arr']
+
+            res = get_sample_from_bil_info(data.ravel(),
+                                           self._cache['bilinear_t'],
+                                           self._cache['bilinear_s'],
+                                           self._cache['input_idxs'],
+                                           self._cache['idx_arr'],
+                                           output_shape=self.out_area.shape)
+            res = np.ma.masked_invalid(res)
 
         return res
