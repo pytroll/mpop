@@ -103,7 +103,7 @@ class Projector(object):
     - 'ewa'
     - 'nearest'.
     *radius* defines the radius of influence for nearest neighbour
-    search in 'nearest' mode.
+    search in 'nearest' and 'bilinear' modes.
     """
 
     def __init__(self, in_area, out_area,
