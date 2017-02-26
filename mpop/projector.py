@@ -40,6 +40,7 @@ import logging
 import numpy as np
 from pyresample import image, utils, geometry, kd_tree
 from pyresample.bilinear import get_sample_from_bil_info, get_bil_info
+from pyresample.ewa import ll2cr, fornav
 
 from mpop import CONFIG_PATH
 
@@ -131,42 +132,10 @@ class Projector(object):
         # - Add a recompute flag ?
 
         # Setting up the input area
-        try:
-            self.in_area = get_area_def(in_area)
-            in_id = in_area
-        except (utils.AreaNotFound, AttributeError):
-            try:
-                in_id = in_area.area_id
-                self.in_area = in_area
-            except AttributeError:
-                try:
-                    # TODO: Note that latlons are in order (lons, lats)
-                    self.in_area = geometry.SwathDefinition(lons=in_latlons[0],
-                                                            lats=in_latlons[1])
-                    in_id = in_area
-                except TypeError:
-                    raise utils.AreaNotFound("Input area " +
-                                             str(in_area) +
-                                             " must be defined in " +
-                                             self.area_file +
-                                             ", be an area object"
-                                             " or longitudes/latitudes must be "
-                                             "provided.")
+        in_id = self._setup_input_area(in_area, latlons=in_latlons)
 
         # Setting up the output area
-        try:
-            self.out_area = get_area_def(out_area)
-            out_id = out_area
-        except (utils.AreaNotFound, AttributeError):
-            try:
-                out_id = out_area.area_id
-                self.out_area = out_area
-            except AttributeError:
-                raise utils.AreaNotFound("Output area " +
-                                         str(out_area) +
-                                         " must be defined in " +
-                                         self.area_file + " or "
-                                         "be an area object.")
+        out_id = self._setup_output_area(out_area, latlons=None)
 
         # if self.in_area == self.out_area:
         #    return
@@ -182,11 +151,6 @@ class Projector(object):
         else:
             self.mode = mode
 
-        filename = (in_id + "2" + out_id + "_" +
-                    str(_get_area_hash(self.in_area)) + "to" +
-                    str(_get_area_hash(self.out_area)) + "_" +
-                    self.mode + ".npz")
-
         projections_directory = "/var/tmp"
         try:
             projections_directory = self.conf.get("projector",
@@ -194,7 +158,10 @@ class Projector(object):
         except ConfigParser.NoSectionError:
             pass
 
-        self._filename = os.path.join(projections_directory, filename)
+        self._filename = get_precompute_cache_fname(in_id, out_id,
+                                                    in_area, out_area,
+                                                    self.mode,
+                                                    projections_directory)
 
         try:
             self._cache = {}
@@ -204,48 +171,45 @@ class Projector(object):
                         in_id, out_id)
 
             if self.mode == "nearest":
-                valid_index, valid_output_index, index_array, distance_array = \
-                    kd_tree.get_neighbour_info(self.in_area,
-                                               self.out_area,
-                                               self.radius,
-                                               neighbours=1,
-                                               nprocs=nprocs)
-                del distance_array
-                self._cache = {}
-                self._cache['valid_index'] = valid_index
-                self._cache['valid_output_index'] = valid_output_index
-                self._cache['index_array'] = index_array
+                self._cache = calc_nearest_params(in_area, out_area,
+                                                  radius, nprocs=nprocs)
 
             elif self.mode == "quick":
-                ridx, cidx = \
-                    utils.generate_quick_linesample_arrays(self.in_area,
-                                                           self.out_area)
-                self._cache = {}
-                self._cache['row_idx'] = ridx
-                self._cache['col_idx'] = cidx
+                self._cache = calc_quick_params(in_area, out_area)
 
             elif self.mode == "ewa":
-                from pyresample.ewa import ll2cr
-                swath_points_in_grid, cols, rows = ll2cr(self.in_area,
-                                                         self.out_area)
-                self._cache = {}
-                # self._cache['ewa_swath_points_in_grid'] = \
-                #     swath_points_in_grid
-                self._cache['ewa_cols'] = cols
-                self._cache['ewa_rows'] = rows
+                self._cache = calc_ewa_params(in_area, out_area)
 
             elif self.mode == "bilinear":
+                self._cache = calc_bilinear_params(in_area, out_area,
+                                                   radius, nprocs=nprocs)
 
-                bilinear_t, bilinear_s, input_idxs, idx_arr = \
-                    get_bil_info(self.in_area, self.out_area,
-                                 self.radius, neighbours=32,
-                                 nprocs=nprocs, masked=False)
+    def _setup_input_area(self, area, latlons=None):
+        """Setup self.in_area and return area id"""
+        try:
+            self.in_area, in_id = get_area_and_id(area, latlons=latlons)
+        except TypeError:
+            raise utils.AreaNotFound("Input area " +
+                                     str(area) +
+                                     " must be defined in " +
+                                     self.area_file +
+                                     ", be an area object"
+                                     " or longitudes/latitudes must be "
+                                     "provided.")
 
-                self._cache = {}
-                self._cache['bilinear_s'] = bilinear_s
-                self._cache['bilinear_t'] = bilinear_t
-                self._cache['input_idxs'] = input_idxs
-                self._cache['idx_arr'] = idx_arr
+        return in_id
+
+    def _setup_output_area(self, area, latlons=None):
+        """Setup output area"""
+        try:
+            self.out_area, out_id = get_area_and_id(area, latlons=latlons)
+        except AttributeError:
+            raise utils.AreaNotFound("Output area " +
+                                     str(area) +
+                                     " must be defined in " +
+                                     self.area_file + " or "
+                                     "be an area object.")
+        return out_id
 
     def save(self, resave=False):
         """Save the precomputation to disk, and overwrite existing file in case
@@ -256,66 +220,177 @@ class Projector(object):
                         self._filename)
             np.savez(self._filename, **self._cache)
 
+    def _project_array_nearest(self, data):
+        """Project array *data* using nearest neighbour resampling"""
+        if not 'valid_index' in self._cache:
+            self._cache['valid_index'] = self._file_cache['valid_index']
+            self._cache['valid_output_index'] = \
+                self._file_cache['valid_output_index']
+            self._cache['index_array'] = self._file_cache['index_array']
+
+        valid_index, valid_output_index, index_array = \
+            (self._cache['valid_index'],
+             self._cache['valid_output_index'],
+             self._cache['index_array'])
+
+        res = kd_tree.get_sample_from_neighbour_info('nn',
+                                                     self.out_area.shape,
+                                                     data,
+                                                     valid_index,
+                                                     valid_output_index,
+                                                     index_array,
+                                                     fill_value=None)
+        return res
+
+    def _project_array_quick(self, data):
+        """Project array *data* using quick interpolation"""
+        if not 'row_idx' in self._cache:
+            self._cache['row_idx'] = self._file_cache['row_idx']
+            self._cache['col_idx'] = self._file_cache['col_idx']
+        row_idx, col_idx = self._cache['row_idx'], self._cache['col_idx']
+        img = image.ImageContainer(data, self.in_area, fill_value=None)
+        res = np.ma.array(img.get_array_from_linesample(row_idx, col_idx),
+                          dtype=data.dtype)
+
+        return res
+
+    def _project_array_ewa(self, data):
+        """Project array *data* using EWA interpolation"""
+        # TODO: should be user configurable?
+        rows_per_scan = None
+
+        if 'ewa_cols' not in self._cache:
+            self._cache['ewa_cols'] = self._file_cache['ewa_cols']
+            self._cache['ewa_rows'] = self._file_cache['ewa_rows']
+        num_valid_points, res = fornav(self._cache['ewa_cols'],
+                                       self._cache['ewa_rows'],
+                                       self.out_area, data,
+                                       rows_per_scan=rows_per_scan)
+        del num_valid_points
+
+        return res
+
+    def _project_array_bilinear(self, data):
+        """Project array *data* using bilinear interpolation"""
+        if 'bilinear_t' not in self._cache:
+            self._cache['bilinear_t'] = self._file_cache['bilinear_t']
+            self._cache['bilinear_s'] = self._file_cache['bilinear_s']
+            self._cache['input_idxs'] = self._file_cache['input_idxs']
+            self._cache['idx_arr'] = self._file_cache['idx_arr']
+
+        res = get_sample_from_bil_info(data.ravel(),
+                                       self._cache['bilinear_t'],
+                                       self._cache['bilinear_s'],
+                                       self._cache['input_idxs'],
+                                       self._cache['idx_arr'],
+                                       output_shape=self.out_area.shape)
+        res = np.ma.masked_invalid(res)
+
+        return res
+
     def project_array(self, data):
         """Project an array *data* along the given Projector object.
         """
 
         if self.mode == "nearest":
-            if not 'valid_index' in self._cache:
-                self._cache['valid_index'] = self._file_cache['valid_index']
-                self._cache['valid_output_index'] = \
-                    self._file_cache['valid_output_index']
-                self._cache['index_array'] = self._file_cache['index_array']
-
-            valid_index, valid_output_index, index_array = \
-                (self._cache['valid_index'],
-                 self._cache['valid_output_index'],
-                 self._cache['index_array'])
-
-            res = kd_tree.get_sample_from_neighbour_info('nn',
-                                                         self.out_area.shape,
-                                                         data,
-                                                         valid_index,
-                                                         valid_output_index,
-                                                         index_array,
-                                                         fill_value=None)
+            res = self._project_array_nearest(data)
 
         elif self.mode == "quick":
-            if not 'row_idx' in self._cache:
-                self._cache['row_idx'] = self._file_cache['row_idx']
-                self._cache['col_idx'] = self._file_cache['col_idx']
-            row_idx, col_idx = self._cache['row_idx'], self._cache['col_idx']
-            img = image.ImageContainer(data, self.in_area, fill_value=None)
-            res = np.ma.array(img.get_array_from_linesample(row_idx, col_idx),
-                              dtype=data.dtype)
+            res = self._project_array_quick(data)
 
         elif self.mode == "ewa":
-            from pyresample.ewa import fornav
-            # TODO: should be user configurable?
-            rows_per_scan = None
-
-            if 'ewa_cols' not in self._cache:
-                self._cache['ewa_cols'] = self._file_cache['ewa_cols']
-                self._cache['ewa_rows'] = self._file_cache['ewa_rows']
-            num_valid_points, res = fornav(self._cache['ewa_cols'],
-                                           self._cache['ewa_rows'],
-                                           self.out_area, data,
-                                           rows_per_scan=rows_per_scan)
+            res = self._project_array_ewa(data)
 
         elif self.mode == "bilinear":
-
-            if 'bilinear_t' not in self._cache:
-                self._cache['bilinear_t'] = self._file_cache['bilinear_t']
-                self._cache['bilinear_s'] = self._file_cache['bilinear_s']
-                self._cache['input_idxs'] = self._file_cache['input_idxs']
-                self._cache['idx_arr'] = self._file_cache['idx_arr']
-
-            res = get_sample_from_bil_info(data.ravel(),
-                                           self._cache['bilinear_t'],
-                                           self._cache['bilinear_s'],
-                                           self._cache['input_idxs'],
-                                           self._cache['idx_arr'],
-                                           output_shape=self.out_area.shape)
-            res = np.ma.masked_invalid(res)
+            res = self._project_array_bilinear(data)
 
         return res
+
+
+def calc_nearest_params(in_area, out_area, radius, nprocs=1):
+    """Calculate projection parameters for nearest neighbour
+    interpolation"""
+    valid_index, valid_output_index, index_array, distance_array = \
+        kd_tree.get_neighbour_info(in_area,
+                                   out_area,
+                                   radius,
+                                   neighbours=1,
+                                   nprocs=nprocs)
+    del distance_array
+    cache = {}
+    cache['valid_index'] = valid_index
+    cache['valid_output_index'] = valid_output_index
+    cache['index_array'] = index_array
+
+    return cache
+
+
+def calc_quick_params(in_area, out_area):
+    """Calculate projection parameters for quick interpolation mode"""
+    ridx, cidx = utils.generate_quick_linesample_arrays(in_area,
+                                                        out_area)
+    cache = {}
+    cache['row_idx'] = ridx
+    cache['col_idx'] = cidx
+
+    return cache
+
+
+def calc_bilinear_params(in_area, out_area, radius, nprocs=1):
+    """Calculate projection parameters for bilinear interpolation"""
+    bilinear_t, bilinear_s, input_idxs, idx_arr = \
+        get_bil_info(in_area, out_area, radius, neighbours=32,
+                     nprocs=nprocs, masked=False)
+
+    cache = {}
+    cache['bilinear_s'] = bilinear_s
+    cache['bilinear_t'] = bilinear_t
+    cache['input_idxs'] = input_idxs
+    cache['idx_arr'] = idx_arr
+
+    return cache
+
+
+def calc_ewa_params(in_area, out_area):
+    """Calculate projection parameters for EWA interpolation"""
+    swath_points_in_grid, cols, rows = ll2cr(in_area, out_area)
+    del swath_points_in_grid
+    cache = {}
+    # cache['ewa_swath_points_in_grid'] = \
+    #     swath_points_in_grid
+    cache['ewa_cols'] = cols
+    cache['ewa_rows'] = rows
+
+    return cache
+
+
+def get_precompute_cache_fname(in_id, out_id, in_area, out_area, mode,
+                               proj_dir):
+    """Form filename for precompute cache"""
+
+    filename = (in_id + "2" + out_id + "_" +
+                str(_get_area_hash(in_area)) + "to" +
+                str(_get_area_hash(out_area)) + "_" +
+                mode + ".npz")
+
+    return os.path.join(proj_dir, filename)
+
+
+def get_area_and_id(area, latlons=None):
+    try:
+        area_def = get_area_def(area)
+        area_id = area
+    except (utils.AreaNotFound, AttributeError):
+        try:
+            area_id = area.area_id
+            area_def = area
+        except AttributeError:
+            if latlons is None:
+                raise
+            else:
+                # TODO: Note that latlons are in order (lons, lats)
+                area_def = geometry.SwathDefinition(lons=latlons[0],
+                                                    lats=latlons[1])
+                area_id = area
+
+    return area_def, area_id
