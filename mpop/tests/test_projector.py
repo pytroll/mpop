@@ -30,9 +30,7 @@
 """Test module for mpop.projector.
 """
 import unittest
-
 import numpy as np
-
 
 from mock import MagicMock, patch
 import sys
@@ -104,7 +102,6 @@ class TestProjector(unittest.TestCase):
             with patch.object(utils, 'parse_area_file', mock):
                 in_area = geometry.AreaDefinition()
                 self.proj = Projector(in_area, out_area_id)
-                print self.proj.in_area
                 self.assertEquals(self.proj.in_area, in_area)
 
         in_area = geometry.SwathDefinition()
