@@ -40,7 +40,10 @@ import logging
 import numpy as np
 from pyresample import image, utils, geometry, kd_tree
 from pyresample.bilinear import get_sample_from_bil_info, get_bil_info
-from pyresample.ewa import ll2cr, fornav
+try:
+    from pyresample.ewa import ll2cr, fornav
+except ImportError:
+    ll2cr, fornav = None, None
 
 from mpop import CONFIG_PATH
 
@@ -178,7 +181,10 @@ class Projector(object):
                 self._cache = calc_quick_params(in_area, out_area)
 
             elif self.mode == "ewa":
-                self._cache = calc_ewa_params(in_area, out_area)
+                if ll2cr is not None:
+                    self._cache = calc_ewa_params(in_area, out_area)
+                else:
+                    raise ImportError("Can't import pyresample.ewa")
 
             elif self.mode == "bilinear":
                 self._cache = calc_bilinear_params(in_area, out_area,
@@ -222,7 +228,7 @@ class Projector(object):
 
     def _project_array_nearest(self, data):
         """Project array *data* using nearest neighbour resampling"""
-        if not 'valid_index' in self._cache:
+        if 'valid_index' not in self._cache:
             self._cache['valid_index'] = self._file_cache['valid_index']
             self._cache['valid_output_index'] = \
                 self._file_cache['valid_output_index']
@@ -244,7 +250,7 @@ class Projector(object):
 
     def _project_array_quick(self, data):
         """Project array *data* using quick interpolation"""
-        if not 'row_idx' in self._cache:
+        if 'row_idx' not in self._cache:
             self._cache['row_idx'] = self._file_cache['row_idx']
             self._cache['col_idx'] = self._file_cache['col_idx']
         row_idx, col_idx = self._cache['row_idx'], self._cache['col_idx']
@@ -259,7 +265,7 @@ class Projector(object):
         # TODO: should be user configurable?
         rows_per_scan = None
 
-        if 'ewa_cols' not in self._cache:
+        if 'ewa_cols' in self. not_cache:
             self._cache['ewa_cols'] = self._file_cache['ewa_cols']
             self._cache['ewa_rows'] = self._file_cache['ewa_rows']
         num_valid_points, res = fornav(self._cache['ewa_cols'],
@@ -299,7 +305,10 @@ class Projector(object):
             res = self._project_array_quick(data)
 
         elif self.mode == "ewa":
-            res = self._project_array_ewa(data)
+            if fornav is not None:
+                res = self._project_array_ewa(data)
+            else:
+                raise ImportError("Can't import pyresample.ewa")
 
         elif self.mode == "bilinear":
             res = self._project_array_bilinear(data)
