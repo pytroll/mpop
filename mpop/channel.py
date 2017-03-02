@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2011, 2012, 2013, 2014, 2015.
+# Copyright (c) 2010, 2011, 2012, 2013, 2014, 2015, 2017.
 
 # SMHI,
 # Folkborgsvägen 1,
@@ -42,6 +42,7 @@ except ImportError:
     sza = None
 
 from mpop.tools import viewzen_corr as vz_corr
+
 
 class GeolocationIncompleteError(Exception):
 
@@ -315,7 +316,7 @@ class Channel(GenericChannel):
                       calibration_unit=self.unit)
         res.area = coverage_instance.out_area
         res.info = self.info
-        if hasattr(self, 'palette'):      # UH, new 
+        if hasattr(self, 'palette'):      # UH, new
             res.palette = self.palette    # UH, new
         if self.is_loaded():
             LOG.info("Projecting channel %s (%fμm)..."
@@ -463,11 +464,11 @@ class Channel(GenericChannel):
 
         (lons, lats) = self.area.get_lonlats()
         # Calculate observer azimuth and elevation
-        if altitude==None:
+        if altitude == None:
             altitude = np.zeros(lons.shape)
         azi, ele = orbital.get_observer_look(time_slot, lons, lats, altitude)
 
-        return (azi, ele) 
+        return (azi, ele)
 
     def vinc_vect(phi, lembda, alpha, s, f=None, a=None, degree=True):
         """ Vincenty's Direct formular
@@ -496,11 +497,11 @@ class Channel(GenericChannel):
             alpha = np.deg2rad(alpha)
 
         if f is None:
-            f = 1/298.257223563
+            f = 1 / 298.257223563
         if a is None:
             a = 6378137
 
-        two_pi = 2.0*np.pi
+        two_pi = 2.0 * np.pi
 
         if isinstance(alpha, np.ndarray):
             alpha[alpha < 0.0] += two_pi
@@ -519,7 +520,7 @@ class Channel(GenericChannel):
         """
         b = a * (1.0 - f)
 
-        tan_u1 = (1-f) * np.tan(phi)
+        tan_u1 = (1 - f) * np.tan(phi)
         u_1 = np.arctan(tan_u1)
         sigma1 = np.arctan2(tan_u1, np.cos(alpha))
 
@@ -545,7 +546,7 @@ class Channel(GenericChannel):
                 two_sigma_m = 2 * sigma1 + sigma
 
                 delta_sigma = (bb_ * np.sin(sigma) *
-                               (np.cos(two_sigma_m) + (bb_/4) *
+                               (np.cos(two_sigma_m) + (bb_ / 4) *
                                 (np.cos(sigma) *
                                  (-1 + 2 * np.power(np.cos(two_sigma_m), 2) -
                                   (bb_ / 6) * np.cos(two_sigma_m) *
@@ -573,16 +574,16 @@ class Channel(GenericChannel):
                              np.cos(u_1) * np.sin(sigma) * np.cos(alpha)),
                             ((1 - f) * np.sqrt(np.power(sinalpha, 2) +
                                                pow(np.sin(u_1) *
-                                               np.sin(sigma) -
-                                               np.cos(u_1) *
-                                               np.cos(sigma) *
-                                               np.cos(alpha), 2))))
+                                                   np.sin(sigma) -
+                                                   np.cos(u_1) *
+                                                   np.cos(sigma) *
+                                                   np.cos(alpha), 2))))
 
         deltalembda = np.arctan2((np.sin(sigma) * np.sin(alpha)),
                                  (np.cos(u_1) * np.cos(sigma) -
                                   np.sin(u_1) * np.sin(sigma) * np.cos(alpha)))
 
-        cc_ = (f/16) * cosalpha_sq * (4 + f * (4 - 3 * cosalpha_sq))
+        cc_ = (f / 16) * cosalpha_sq * (4 + f * (4 - 3 * cosalpha_sq))
 
         omega = (deltalembda - (1 - cc_) * f * sinalpha *
                  (sigma + cc_ * np.sin(sigma) * (np.cos(two_sigma_m) + cc_ *
@@ -616,7 +617,6 @@ class Channel(GenericChannel):
 
         return(phiout, lembdaout, alphaout)
 
-
     def parallax_corr(self, cth=None, time_slot=None, orbital=None, azi=None, ele=None, fill="False"):
         '''Perform the parallax correction for channel at
         *time_slot* (datetime.datetime() object), assuming the cloud top height cth
@@ -648,7 +648,7 @@ class Channel(GenericChannel):
                      "nearest": fill gaps with nearest neighbour
                      "bilinear": use scipy.interpolate.griddata with linear interpolation 
                                  to fill the gaps
-                   
+
         output: 
           parallax corrected channel
                      the content of the channel will be parallax corrected.
@@ -658,12 +658,12 @@ class Channel(GenericChannel):
         '''
 
         # get time_slot from info, if present
-        if time_slot==None:
+        if time_slot == None:
             if "time" in self.info.keys():
-                time_slot=self.info["time"]
+                time_slot = self.info["time"]
 
-        if azi==None or ele==None:
-            if time_slot==None or orbital==None:
+        if azi == None or ele == None:
+            if time_slot == None or orbital == None:
                 print "*** Error in parallax_corr (mpop/channel.py)"
                 print "    parallax_corr needs either time_slot and orbital"
                 print "    data[\"IR_108\"].parallax_corr(data[\"CTTH\"].height, time_slot=data.time_slot, orbital=orbital)"
@@ -671,7 +671,8 @@ class Channel(GenericChannel):
                 print "    data[\"IR_108\"].parallax_corr(data[\"CTTH\"].height, azi=azi, ele=ele)"
                 quit()
             else:
-                print ("... calculate viewing geometry (orbit and time are given)")
+                print (
+                    "... calculate viewing geometry (orbit and time are given)")
                 (azi, ele) = self.get_viewing_geometry(orbital, time_slot)
         else:
             print ("... azimuth and elevation angle given")
@@ -682,9 +683,10 @@ class Channel(GenericChannel):
         # Elevation displacement
         dz = cth_ / np.tan(np.deg2rad(ele))
 
-        # Create the new channel (by copying) and initialize the data with None values
+        # Create the new channel (by copying) and initialize the data with None
+        # values
         new_ch = copy.deepcopy(self)
-        new_ch.data[:,:] = np.nan
+        new_ch.data[:, :] = np.nan
 
         # Set the name
         new_ch.name += '_PC'
@@ -693,44 +695,48 @@ class Channel(GenericChannel):
         self.info["parallax_corrected"] = self.name + '_PC'
 
         # get projection coordinates in meter
-        (proj_x,proj_y) = self.area.get_proj_coords()
+        (proj_x, proj_y) = self.area.get_proj_coords()
 
         print "... calculate parallax shift"
-        # shifting pixels according to parallax corretion 
-        proj_x_pc = proj_x - np.sin(np.deg2rad(azi)) * dz # shift West-East   in m  # ??? sign correct ??? 
-        proj_y_pc = proj_y + np.cos(np.deg2rad(azi)) * dz # shift North-South in m
+        # shifting pixels according to parallax corretion
+        # shift West-East   in m  # ??? sign correct ???
+        proj_x_pc = proj_x - np.sin(np.deg2rad(azi)) * dz
+        # shift North-South in m
+        proj_y_pc = proj_y + np.cos(np.deg2rad(azi)) * dz
 
-        # get indices for the pixels for the original position 
-        (y,x)  = self.area.get_xy_from_proj_coords(proj_x, proj_y)
-            # comment: might be done more efficient with meshgrid
-            # >>> x = np.arange(-5.01, 5.01, 0.25)
-            # >>> y = np.arange(-5.01, 5.01, 0.25)
-            # >>> xx, yy = np.meshgrid(x, y)
-        # get indices for the pixels at the parallax corrected position 
-        (y_pc,x_pc) = self.area.get_xy_from_proj_coords(proj_x_pc, proj_y_pc)
+        # get indices for the pixels for the original position
+        (y, x) = self.area.get_xy_from_proj_coords(proj_x, proj_y)
+        # comment: might be done more efficient with meshgrid
+        # >>> x = np.arange(-5.01, 5.01, 0.25)
+        # >>> y = np.arange(-5.01, 5.01, 0.25)
+        # >>> xx, yy = np.meshgrid(x, y)
+        # get indices for the pixels at the parallax corrected position
+        (y_pc, x_pc) = self.area.get_xy_from_proj_coords(proj_x_pc, proj_y_pc)
 
         # copy cloud free satellite pixels (surface observations)
         ind = np.where(cth_.mask == True)
-        new_ch.data[x[ind],y[ind]] = self.data[x[ind],y[ind]]
+        new_ch.data[x[ind], y[ind]] = self.data[x[ind], y[ind]]
 
         print "... copy data to parallax corrected position"
         # copy cloudy pixel with new position modified with parallax shift
         ind = np.where(x_pc.mask == False)
-        new_ch.data[x_pc[ind],y_pc[ind]] = self.data[x[ind],y[ind]]
+        new_ch.data[x_pc[ind], y_pc[ind]] = self.data[x[ind], y[ind]]
 
         # Mask out data gaps (areas behind the clouds)
-        new_ch.data = np.ma.masked_where(np.isnan(new_ch.data), new_ch.data, copy=False)
+        new_ch.data = np.ma.masked_where(
+            np.isnan(new_ch.data), new_ch.data, copy=False)
 
-        if fill.lower()=="false":
+        if fill.lower() == "false":
             return new_ch
-        elif fill=="nearest":
-            print "*** fill missing values with nearest neighbour" 
+        elif fill == "nearest":
+            print "*** fill missing values with nearest neighbour"
             from scipy.ndimage import distance_transform_edt
             invalid = np.isnan(new_ch.data)
-            ind = distance_transform_edt(invalid, return_distances=False, return_indices=True)
+            ind = distance_transform_edt(
+                invalid, return_distances=False, return_indices=True)
             new_ch.data = new_ch.data[tuple(ind)]
-        elif fill=="bilinear":
-            # this function does not interpolate at the outer boundaries 
+        elif fill == "bilinear":
+            # this function does not interpolate at the outer boundaries
             from scipy.interpolate import griddata
             ind = np.where(new_ch.data.mask == False)
             points = np.transpose(np.append([y[ind]], [x[ind]], axis=0))
@@ -740,7 +746,8 @@ class Channel(GenericChannel):
             # fill the remaining pixels with nearest neighbour
             from scipy.ndimage import distance_transform_edt
             invalid = np.isnan(new_ch.data)
-            ind = distance_transform_edt(invalid, return_distances=False, return_indices=True)
+            ind = distance_transform_edt(
+                invalid, return_distances=False, return_indices=True)
             new_ch.data = new_ch.data[tuple(ind)]
         else:
             print "*** Error in parallax_corr (channel.py)"
