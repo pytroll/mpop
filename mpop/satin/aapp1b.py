@@ -50,7 +50,7 @@ LOGGER = logging.getLogger('aapp1b')
 
 def load(satscene, *args, **kwargs):
     """Read data from file and load it into *satscene*.
-    A possible *calibrate* keyword argument is passed to the AAPP reader. 
+    A possible *calibrate* keyword argument is passed to the AAPP reader.
     Should be 0 for off (counts), 1 for default (brightness temperatures and
     reflectances), and 2 for radiances only.
 
@@ -214,7 +214,7 @@ def load_avhrr(satscene, options):
 
         try:
             from pyresample import geometry
-        except ImportError, ex_:
+        except ImportError as ex_:
 
             LOGGER.debug("Could not load pyresample: %s", str(ex_))
 
@@ -224,8 +224,8 @@ def load_avhrr(satscene, options):
             satscene.area = geometry.SwathDefinition(lons=scene.lons,
                                                      lats=scene.lats)
             area_name = ("swath_" + satscene.fullname + "_" +
-                         str(satscene.time_slot) + "_"
-                         + str(scene.lats.shape))
+                         str(satscene.time_slot) + "_" +
+                         str(scene.lats.shape))
             satscene.area.area_id = area_name
             satscene.area.name = "Satellite projection"
             satscene.area_id = area_name
@@ -602,14 +602,6 @@ class AAPP1b(object):
                 self.channels[ch_] = np.ma.vstack(channels[ch_])
             except ValueError:
                 self.channels[ch_] = None
-        if "3A" in chns or "3B" in chns:
-            self._is3b = np.vstack(is3b_all)
-        if "3A" in chns:
-            self.channels['3A'].mask = self._is3b * self.channels['3A']
-        if "3B" in chns:
-            self.channels['3B'].mask = np.logical_or((self._is3b is False) *
-                                                     self.channels['3B'],
-                                                     self.channels['3B'] < 0.1)
 
         LOGGER.debug("Calibration time %s", str(datetime.datetime.now() - tic))
 
@@ -743,12 +735,12 @@ def _ir_calibrate(header, data, irchn, calib_type):
     else:  # AAPP 1 to 4
         tb_ = (t_planck - bandcor_2) / bandcor_3
 
-    #tb_[tb_ <= 0] = np.nan
+    # tb_[tb_ <= 0] = np.nan
     # Data with count=0 are often related to erroneous (bad) lines, but in case
     # of saturation (channel 3b) count=0 can be observed and associated to a
     # real measurement. So we leave out this filtering to the user!
     # tb_[count == 0] = np.nan
-    #tb_[rad == 0] = np.nan
+    # tb_[rad == 0] = np.nan
     return np.ma.masked_array(tb_, np.isnan(tb_))
 
 
@@ -768,37 +760,41 @@ CASES = {
     "avhrr/3": load_avhrr,
 }
 
-if __name__ == "__main__":
 
+def main():
     import sys
     from mpop.utils import debug_on
 
     debug_on()
-    SCENE = AAPP1b(sys.argv[1])
-    SCENE.read()
-    for name, val in zip(SCENE._header[0].dtype.names, SCENE._header[0][0]):
-        print name, val
-    starttime = datetime.datetime(SCENE._header[0][0]["startdatayr"],
+    scene = AAPP1b(sys.argv[1])
+    scene.read()
+    for name, val in zip(scene._header[0].dtype.names, scene._header[0][0]):
+        print(name + " " + str(val))
+    starttime = datetime.datetime(scene._header[0][0]["startdatayr"],
                                   1, 1, 0, 0)
     starttime += \
-        datetime.timedelta(days=int(SCENE._header[0][0]["startdatady"]) - 1,
-                           seconds=SCENE._header[0][0]["startdatatime"] /
+        datetime.timedelta(days=int(scene._header[0][0]["startdatady"]) - 1,
+                           seconds=scene._header[0][0]["startdatatime"] /
                            1000.0)
-    print "starttime:", starttime
-    endtime = datetime.datetime(SCENE._header[-1][0]["enddatayr"], 1, 1, 0, 0)
+    print("starttime: " + str(starttime))
+    endtime = datetime.datetime(scene._header[-1][0]["enddatayr"], 1, 1, 0, 0)
     endtime += \
-        datetime.timedelta(days=int(SCENE._header[-1][0]["enddatady"]) - 1,
-                           seconds=SCENE._header[-1][0]["enddatatime"] /
+        datetime.timedelta(days=int(scene._header[-1][0]["enddatady"]) - 1,
+                           seconds=scene._header[-1][0]["enddatatime"] /
                            1000.0)
-    print "endtime:", endtime
-    # print SCENE._data['hrpt'].shape
-    #show(SCENE._data['hrpt'][:, :, 4].astype(np.float))
+    print("endtime: " + str(endtime))
+    # print scene._data['hrpt'].shape
+    # show(scene._data['hrpt'][:, :, 4].astype(np.float))
     # raw_input()
-    SCENE.calibrate()
-    SCENE.navigate()
+    scene.calibrate()
+    scene.navigate()
     for i__ in AVHRR_CHANNEL_NAMES:
-        data_ = SCENE.channels[i__]
+        data_ = scene.channels[i__]
         print >> sys.stderr, "%-3s" % i__, \
             "%6.2f%%" % (100. * (float(np.ma.count(data_)) / data_.size)), \
             "%6.2f, %6.2f, %6.2f" % (data_.min(), data_.mean(), data_.max())
-    show(SCENE.channels['2'], negate=False)
+    show(scene.channels['2'], negate=False)
+
+
+if __name__ == "__main__":
+    main()
