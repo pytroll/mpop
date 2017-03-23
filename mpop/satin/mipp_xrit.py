@@ -165,9 +165,13 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
             for filename in filenames:
                 if fnmatch.fnmatch(os.path.basename(filename), glob_img):
                     image_files.append(filename)
-                elif fnmatch.fnmatch(os.path.basename(filename), glob_pro):
+                elif pattern_pro is not None and fnmatch.fnmatch(
+                    os.path.basename(filename),
+                        glob_pro):
                     prologue = filename
-                elif fnmatch.fnmatch(os.path.basename(filename), glob_epi):
+                elif pattern_epi is not None and fnmatch.fnmatch(
+                    os.path.basename(filename),
+                        glob_epi):
                     epilogue = filename
             if len(image_files) == 0 and prologue is None and epilogue is None:
                 use_filenames = False
