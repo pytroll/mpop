@@ -137,8 +137,14 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
             for section in options.keys():
                 if section.endswith('-level1'):
                     break
-            pattern_pro = eval(options[section].get('filename_pro'))
-            pattern_epi = eval(options[section].get('filename_epi'))
+            try:
+                pattern_pro = eval(options[section].get('filename_pro'))
+            except TypeError:
+                pattern_pro = None
+            try:
+                pattern_epi = eval(options[section].get('filename_epi'))
+            except TypeError:
+                pattern_epi = None
             pattern = eval(options[section].get('filename'))
 
             epilogue = None
