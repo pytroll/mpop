@@ -154,10 +154,14 @@ def load_generic(satscene, options, calibrate=True, area_extent=None,
             if pattern_epi is not None:
                 glob_epi = satscene.time_slot.strftime(
                     pattern_epi) % ({'segment': "EPI".ljust(9, '_')})
+            else:
+                glob_epi = 'eggs_and_spam'
 
             if pattern_pro is not None:
                 glob_pro = satscene.time_slot.strftime(
                     pattern_pro) % ({'segment': "PRO".ljust(9, '_')})
+            else:
+                glob_pro = 'eggs_and_spam'
 
             glob_img = satscene.time_slot.strftime(
                 pattern) % ({'segment': "*", 'channel': chn + '*'})
