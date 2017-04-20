@@ -30,9 +30,7 @@
 """Test module for mpop.projector.
 """
 import unittest
-
 import numpy as np
-
 
 from mock import MagicMock, patch
 import sys
@@ -104,7 +102,6 @@ class TestProjector(unittest.TestCase):
             with patch.object(utils, 'parse_area_file', mock):
                 in_area = geometry.AreaDefinition()
                 self.proj = Projector(in_area, out_area_id)
-                print self.proj.in_area
                 self.assertEquals(self.proj.in_area, in_area)
 
         in_area = geometry.SwathDefinition()
@@ -208,6 +205,82 @@ class TestProjector(unittest.TestCase):
                                npload.return_value.__getitem__.return_value,
                                npload.return_value.__getitem__.return_value,
                                fill_value=None)
+
+    @patch.object(mpop.projector.kd_tree, 'get_neighbour_info')
+    def test_calc_nearest_params(self, gni):
+        gni.return_value = (1, 2, 3, 4)
+        res = mpop.projector.calc_nearest_params('in_area', 'out_area',
+                                                 'radius', nprocs='nprocs')
+        self.assertTrue(isinstance(res, dict))
+        self.assertTrue('valid_index' in res)
+        self.assertEqual(res['valid_index'], 1)
+        self.assertTrue('valid_output_index' in res)
+        self.assertEqual(res['valid_output_index'], 2)
+        self.assertTrue('index_array' in res)
+        self.assertEqual(res['index_array'], 3)
+
+    @patch.object(mpop.projector.utils, 'generate_quick_linesample_arrays')
+    def test_calc_quick_params(self, gqla):
+        gqla.return_value = (1, 2)
+        res = mpop.projector.calc_quick_params('in_area', 'out_area')
+
+        self.assertTrue(isinstance(res, dict))
+        self.assertTrue('row_idx' in res)
+        self.assertEqual(res['row_idx'], 1)
+        self.assertTrue('col_idx' in res)
+        self.assertEqual(res['col_idx'], 2)
+
+    @patch.object(mpop.projector, 'get_bil_info')
+    def test_calc_bilinear_params(self, gbi):
+        gbi.return_value = (1, 2, 3, 4)
+        res = mpop.projector.calc_bilinear_params('in_area', 'out_area',
+                                                  'radius', nprocs='nprocs')
+        self.assertTrue(isinstance(res, dict))
+        self.assertTrue('bilinear_t' in res)
+        self.assertEqual(res['bilinear_t'], 1)
+        self.assertTrue('bilinear_s' in res)
+        self.assertEqual(res['bilinear_s'], 2)
+        self.assertTrue('input_idxs' in res)
+        self.assertEqual(res['input_idxs'], 3)
+        self.assertTrue('idx_arr' in res)
+        self.assertEqual(res['idx_arr'], 4)
+
+    @patch.object(mpop.projector, 'll2cr')
+    def test_calc_ewa_params(self, ll2):
+        ll2.return_value = (0, 1, 2)
+        res = mpop.projector.calc_ewa_params('in_area', 'out_area')
+        self.assertTrue(isinstance(res, dict))
+        self.assertTrue('ewa_cols' in res)
+        self.assertEqual(res['ewa_cols'], 1)
+        self.assertTrue('ewa_rows' in res)
+        self.assertEqual(res['ewa_rows'], 2)
+
+    def test_get_precompute_cache_fname(self):
+        res = mpop.projector.get_precompute_cache_fname('in_id', 'out_id',
+                                                        'in_area', 'out_area',
+                                                        'mode', 'proj_dir')
+        cor_res = "proj_dir/in_id2out_id_-" + \
+                  "6296787761359943868to8984161303220364208_mode.npz"
+        self.assertTrue(res == cor_res)
+
+    @patch.object(mpop.projector, 'get_area_def')
+    @patch.object(mpop.projector.geometry, 'SwathDefinition')
+    def test_get_area_and_id(self, swath_def, gad):
+        # Case when get_area_def works
+        swath_def.return_value = 1
+        gad.return_value = 'adef'
+        res = mpop.projector.get_area_and_id('area')
+        self.assertTrue(res[0] == 'adef')
+        self.assertTrue(res[1] == 'area')
+        # Case when AttributeError is raised
+        with self.assertRaises(AttributeError):
+            gad.side_effect = AttributeError
+            res = mpop.projector.get_area_and_id('area')
+        # Case when AttributeError is raised and latlons are given
+        gad.side_effect = AttributeError
+        res = mpop.projector.get_area_and_id('area', latlons=[1, 2])
+        self.assertEqual(res[0], 1)
+        self.assertTrue(res[1], 'area')
 
 
 def random_string(length,
