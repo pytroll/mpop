@@ -845,30 +845,40 @@ class ViirsSDRReader(Reader):
                                      if os.path.basename(geofile).startswith('GMTCO')]
                 if len(geofilenames_band) != len(filename_band):
                     # Try the geoid instead:
+                    num_geo = len(geofilenames_band)
                     geofilenames_band = [geofile for geofile in geofile_list
                                          if os.path.basename(geofile).startswith('GMODO')]
                     if len(geofilenames_band) != len(filename_band):
-                        raise IOError("Not all geo location files " +
-                                      "for this scene are present for band " +
-                                      band.band_id + "!")
+                        num_geo = max(num_geo, len(geofilenames_band))
+                        num_band = len(filename_band)
+                        raise IOError("Incomplete dataset. " +
+                                      "Found %d geolocation files" % num_geo +
+                                      " and %d %s files" % (num_band,
+                                                            band.band_id))
             elif band.band_id.startswith('I'):
                 geofilenames_band = [geofile for geofile in geofile_list
                                      if os.path.basename(geofile).startswith('GITCO')]
                 if len(geofilenames_band) != len(filename_band):
                     # Try the geoid instead:
+                    num_geo = len(geofilenames_band)
                     geofilenames_band = [geofile for geofile in geofile_list
                                          if os.path.basename(geofile).startswith('GIMGO')]
                     if len(geofilenames_band) != len(filename_band):
-                        raise IOError("Not all geo location files " +
-                                      "for this scene are present for band " +
-                                      band.band_id + "!")
+                        num_geo = max(num_geo, len(geofilenames_band))
+                        num_band = len(filename_band)
+                        raise IOError("Incomplete dataset. " +
+                                      "Found %d geolocation files" % num_geo +
+                                      " and %d %s files" % (num_band,
+                                                            band.band_id))
             elif band.band_id.startswith('D'):
                 geofilenames_band = [geofile for geofile in geofile_list
                                      if os.path.basename(geofile).startswith('GDNBO')]
                 if len(geofilenames_band) != len(filename_band):
-                    raise IOError("Not all geo-location files " +
-                                  "for this scene are present for " +
-                                  "the Day Night Band!")
+                    num_geo = len(geofilenames_band)
+                    num_band = len(filename_band)
+                    raise IOError("Incomplete dataset. " +
+                                  "Found %d GDNBO files " % num_geo +
+                                  "and %d %s files" % (num_band, band.band_id))
 
             band.read_lonlat(geofilepaths=geofilenames_band)
 
