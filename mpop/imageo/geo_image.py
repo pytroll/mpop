@@ -151,11 +151,11 @@ class GeoImage(Image):
                 bnd.SetNoDataValue(fill_value[i])
                 bnd.WriteArray(chn)
         else:
-            mask = np.zeros(channels[0].shape, dtype=np.bool)
+            mask = np.ones(channels[0].shape, dtype=np.bool)
             i = 0
             for i, chan in enumerate(channels):
                 dst_ds.GetRasterBand(i + 1).WriteArray(chan.filled(0))
-                mask |= np.ma.getmaskarray(chan)
+                mask &= np.ma.getmaskarray(chan)
             try:
                 mask |= np.ma.getmaskarray(opacity)
             except AttributeError:
