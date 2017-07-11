@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2012, 2013, 2014 Martin Raspaud
+# Copyright (c) 2012, 2013, 2014, 2017 Martin Raspaud
 
 # Author(s):
 
@@ -90,7 +90,7 @@ def read_raw(filename):
             if not grh:
                 break
             try:
-                rec_class = record_class[grh["record_class"]]
+                rec_class = record_class[grh["record_class"][0]]
                 sub_class = grh["RECORD_SUBCLASS"][0]
                 record = np.fromfile(fdes,
                                      form.dtype((rec_class,
@@ -98,7 +98,7 @@ def read_raw(filename):
                                      1)
                 records.append((rec_class, record, sub_class))
             except KeyError:
-                fdes.seek(grh["RECORD_SIZE"] - 20, 1)
+                fdes.seek(grh["RECORD_SIZE"][0] - 20, 1)
 
     return records, form
 
