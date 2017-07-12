@@ -291,6 +291,7 @@ class ViirsGeolocationData(object):
                             self.latitudes[y0_:y1_, :],
                             self.elevation[y0_:y1_, :],
                             self.mask[y0_:y1_, :])
+
         self.longitudes = np.ma.array(self.longitudes,
                                       mask=self.mask,
                                       copy=False)
@@ -891,8 +892,8 @@ class ViirsSDRReader(Reader):
             satscene[chn].info['band_id'] = band.band_id
             satscene[chn].info['start_time'] = band.begin_time
             satscene[chn].info['end_time'] = band.end_time
-            if chn in ['M01', 'M02', 'M03', 'M04', 'M05', 'M06', 'M07', 'M08', 'M09', 'M10', 'M11',
-                       'I01', 'I02', 'I03']:
+            if chn in ['M01', 'M02', 'M03', 'M04', 'M05', 'M06', 'M07',
+                       'M08', 'M09', 'M10', 'M11', 'I01', 'I02', 'I03']:
                 satscene[chn].info['sun_zen_correction_applied'] = True
 
             # We assume the same geolocation should apply to all M-bands!
@@ -903,13 +904,13 @@ class ViirsSDRReader(Reader):
             satscene[chn].area = geometry.SwathDefinition(
                 lons=np.ma.masked_where(band.data.mask,
                                         band.geolocation.longitudes,
-                                        copy=False),
+                                        copy=True),
                 lats=np.ma.masked_where(band.data.mask,
                                         band.geolocation.latitudes,
-                                        copy=False))
+                                        copy=True))
             height = np.ma.masked_where(band.data.mask,
                                         band.geolocation.elevation,
-                                        copy=False)
+                                        copy=True)
 
             area_name = ("swath_" + satscene.fullname + "_" +
                          str(satscene.time_slot) + "_"
