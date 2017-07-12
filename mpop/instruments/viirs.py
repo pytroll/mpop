@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2011, 2012, 2013, 2014, 2015, 2016.
+# Copyright (c) 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017.
 
 # Author(s):
 
@@ -165,11 +165,20 @@ class ViirsCompositer(VisirCompositer):
         """Make a Natural Colors RGB image composite from
         M-bands only.
         """
-        self.check_channels('M05', 'M07', 'M10')
+        self.check_channels('M05', 'M06', 'M07', 'M10')
 
         ch1 = self['M10'].check_range()
         ch2 = self['M07'].check_range()
         ch3 = self['M05'].check_range()
+
+        ch2b = self['M06'].check_range()
+        ch2 = np.ma.where(ch2.mask, ch2b, ch2)
+
+        common_mask = np.logical_or(ch1.mask, ch2.mask)
+        common_mask = np.logical_or(common_mask, ch3.mask)
+        ch1.mask = common_mask
+        ch2.mask = common_mask
+        ch3.mask = common_mask
 
         img = geo_image.GeoImage((ch1, ch2, ch3),
                                  self.area,
@@ -184,7 +193,7 @@ class ViirsCompositer(VisirCompositer):
 
         return img
 
-    natural.prerequisites = set(['M05', 'M07', 'M10'])
+    natural.prerequisites = set(['M05', 'M06', 'M07', 'M10'])
 
     def hr_natural(self):
         """Make a high resolution Day Natural Colors RGB image 
