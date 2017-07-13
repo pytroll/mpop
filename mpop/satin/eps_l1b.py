@@ -454,7 +454,6 @@ def load(scene, *args, **kwargs):
     loaded_channels = set()
 
     for reader in readers:
-
         for chname, arr in reader.get_channels(scene.channels_to_load,
                                                calibrate).items():
             arrs.setdefault(chname, []).append(arr)
@@ -468,7 +467,7 @@ def load(scene, *args, **kwargs):
         llats.append(lats)
 
     for chname in loaded_channels:
-        scene[chname] = np.vstack(arrs[chname])
+        scene[chname] = np.ma.vstack(arrs[chname])
         if chname in ["1", "2", "3A"]:
             scene[chname].info["units"] = "%"
         elif chname in ["4", "5", "3B"]:
