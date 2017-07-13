@@ -255,7 +255,7 @@ class EpsAvhrrL1bReader(object):
                 if calib_type == 1:
                     chans[chan] = np.ma.array(
                         to_refl(self["SCENE_RADIANCES"][:, 2, :],
-                                self["CH2_SOLAR_FILTERED_IRRADIANCE"]))
+                                self["CH3A_SOLAR_FILTERED_IRRADIANCE"]))
                 else:
                     chans[chan] = np.ma.array(self["SCENE_RADIANCES"][:, 2, :])
 

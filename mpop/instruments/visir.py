@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2011, 2012, 2013, 2014, 2015.
+# Copyright (c) 2010, 2011, 2012, 2013, 2014, 2015, 2017.
 
 # Author(s):
 
@@ -25,8 +25,6 @@
 """
 from mpop.imageo import geo_image
 from mpop.compositer import Compositer
-
-import numpy as np
 
 # pylint: disable=W0612
 # remove warnings for unused prerequisites
