@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2012, 2013, 2014, 2017 Martin Raspaud
+# Copyright (c) 2012-2017 Pytroll
 
 # Author(s):
 
 #   Martin Raspaud <martin.raspaud@smhi.se>
+#   Adam Dybbroe <adam.dybbroe@smhi.se>
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,6 +22,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """Reader for eps level 1b data. Uses xml files as a format description.
+See:
+http://www.eumetsat.int/website/wcm/idc/idcplg?IdcService=GET_FILE&dDocName=PDF_TEN_97231-EPS-AVHRR&RevisionSelectionMethod=LatestReleased&Rendition=Web
+and
+http://www.eumetsat.int/website/wcm/idc/idcplg?IdcService=GET_FILE&dDocName=PDF_TEN_990004-EPS-AVHRR1-PGS&RevisionSelectionMethod=LatestReleased&Rendition=Web
 """
 
 import glob
