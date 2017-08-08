@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2012, 2013, 2014, 2015, 2016 SMHI
+# Copyright (c) 2012, 2013, 2014, 2015, 2016, 2017 SMHI
 
 # Author(s):
 
@@ -98,7 +98,7 @@ def load_avhrr(satscene, options):
     if len(chns) == 0:
         return
 
-    values = {"orbit": satscene.orbit,
+    values = {"orbit": '%05d' % int(satscene.orbit),
               "satname": satscene.satname,
               "number": satscene.number,
               "instrument": satscene.instrument_name,
@@ -132,7 +132,7 @@ def load_avhrr(satscene, options):
             candidate = ('hrpt_' +
                          str(satscene.satname) + str(satscene.number) +
                          satscene.time_slot.strftime('_%Y%m%d_%H%M_') +
-                         str(satscene.orbit) + '.l1b')
+                         '%05d' % int(satscene.orbit) + '.l1b')
             LOGGER.debug("Suggested filename = %s", str(candidate))
             candidate_found = False
             for fname in file_list:
