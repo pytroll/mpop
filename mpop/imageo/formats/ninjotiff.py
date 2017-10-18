@@ -747,6 +747,7 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
     origin_lat = float(kwargs.pop("origin_lat"))
     origin_lon = float(kwargs.pop("origin_lon"))
     image_dt = kwargs.pop("image_dt")
+    zero_seconds = kwargs.pop("zero_seconds", False)
     projection = str(kwargs.pop("projection"))
     meridian_west = float(kwargs.pop("meridian_west", 0.0))
     meridian_east = float(kwargs.pop("meridian_east", 0.0))
@@ -820,7 +821,13 @@ def _write(image_data, output_fn, write_rgb=False, **kwargs):
 
     file_dt = datetime.utcnow()
     file_epoch = calendar.timegm(file_dt.timetuple())
-    image_epoch = calendar.timegm(image_dt.timetuple())
+    if zero_seconds:
+        log.debug("Applying zero seconds correction")
+        image_dt_corr = datetime(image_dt.year, image_dt.month, image_dt.day,
+                                 image_dt.hour, image_dt.minute)
+    else:
+        image_dt_corr = image_dt
+    image_epoch = calendar.timegm(image_dt_corr.timetuple())
 
     compression = _eval_or_default("compression", int, 6)
 
