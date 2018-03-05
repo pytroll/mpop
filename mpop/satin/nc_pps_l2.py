@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Copyright (c) 2014, 2015, 2016 Adam.Dybbroe
+# Copyright (c) 2014, 2015, 2016, 2018 Adam.Dybbroe
 
 # Author(s):
 
@@ -38,6 +38,8 @@ from mpop.plugin_base import Reader
 
 import logging
 LOG = logging.getLogger(__name__)
+
+VIIRS_PLATFORMS = ['Suomi-NPP', 'NOAA-20', 'NOAA-21']
 
 
 class InconsistentDataDimensions(Exception):
@@ -1116,7 +1118,8 @@ def get_lonlat_into(filename, out_lons, out_lats, out_mask):
 
     new_mask = False
     # FIXME: this is to mask out the npp bowtie deleted pixels...
-    if "NPP" in h5f.attrs['platform']:
+    # if "NPP" in h5f.attrs['platform']:
+    if h5f.attrs['platform'] in VIIRS_PLATFORMS:
 
         if shape[1] == 3200:  # M-bands:
             new_mask = np.zeros((16, 3200), dtype=bool)
