@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (c) 2010, 2011, 2012, 2013, 2014, 2015, 2017.
+# Copyright (c) 2010, 2011, 2012, 2013, 2014, 2015, 2017, 2018.
 
 # SMHI,
 # Folkborgsvägen 1,
@@ -209,8 +209,7 @@ class Channel(GenericChannel):
             LOG.warning("pyspectral missing!")
             return
 
-        return refl39.reflectance_from_tbs(sun_zenith, self.data,
-                                           tb11, tb13_4)
+        return refl39.reflectance_from_tbs(sun_zenith, self.data, tb11, tb_ir_co2=tb13_4)
 
     def __cmp__(self, ch2, key=0):
         if(isinstance(ch2, str)):
