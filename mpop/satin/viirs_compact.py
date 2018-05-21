@@ -360,8 +360,8 @@ def navigate_m(h5f, channel):
 
     # FIXME:  this supposes  there is  only one  tiepoint zone  in the
     # track direction
-    scan_size = np.squeeze(h5f["All_Data/VIIRS-%s-SDR_All" % \
-                               channel].attrs["TiePointZoneSizeTrack"])
+    scan_size = np.asscalar(h5f["All_Data/VIIRS-%s-SDR_All" % \
+                                channel].attrs["TiePointZoneSizeTrack"])
     track_offset = h5f["All_Data/VIIRS-%s-SDR_All" %
                        channel].attrs["PixelOffsetTrack"]
     scan_offset = h5f["All_Data/VIIRS-%s-SDR_All" % \
@@ -376,7 +376,7 @@ def navigate_m(h5f, channel):
     tpz_sizes = h5f["All_Data/VIIRS-%s-SDR_All" %
                     channel].attrs["TiePointZoneSizeScan"]
     if tpz_sizes.ndim > 1:
-        tpz_sizes = [np.squeeze(tpz_sizes)]
+        tpz_sizes = [np.asscalar(tpz_sizes)]
     for tpz_size, nb_tpz, start in \
         zip(tpz_sizes,
             h5f["All_Data/VIIRS-MOD-GEO_All/NumberOfTiePointZonesScan"].value,
@@ -422,12 +422,12 @@ def navigate_dnb(h5f):
 
     # FIXME: this supposes there is only one tiepoint zone in the
     # track direction
-    scan_size = np.squeeze(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
-                                             "TiePointZoneSizeTrack"))
-    track_offset = np.squeeze(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
-                                                "PixelOffsetTrack"))
-    scan_offset = np.squeeze(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
-                                               "PixelOffsetScan"))
+    scan_size = np.asscalar(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                                              "TiePointZoneSizeTrack"))
+    track_offset = np.asscalar(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                                                 "PixelOffsetTrack"))
+    scan_offset = np.asscalar(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                                                "PixelOffsetScan"))
 
     try:
         group_locations = geo_dset.TiePointZoneGroupLocationScanCompact.read()
