@@ -2,6 +2,25 @@ Changelog
 =========
 
 
+v1.5.1 (2018-05-21)
+-------------------
+- Update changelog. [Martin Raspaud]
+- Bump version: 1.5.0 → 1.5.1. [Martin Raspaud]
+- Merge pull request #50 from pytroll/fix_viirs_compact. [Martin
+  Raspaud]
+
+  Fix VIIRS compact SDR reading
+- Use np.asscalar() instead of np.squeeze() where possible. [Panu
+  Lahtinen]
+- Fix squeezing DNB attribute arrays. [Panu Lahtinen]
+- Fix reading new compact SDR files, with backwards compatibility. [Panu
+  Lahtinen]
+- Adapt interface to new pyspectral. [Adam.Dybbroe]
+- Bugfix masking bowtie deleted lonlat pixels - Adapt to NOAA-20 and
+  NOAA-21. [Adam.Dybbroe]
+- Fix dependency on python2-numexpr package. [Adam.Dybbroe]
+
+
 v1.5.0 (2017-10-18)
 -------------------
 
