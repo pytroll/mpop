@@ -360,9 +360,9 @@ def navigate_m(h5f, channel):
 
     # FIXME:  this supposes  there is  only one  tiepoint zone  in the
     # track direction
-    scan_size = h5f["All_Data/VIIRS-%s-SDR_All" % \
-                    channel].attrs["TiePointZoneSizeTrack"][0]
-    track_offset = h5f["All_Data/VIIRS-%s-SDR_All" % \
+    scan_size = np.asscalar(h5f["All_Data/VIIRS-%s-SDR_All" % \
+                                channel].attrs["TiePointZoneSizeTrack"])
+    track_offset = h5f["All_Data/VIIRS-%s-SDR_All" %
                        channel].attrs["PixelOffsetTrack"]
     scan_offset = h5f["All_Data/VIIRS-%s-SDR_All" % \
                       channel].attrs["PixelOffsetScan"]
@@ -373,9 +373,12 @@ def navigate_m(h5f, channel):
     except KeyError:
         group_locations = [0]
     param_start = 0
+    tpz_sizes = h5f["All_Data/VIIRS-%s-SDR_All" %
+                    channel].attrs["TiePointZoneSizeScan"]
+    if tpz_sizes.ndim > 1:
+        tpz_sizes = [np.asscalar(tpz_sizes)]
     for tpz_size, nb_tpz, start in \
-        zip(h5f["All_Data/VIIRS-%s-SDR_All" % \
-                channel].attrs["TiePointZoneSizeScan"],
+        zip(tpz_sizes,
             h5f["All_Data/VIIRS-MOD-GEO_All/NumberOfTiePointZonesScan"].value,
             group_locations):
         lon = all_lon[:, start:start + nb_tpz + 1]
@@ -419,21 +422,24 @@ def navigate_dnb(h5f):
 
     # FIXME: this supposes there is only one tiepoint zone in the
     # track direction
-    scan_size = h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
-                                  "TiePointZoneSizeTrack")[0]
-    track_offset = h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
-                                     "PixelOffsetTrack")[0]
-    scan_offset = h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
-                                    "PixelOffsetScan")[0]
+    scan_size = np.asscalar(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                                              "TiePointZoneSizeTrack"))
+    track_offset = np.asscalar(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                                                 "PixelOffsetTrack"))
+    scan_offset = np.asscalar(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                                                "PixelOffsetScan"))
 
     try:
         group_locations = geo_dset.TiePointZoneGroupLocationScanCompact.read()
     except KeyError:
         group_locations = [0]
     param_start = 0
+    tpz_sizes = h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                                  "TiePointZoneSizeScan")
+    if tpz_sizes.ndim > 1:
+        tpz_sizes = np.squeeze(tpz_sizes)
     for tpz_size, nb_tpz, start in \
-        zip(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
-                              "TiePointZoneSizeScan"),
+        zip(tpz_sizes,
             geo_dset.NumberOfTiePointZonesScan.read(),
             group_locations):
         lon = all_lon[:, start:start + nb_tpz + 1]
