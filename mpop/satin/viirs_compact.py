@@ -422,12 +422,12 @@ def navigate_dnb(h5f):
 
     # FIXME: this supposes there is only one tiepoint zone in the
     # track direction
-    scan_size = h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
-                                  "TiePointZoneSizeTrack")[0]
-    track_offset = h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
-                                     "PixelOffsetTrack")[0]
-    scan_offset = h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
-                                    "PixelOffsetScan")[0]
+    scan_size = np.squeeze(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                                             "TiePointZoneSizeTrack"))
+    track_offset = np.squeeze(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                                                "PixelOffsetTrack"))
+    scan_offset = np.squeeze(h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
+                                               "PixelOffsetScan"))
 
     try:
         group_locations = geo_dset.TiePointZoneGroupLocationScanCompact.read()
@@ -437,7 +437,7 @@ def navigate_dnb(h5f):
     tpz_sizes = h5f.get_node_attr("/All_Data/VIIRS-DNB-SDR_All",
                                   "TiePointZoneSizeScan")
     if tpz_sizes.ndim > 1:
-        tpz_sizes = [np.squeeze(tpz_sizes)]
+        tpz_sizes = np.squeeze(tpz_sizes)
     for tpz_size, nb_tpz, start in \
         zip(tpz_sizes,
             geo_dset.NumberOfTiePointZonesScan.read(),
