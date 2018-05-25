@@ -152,7 +152,7 @@ class VisirCompositer(Compositer):
         blue = -self[10.8].data
 
         img = geo_image.GeoImage((red, green, blue),
-                                 self.area,
+                                 self[10.8].area,
                                  self.time_slot,
                                  fill_value=fill_value,
                                  mode="RGB")
